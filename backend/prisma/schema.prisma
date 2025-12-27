@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Damper {
+  id        Int      @id @default(autoincrement())
+  imalatNo  Int      @unique
+  musteri   String
+  
+  // Araç Bilgileri
+  aracGeldiMi   Boolean  @default(false)
+  aracMarka     String?
+  model         String?
+  tip           String
+  malzemeCinsi  String
+  m3            Float?
+  
+  // === KESİM - BÜKÜM Grubu ===
+  plazmaProgrami        Boolean @default(false) // PLAZMA PROGRAMI
+  sacMalzemeKontrolu    Boolean @default(false) // SAC MALZEME KONTROLÜ
+  plazmaKesim           Boolean @default(false) // PLAZMA KESİM
+  damperSasiPlazmaKesim Boolean @default(false) // DAMPER ŞASİ PLAZMA KESİM
+  presBukum             Boolean @default(false) // PRES BÜKÜM
+  
+  // === ŞASİ BİTİŞ Grubu ===
+  aracBraket    Boolean @default(false) // ARAÇ BRAKET
+  damperSasi    Boolean @default(false) // DAMPER ŞASİ
+  sasiYukleme   Boolean @default(false) // ŞASİ YÜKLEME
+  
+  // === ÖN HAZIRLIK Grubu ===
+  milAltKutuk       Boolean @default(false) // MİL ALT KÜTÜK
+  taban             Boolean @default(false) // TABAN
+  yan               Boolean @default(false) // YAN
+  onGogus           Boolean @default(false) // ÖN GÖĞÜS
+  arkaKapak         Boolean @default(false) // ARKA KAPAK
+  yuklemeMalzemesi  Boolean @default(false) // YÜKLEME MALZEMESİ
+  
+  // === MONTAJ Grubu ===
+  damperKurulmasi   Boolean @default(false) // DAMPER KURULMASI
+  damperKaynak      Boolean @default(false) // DAMPER KAYNAK
+  sasiKapakSiperlik Boolean @default(false) // ŞASİ KAPAK-SİPERLİK
+  yukleme           Boolean @default(false) // YÜKLEME
+  
+  // === HİDROLİK (Bağımsız) ===
+  hidrolik Boolean @default(false)
+  
+  // === BOYA BİTİŞ Grubu ===
+  boyaHazirlik Boolean @default(false) // BOYA HAZIRLIK
+  boya         Boolean @default(false) // BOYA
+  
+  // === TAMAMLAMA BİTİŞ Grubu ===
+  elektrik  Boolean @default(false) // ELEKTRİK
+  hava      Boolean @default(false) // HAVA
+  tamamlama Boolean @default(false) // TAMAMLAMA
+  
+  // === SON KONTROL (Bağımsız) ===
+  sonKontrol Boolean @default(false)
+  
+  // === Muayene ve Teslimat ===
+  kurumMuayenesi String  @default("YOK")         // YOK, YAPILDI
+  dmoMuayenesi   String  @default("MUAYENE YOK") // MUAYENE YOK, YAPILDI
+  teslimat       Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

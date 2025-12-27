@@ -20,6 +20,7 @@ model Damper {
   tip           String
   malzemeCinsi  String
   m3            Float?
+  adet          Int      @default(1)
   
   // === KESİM - BÜKÜM Grubu ===
   plazmaProgrami        Boolean @default(false) // PLAZMA PROGRAMI

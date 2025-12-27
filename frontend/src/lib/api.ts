@@ -12,6 +12,7 @@ export interface Damper {
     tip: string;
     malzemeCinsi: string;
     m3: number | null;
+    adet: number;
 
     // Sub-steps
     plazmaProgrami: boolean;
@@ -99,6 +100,52 @@ export interface Dropdowns {
     dmoMuayenesi: string[];
 }
 
+export interface CompanyVariant {
+    name: string;
+    total: number;
+    totalM3: number;
+    tamamlanan: number;
+    devamEden: number;
+    baslamayan: number;
+}
+
+export interface M3Group {
+    m3: number;
+    count: number;
+    tamamlanan: number;
+    devamEden: number;
+    baslamayan: number;
+}
+
+export interface CompanyDamper {
+    id: number;
+    imalatNo: number;
+    musteri: string;
+    m3: number;
+    progress: number;
+    status: string;
+    kesimBukumStatus: string;
+    sasiBitisStatus: string;
+    onHazirlikStatus: string;
+    montajStatus: string;
+    hidrolikStatus: string;
+    boyaBitisStatus: string;
+    tamamlamaBitisStatus: string;
+    sonKontrolStatus: string;
+}
+
+export interface CompanySummary {
+    baseCompany: string;
+    totalOrders: number;
+    totalM3: number;
+    tamamlanan: number;
+    devamEden: number;
+    baslamayan: number;
+    variants: CompanyVariant[];
+    m3Groups: M3Group[];
+    dampers: CompanyDamper[];
+}
+
 // API Functions
 export async function getDampers(): Promise<Damper[]> {
     const res = await fetch(`${API_URL}/dampers`, { cache: 'no-store' });
@@ -154,6 +201,12 @@ export async function getStats(): Promise<Stats> {
 export async function getDropdowns(): Promise<Dropdowns> {
     const res = await fetch(`${API_URL}/dropdowns`, { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to fetch dropdowns');
+    return res.json();
+}
+
+export async function getCompanySummary(): Promise<CompanySummary[]> {
+    const res = await fetch(`${API_URL}/company-summary`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch company summary');
     return res.json();
 }
 

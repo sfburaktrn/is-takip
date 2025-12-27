@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -7,50 +8,71 @@ const menuItems = [
     { href: '/', label: 'Dashboard', icon: '📊' },
     { href: '/damper-listesi', label: 'Damper Listesi', icon: '🚛' },
     { href: '/ozet', label: 'Özet Görünüm', icon: '📋' },
+    { href: '/firma-ozeti', label: 'Firma Özeti', icon: '🏢' },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <aside className="sidebar">
-            <div className="sidebar-logo">
-                🏭 İmalat Takip
-            </div>
+        <>
+            {/* Mobile Toggle Button */}
+            <button
+                className="mobile-toggle"
+                onClick={() => setIsOpen(!isOpen)}
+                aria-label="Toggle Menu"
+            >
+                <span style={{ fontSize: '24px' }}>{isOpen ? '✕' : '☰'}</span>
+            </button>
 
-            <nav className="sidebar-menu">
-                {menuItems.map((item) => (
-                    <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
-                    >
-                        <span style={{ fontSize: '20px' }}>{item.icon}</span>
-                        <span>{item.label}</span>
-                    </Link>
-                ))}
-            </nav>
+            {/* Overlay */}
+            <div
+                className={`sidebar-overlay ${isOpen ? 'visible' : ''}`}
+                onClick={() => setIsOpen(false)}
+            />
 
-            <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '12px',
-                        background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '18px'
-                    }}>
-                        👤
-                    </div>
-                    <div>
-                        <div style={{ fontWeight: 600, fontSize: '14px' }}>Yönetici</div>
-                        <div style={{ color: 'var(--muted)', fontSize: '12px' }}>Özünlü Damper</div>
+            {/* Sidebar */}
+            <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+                <div className="sidebar-logo">
+                    🏭 İmalat Takip
+                </div>
+
+                <nav className="sidebar-menu">
+                    {menuItems.map((item) => (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
+                            onClick={() => setIsOpen(false)} // Menüye tıklanınca mobilde kapansın
+                        >
+                            <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                            <span>{item.label}</span>
+                        </Link>
+                    ))}
+                </nav>
+
+                <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '12px',
+                            background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '18px'
+                        }}>
+                            👤
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: '14px' }}>Yönetici</div>
+                            <div style={{ color: 'var(--muted)', fontSize: '12px' }}>Özünlü Damper</div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </aside>
+            </aside>
+        </>
     );
 }

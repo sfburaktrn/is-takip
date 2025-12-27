@@ -18,7 +18,21 @@ Modern ERP tarzı damper imalat takip uygulaması. Next.js frontend, Node.js bac
 - **ORM**: Prisma
 - **Veritabanı**: PostgreSQL (Supabase)
 
-## 📦 Kurulum
+## 🚀 Hızlı Başlangıç (Tek Seferlik Komutlar)
+
+Projeyi klonladıktan sonra aşağıdaki komutları sırasıyla iki ayrı terminalde çalıştırarak projeyi hemen ayağa kaldırabilirsiniz.
+
+### Terminal 1: Backend (Port 3001)
+```bash
+cd backend && npm install && npx prisma generate && npm run dev
+```
+
+### Terminal 2: Frontend (Port 3000)
+```bash
+cd frontend && npm install && npm run dev
+```
+
+## 📦 Detaylı Kurulum
 
 ### 1. Projeyi klonlayın
 

@@ -248,7 +248,43 @@ body {
   top: 0;
   padding: 24px;
   display: flex;
+  display: flex;
   flex-direction: column;
+  transition: transform 0.3s ease;
+  z-index: 50;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 40;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 45;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.visible {
+  opacity: 1;
 }
 
 .sidebar-logo {
@@ -518,16 +554,22 @@ tr:hover td {
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { 
+  from {
     opacity: 0;
     transform: translateY(20px);
   }
-  to { 
+
+  to {
     opacity: 1;
     transform: translateY(0);
   }
@@ -605,17 +647,112 @@ tr:hover td {
   .sidebar {
     transform: translateX(-100%);
   }
-  
+
+  .mobile-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    pointer-events: none;
+  }
+
+  .sidebar-overlay.visible {
+    pointer-events: auto;
+  }
+
   .main-content {
     margin-left: 0;
+    padding: 20px;
+    padding-top: 80px;
+    /* Hamburger butonu için boşluk */
   }
-  
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .header>div:last-child {
+    /* Buton grubu */
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+  }
+
   .damper-card-header {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
   }
-  
+
+  /* Mobilde her eleman flex olacak */
+
+  /* Kart içi rozetler ve barlar için özel düzen */
+  .damper-card-header>div:nth-child(1) {
+    order: 1;
+    font-weight: 800;
+    font-size: 14px;
+    width: 100%;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+  }
+
+  /* İmalat No */
+  .damper-card-header>div:nth-child(2) {
+    order: 2;
+    width: 100%;
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  /* Müşteri */
+  .damper-card-header>div:nth-child(3) {
+    order: 3;
+    width: 48%;
+  }
+
+  /* Müşteri 2 (Dashboard'da yok ama listede var olabilir, yapıya göre değişir. Genelde 2. eleman müşteri.) */
+
+  /* Bu yapı page.tsx'e göre biraz kırılgan, flex ve wrap ile daha generic yapalım */
+  .damper-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .damper-card-header>div {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Progress bar ve badge'leri yan yana koyalım */
+  .damper-card-header>div:has(.progress-bar),
+  .damper-card-header>div:has(.badge) {
+    width: auto;
+    display: inline-flex;
+    margin-right: 8px;
+  }
+
+  /* Expand butonu */
+  .damper-card-header>div:last-child {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: auto;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modal {
+    margin: 10px;
+    width: calc(100% - 20px);
+    max-height: 85vh;
   }
 }

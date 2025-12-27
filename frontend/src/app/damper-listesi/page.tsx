@@ -21,6 +21,7 @@ export default function DamperListesi() {
         tip: '',
         malzemeCinsi: '',
         m3: '',
+        adet: '1',
     });
 
     useEffect(() => {
@@ -93,6 +94,7 @@ export default function DamperListesi() {
                 tip: formData.tip,
                 malzemeCinsi: formData.malzemeCinsi,
                 m3: formData.m3 ? parseFloat(formData.m3) : null,
+                adet: parseInt(formData.adet) || 1,
             });
             setShowAddModal(false);
             setFormData({
@@ -104,6 +106,7 @@ export default function DamperListesi() {
                 tip: '',
                 malzemeCinsi: '',
                 m3: '',
+                adet: '1',
             });
             loadData();
         } catch (error) {
@@ -202,7 +205,7 @@ export default function DamperListesi() {
                                         {damper.malzemeCinsi} | {damper.m3} M³
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <div className="progress-bar" style={{ width: '80px' }}>
+                                        <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
                                             <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
                                         </div>
                                         <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
@@ -222,6 +225,132 @@ export default function DamperListesi() {
 
                                 {isExpanded && (
                                     <div className="damper-card-body">
+                                        {/* Araç Geldi Mi */}
+                                        {/* Bilgi Kartları (Araç Durumu & Tarih) */}
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                            gap: '12px',
+                                            marginBottom: '20px',
+                                            paddingBottom: '20px',
+                                            borderBottom: '1px solid var(--border)'
+                                        }}>
+                                            {/* Araç Durumu */}
+                                            <div style={{
+                                                background: 'var(--card-bg-secondary)',
+                                                padding: '12px 16px',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--border)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ARAÇ DURUMU</div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                        {damper.aracGeldiMi ? 'Araç Fabrikada' : 'Araç Gelmedi'}
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    className={`step-toggle ${damper.aracGeldiMi ? 'active' : ''}`}
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        const updated = await updateDamper(damper.id, { aracGeldiMi: !damper.aracGeldiMi });
+                                                        setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                    }}
+                                                    style={{ transform: 'scale(1.1)' }}
+                                                    title="Değiştirmek için tıklayın"
+                                                ></div>
+                                            </div>
+
+                                            {/* Adet (Quantity) */}
+                                            <div style={{
+                                                background: 'var(--card-bg-secondary)',
+                                                padding: '12px 16px',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--border)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '12px'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                        {damper.adet || 1}
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <input
+                                                        type="number"
+                                                        className="input"
+                                                        min="1"
+                                                        style={{
+                                                            width: '60px',
+                                                            padding: '4px 8px',
+                                                            fontSize: '13px',
+                                                            textAlign: 'center',
+                                                            height: '32px'
+                                                        }}
+                                                        value={damper.adet || 1}
+                                                        onChange={async (e) => {
+                                                            const newAdet = parseInt(e.target.value);
+                                                            if (newAdet > 0) {
+                                                                const updated = await updateDamper(damper.id, { adet: newAdet });
+                                                                setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                            }
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Tarih/Saat */}
+                                            <div style={{
+                                                background: 'var(--card-bg-secondary)',
+                                                padding: '12px 16px',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--border)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '12px',
+                                                position: 'relative'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
+                                                        {damper.createdAt ? new Date(damper.createdAt).toLocaleString('tr-TR', {
+                                                            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                                                        }) : '-'}
+                                                    </div>
+                                                </div>
+                                                <input
+                                                    type="datetime-local"
+                                                    className="input"
+                                                    style={{
+                                                        padding: '4px 8px',
+                                                        fontSize: '12px',
+                                                        width: 'auto',
+                                                        maxWidth: '40px', // Sadece ikon görünsün diye daralttım, üzerine gelince açılabilir veya ikon koyabiliriz. Ama şimdilik standart input.
+                                                        border: '1px solid var(--border)',
+                                                        background: 'var(--bg)',
+                                                        color: 'transparent' // Tarihi gizle, sadece takvim ikonu kalsın
+                                                    }}
+                                                    title="Tarihi Düzenle"
+                                                    onChange={async (e) => {
+                                                        if (e.target.value) {
+                                                            const updated = await updateDamper(damper.id, {
+                                                                createdAt: new Date(e.target.value).toISOString()
+                                                            });
+                                                            setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                        }
+                                                    }}
+                                                />
+                                                <div style={{ position: 'absolute', right: '35px', pointerEvents: 'none', fontSize: '16px' }}>📅</div>
+                                            </div>
+                                        </div>
+
                                         {STEP_GROUPS.map((group) => {
                                             const status = damper[group.statusKey as keyof Damper] as string;
                                             return (
@@ -431,6 +560,17 @@ export default function DamperListesi() {
                                                 step="0.1"
                                                 value={formData.m3}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, m3: e.target.value }))}
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Adet *</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                required
+                                                min="1"
+                                                value={formData.adet}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, adet: e.target.value }))}
                                             />
                                         </div>
                                     </div>

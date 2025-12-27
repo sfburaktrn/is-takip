@@ -197,6 +197,142 @@ app.get('/api/dampers-summary', async (req, res) => {
     }
 });
 
+// Helper function to extract base company name
+function getBaseCompany(name) {
+    if (!name) return null;
+    let baseName = name.trim().toUpperCase();
+    // Remove trailing numbers like "1", "2", etc.
+    baseName = baseName.replace(/\s*\d+\s*$/, '');
+    // Remove trailing dashes like "EFATUR-1" -> "EFATUR"
+    baseName = baseName.replace(/\s*[-_]\s*\d*\s*$/, '');
+    return baseName.trim();
+}
+
+// Get company summary with step completion stats
+app.get('/api/company-summary', async (req, res) => {
+    try {
+        const dampers = await prisma.damper.findMany({
+            orderBy: { musteri: 'asc' }
+        });
+
+        // All step fields to check
+        const allSteps = [
+            'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'damperSasiPlazmaKesim', 'presBukum',
+            'aracBraket', 'damperSasi', 'sasiYukleme',
+            'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
+            'damperKurulmasi', 'damperKaynak', 'sasiKapakSiperlik', 'yukleme',
+            'hidrolik', 'boyaHazirlik', 'boya',
+            'elektrik', 'hava', 'tamamlama', 'sonKontrol', 'teslimat'
+        ];
+
+        // Group by base company
+        const companyMap = {};
+
+        dampers.forEach(damper => {
+            const baseCompany = getBaseCompany(damper.musteri);
+            if (!baseCompany) return;
+
+            if (!companyMap[baseCompany]) {
+                companyMap[baseCompany] = {
+                    baseCompany,
+                    totalOrders: 0,
+                    totalM3: 0,
+                    tamamlanan: 0,
+                    devamEden: 0,
+                    baslamayan: 0,
+                    variants: {},
+                    m3Groups: {},
+                    dampers: []
+                };
+            }
+
+            const company = companyMap[baseCompany];
+            company.totalOrders++;
+
+            // Track M³
+            const m3Value = damper.m3 || 0;
+            company.totalM3 += m3Value;
+
+            // Calculate damper status
+            const completedSteps = allSteps.filter(step => damper[step] === true).length;
+            const progress = Math.round((completedSteps / allSteps.length) * 100);
+
+            let status;
+            if (completedSteps === allSteps.length) {
+                status = 'tamamlanan';
+                company.tamamlanan++;
+            } else if (completedSteps === 0) {
+                status = 'baslamayan';
+                company.baslamayan++;
+            } else {
+                status = 'devamEden';
+                company.devamEden++;
+            }
+
+            // Track variant (original customer name)
+            if (!company.variants[damper.musteri]) {
+                company.variants[damper.musteri] = {
+                    name: damper.musteri,
+                    total: 0,
+                    totalM3: 0,
+                    tamamlanan: 0,
+                    devamEden: 0,
+                    baslamayan: 0
+                };
+            }
+            company.variants[damper.musteri].total++;
+            company.variants[damper.musteri].totalM3 += m3Value;
+            company.variants[damper.musteri][status]++;
+
+            // Track M³ groups
+            const m3Key = m3Value.toString();
+            if (!company.m3Groups[m3Key]) {
+                company.m3Groups[m3Key] = {
+                    m3: m3Value,
+                    count: 0,
+                    tamamlanan: 0,
+                    devamEden: 0,
+                    baslamayan: 0
+                };
+            }
+            company.m3Groups[m3Key].count++;
+            company.m3Groups[m3Key][status]++;
+
+            // Add damper info
+            company.dampers.push({
+                id: damper.id,
+                imalatNo: damper.imalatNo,
+                musteri: damper.musteri,
+                m3: m3Value,
+                progress,
+                status,
+                kesimBukumStatus: calculateMainStepStatus(damper, 'kesimBukum'),
+                sasiBitisStatus: calculateMainStepStatus(damper, 'sasiBitis'),
+                onHazirlikStatus: calculateMainStepStatus(damper, 'onHazirlik'),
+                montajStatus: calculateMainStepStatus(damper, 'montaj'),
+                hidrolikStatus: damper.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                boyaBitisStatus: calculateMainStepStatus(damper, 'boyaBitis'),
+                tamamlamaBitisStatus: calculateMainStepStatus(damper, 'tamamlamaBitis'),
+                sonKontrolStatus: damper.sonKontrol ? 'YAPILDI' : 'BAŞLAMADI'
+            });
+        });
+
+        // Convert to array and sort by total orders
+        const result = Object.values(companyMap)
+            .map(c => ({
+                ...c,
+                variants: Object.values(c.variants),
+                m3Groups: Object.values(c.m3Groups).sort((a, b) => b.m3 - a.m3)
+            }))
+            .sort((a, b) => b.totalOrders - a.totalOrders);
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching company summary:', error);
+        res.status(500).json({ error: 'Failed to fetch company summary' });
+    }
+});
+
 // Get dropdown options
 app.get('/api/dropdowns', async (req, res) => {
     try {

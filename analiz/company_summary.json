@@ -1,0 +1,195 @@
+[
+  {
+    "base_company": "BULGARİSTAN",
+    "total_orders": 25,
+    "variants": [
+      "BULGARİSTAN 1",
+      "BULGARİSTAN 2",
+      "BULGARİSTAN 3",
+      "BULGARİSTAN 4",
+      "BULGARİSTAN 5",
+      "BULGARİSTAN 6",
+      "BULGARİSTAN 7",
+      "BULGARİSTAN 8",
+      "BULGARİSTAN 9",
+      "BULGARİSTAN 10",
+      "BULGARİSTAN 11",
+      "BULGARİSTAN 12",
+      "BULGARİSTAN 13",
+      "BULGARİSTAN 14",
+      "BULGARİSTAN 15",
+      "BULGARİSTAN 16",
+      "BULGARİSTAN 17",
+      "BULGARİSTAN 18",
+      "BULGARİSTAN 19",
+      "BULGARİSTAN 20",
+      "BULGARİSTAN 21",
+      "BULGARİSTAN 22",
+      "BULGARİSTAN 23",
+      "BULGARİSTAN 24",
+      "BULGARİSTAN 25"
+    ]
+  },
+  {
+    "base_company": "ROMANYA",
+    "total_orders": 20,
+    "variants": [
+      "ROMANYA 1",
+      "ROMANYA 2",
+      "ROMANYA 3",
+      "ROMANYA 4",
+      "ROMANYA 5",
+      "ROMANYA 6",
+      "ROMANYA 7",
+      "ROMANYA 8",
+      "ROMANYA 9",
+      "ROMANYA 10",
+      "ROMANYA 11",
+      "ROMANYA 12",
+      "ROMANYA 13",
+      "ROMANYA 14",
+      "ROMANYA 15"
+    ]
+  },
+  {
+    "base_company": "RÖNESANS",
+    "total_orders": 20,
+    "variants": [
+      "RÖNESANS 1",
+      "RÖNESANS 2",
+      "RÖNESANS 3",
+      "RÖNESANS 4",
+      "RÖNESANS 5",
+      "RÖNESANS 6",
+      "RÖNESANS 7",
+      "RÖNESANS 8",
+      "RÖNESANS 9",
+      "RÖNESANS 10",
+      "RÖNESANS 11",
+      "RÖNESANS 12",
+      "RÖNESANS 13",
+      "RÖNESANS 14",
+      "RÖNESANS 15",
+      "RÖNESANS 16",
+      "RÖNESANS 17",
+      "RÖNESANS 18",
+      "RÖNESANS 19",
+      "RÖNESANS 20"
+    ]
+  },
+  {
+    "base_company": "EFATUR",
+    "total_orders": 12,
+    "variants": [
+      "EFATUR 1",
+      "EFATUR 2",
+      "EFATUR 3",
+      "EFATUR 4",
+      "EFATUR 5",
+      "EFATUR 6",
+      "EFATUR 7",
+      "EFATUR 8",
+      "EFATUR 9",
+      "EFATUR 10",
+      "EFATUR 11",
+      "EFATUR 12"
+    ]
+  },
+  {
+    "base_company": "GÜVEN OK (CARYA)",
+    "total_orders": 5,
+    "variants": [
+      "GÜVEN OK (CARYA) 1",
+      "GÜVEN OK (CARYA) 2",
+      "GÜVEN OK (CARYA) 3",
+      "GÜVEN OK (CARYA) 4",
+      "GÜVEN OK (CARYA) 5"
+    ]
+  },
+  {
+    "base_company": "TEKİRDAĞ BŞB",
+    "total_orders": 5,
+    "variants": [
+      "TEKİRDAĞ BŞB 1",
+      "TEKİRDAĞ BŞB 2",
+      "TEKİRDAĞ BŞB 3"
+    ]
+  },
+  {
+    "base_company": "SAKARYA BŞB",
+    "total_orders": 3,
+    "variants": [
+      "SAKARYA BŞB 1",
+      "SAKARYA BŞB 2",
+      "SAKARYA BŞB 3"
+    ]
+  },
+  {
+    "base_company": "AFYON İÖİ",
+    "total_orders": 3,
+    "variants": [
+      "AFYON İÖİ 1",
+      "AFYON İÖİ 2",
+      "AFYON İÖİ 3"
+    ]
+  },
+  {
+    "base_company": "GÜVEN İNŞAAT",
+    "total_orders": 2,
+    "variants": [
+      "GÜVEN İNŞAAT 1",
+      "GÜVEN İNŞAAT 2"
+    ]
+  },
+  {
+    "base_company": "DENİZLİ PAMUKKALE BLD",
+    "total_orders": 2,
+    "variants": [
+      "DENİZLİ PAMUKKALE BLD 1",
+      "DENİZLİ PAMUKKALE BLD 2"
+    ]
+  },
+  {
+    "base_company": "ESKİŞEHİR ODUNPAZARI BLD",
+    "total_orders": 2,
+    "variants": [
+      "ESKİŞEHİR ODUNPAZARI BLD 1",
+      "ESKİŞEHİR ODUNPAZARI BLD 2"
+    ]
+  },
+  {
+    "base_company": "BOLU İÖİ",
+    "total_orders": 1,
+    "variants": [
+      "BOLU İÖİ"
+    ]
+  },
+  {
+    "base_company": "AYDIN KUYUCAK BLD",
+    "total_orders": 1,
+    "variants": [
+      "AYDIN KUYUCAK BLD"
+    ]
+  },
+  {
+    "base_company": "SİNOP KÖYLERE HİZMET GÖTÜRME BİRLİĞİ",
+    "total_orders": 1,
+    "variants": [
+      "SİNOP KÖYLERE HİZMET GÖTÜRME BİRLİĞİ"
+    ]
+  },
+  {
+    "base_company": "SİNOP SARAYDÜZÜ BLD",
+    "total_orders": 1,
+    "variants": [
+      "SİNOP SARAYDÜZÜ BLD"
+    ]
+  },
+  {
+    "base_company": "TRABZON YOMRA BLD",
+    "total_orders": 1,
+    "variants": [
+      "TRABZON YOMRA BLD"
+    ]
+  }
+]

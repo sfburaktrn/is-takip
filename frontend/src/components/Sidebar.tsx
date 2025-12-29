@@ -9,6 +9,7 @@ const menuItems = [
     { href: '/damper-listesi', label: 'Damper Listesi', icon: '🚛' },
     { href: '/ozet', label: 'Özet Görünüm', icon: '📋' },
     { href: '/firma-ozeti', label: 'Firma Özeti', icon: '🏢' },
+    { href: '/analiz', label: 'Analiz', icon: '📈' },
 ];
 
 export default function Sidebar() {
@@ -45,6 +46,7 @@ export default function Sidebar() {
                             href={item.href}
                             className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
                             onClick={() => setIsOpen(false)} // Menüye tıklanınca mobilde kapansın
+                            suppressHydrationWarning
                         >
                             <span style={{ fontSize: '20px' }}>{item.icon}</span>
                             <span>{item.label}</span>

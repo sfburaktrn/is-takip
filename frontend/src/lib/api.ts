@@ -4,8 +4,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 // Types
 export interface Damper {
     id: number;
-    imalatNo: number;
+    imalatNo: number | null;
     musteri: string;
+    sasiNo: string | null;
     aracGeldiMi: boolean;
     aracMarka: string | null;
     model: string | null;
@@ -115,6 +116,7 @@ export interface M3Group {
     tamamlanan: number;
     devamEden: number;
     baslamayan: number;
+    stepStats: StepStats;
 }
 
 export interface CompanyDamper {
@@ -134,6 +136,27 @@ export interface CompanyDamper {
     sonKontrolStatus: string;
 }
 
+export interface StepStat {
+    baslamadi: number;
+    devamEdiyor: number;
+    tamamlandi: number;
+    total: number;
+}
+
+export interface StepStats {
+    kesimBukum: StepStat;
+    sasiBitis: StepStat;
+    onHazirlik: StepStat;
+    montaj: StepStat;
+    hidrolik: StepStat;
+    boyaBitis: StepStat;
+    tamamlamaBitis: StepStat;
+    sonKontrol: StepStat;
+    kurumMuayenesi: StepStat;
+    dmoMuayenesi: StepStat;
+    teslimat: StepStat;
+}
+
 export interface CompanySummary {
     baseCompany: string;
     totalOrders: number;
@@ -144,6 +167,7 @@ export interface CompanySummary {
     variants: CompanyVariant[];
     m3Groups: M3Group[];
     dampers: CompanyDamper[];
+    stepStats: StepStats;
 }
 
 // API Functions

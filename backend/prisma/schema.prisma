@@ -10,8 +10,9 @@ datasource db {
 
 model Damper {
   id        Int      @id @default(autoincrement())
-  imalatNo  Int      @unique
+  imalatNo  Int?     // Opsiyonel - sonradan girilecek
   musteri   String
+  sasiNo    String?  // Şasi Numarası - manuel girilecek
   
   // Araç Bilgileri
   aracGeldiMi   Boolean  @default(false)

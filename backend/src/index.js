@@ -118,13 +118,38 @@ app.get('/api/dampers/:id', async (req, res) => {
     }
 });
 
-// Create new damper
+// Create new damper(s) - creates multiple if adet > 1
 app.post('/api/dampers', async (req, res) => {
     try {
-        const damper = await prisma.damper.create({
-            data: req.body
-        });
-        res.status(201).json(addCalculatedSteps(damper));
+        const { adet, musteri, ...restData } = req.body;
+        const quantity = adet || 1;
+
+        // If quantity is 1, create single damper
+        if (quantity === 1) {
+            const damper = await prisma.damper.create({
+                data: {
+                    ...restData,
+                    musteri,
+                    adet: 1
+                }
+            });
+            return res.status(201).json(addCalculatedSteps(damper));
+        }
+
+        // If quantity > 1, create multiple dampers with numbered names
+        const createdDampers = [];
+        for (let i = 1; i <= quantity; i++) {
+            const damper = await prisma.damper.create({
+                data: {
+                    ...restData,
+                    musteri: `${musteri} ${i}`,
+                    adet: 1
+                }
+            });
+            createdDampers.push(addCalculatedSteps(damper));
+        }
+
+        res.status(201).json(createdDampers);
     } catch (error) {
         console.error('Error creating damper:', error);
         res.status(500).json({ error: 'Failed to create damper' });
@@ -242,7 +267,21 @@ app.get('/api/company-summary', async (req, res) => {
                     baslamayan: 0,
                     variants: {},
                     m3Groups: {},
-                    dampers: []
+                    dampers: [],
+                    // Step-based completion statistics - 3 states
+                    stepStats: {
+                        kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        sasiBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        hidrolik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        boyaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        tamamlamaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
+                    }
                 };
             }
 
@@ -269,6 +308,33 @@ app.get('/api/company-summary', async (req, res) => {
                 company.devamEden++;
             }
 
+            // Update step-based statistics
+            const stepStatuses = {
+                kesimBukum: calculateMainStepStatus(damper, 'kesimBukum'),
+                sasiBitis: calculateMainStepStatus(damper, 'sasiBitis'),
+                onHazirlik: calculateMainStepStatus(damper, 'onHazirlik'),
+                montaj: calculateMainStepStatus(damper, 'montaj'),
+                hidrolik: damper.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                boyaBitis: calculateMainStepStatus(damper, 'boyaBitis'),
+                tamamlamaBitis: calculateMainStepStatus(damper, 'tamamlamaBitis'),
+                sonKontrol: damper.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                kurumMuayenesi: damper.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                dmoMuayenesi: damper.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                teslimat: damper.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
+            };
+
+            Object.keys(stepStatuses).forEach(stepKey => {
+                company.stepStats[stepKey].total++;
+                const status = stepStatuses[stepKey];
+                if (status === 'TAMAMLANDI') {
+                    company.stepStats[stepKey].tamamlandi++;
+                } else if (status === 'DEVAM EDİYOR') {
+                    company.stepStats[stepKey].devamEdiyor++;
+                } else {
+                    company.stepStats[stepKey].baslamadi++;
+                }
+            });
+
             // Track variant (original customer name)
             if (!company.variants[damper.musteri]) {
                 company.variants[damper.musteri] = {
@@ -284,7 +350,7 @@ app.get('/api/company-summary', async (req, res) => {
             company.variants[damper.musteri].totalM3 += m3Value;
             company.variants[damper.musteri][status]++;
 
-            // Track M³ groups
+            // Track M³ groups with stepStats
             const m3Key = m3Value.toString();
             if (!company.m3Groups[m3Key]) {
                 company.m3Groups[m3Key] = {
@@ -292,11 +358,37 @@ app.get('/api/company-summary', async (req, res) => {
                     count: 0,
                     tamamlanan: 0,
                     devamEden: 0,
-                    baslamayan: 0
+                    baslamayan: 0,
+                    stepStats: {
+                        kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        sasiBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        hidrolik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        boyaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        tamamlamaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                        teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
+                    }
                 };
             }
             company.m3Groups[m3Key].count++;
             company.m3Groups[m3Key][status]++;
+
+            // Update M³ group stepStats
+            Object.keys(stepStatuses).forEach(stepKey => {
+                company.m3Groups[m3Key].stepStats[stepKey].total++;
+                const stepStatus = stepStatuses[stepKey];
+                if (stepStatus === 'TAMAMLANDI') {
+                    company.m3Groups[m3Key].stepStats[stepKey].tamamlandi++;
+                } else if (stepStatus === 'DEVAM EDİYOR') {
+                    company.m3Groups[m3Key].stepStats[stepKey].devamEdiyor++;
+                } else {
+                    company.m3Groups[m3Key].stepStats[stepKey].baslamadi++;
+                }
+            });
 
             // Add damper info
             company.dampers.push({
@@ -404,6 +496,205 @@ app.get('/api/stats', async (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// ==================== ANALYTICS ENDPOINTS ====================
+
+// Get analytics step stats (for charts) - with 3 states: başlanmadı, devam ediyor, tamamlandı
+app.get('/api/analytics/step-stats', async (req, res) => {
+    try {
+        const dampers = await prisma.damper.findMany();
+
+        // Helper to initialize stats structure
+        const createInitStats = () => ({
+            kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            sasiBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            hidrolik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            boyaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            tamamlamaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+            teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
+        });
+
+        const stepStats = createInitStats();
+        const m3StepStats = {}; // Objects keyed by M3 string (e.g. "16", "18")
+
+        // Helper to update a stats object based on a damper
+        const updateStats = (stats, stepStatuses) => {
+            Object.keys(stepStatuses).forEach(stepKey => {
+                const status = stepStatuses[stepKey];
+                stats[stepKey].total++;
+                if (status === 'TAMAMLANDI') {
+                    stats[stepKey].tamamlandi++;
+                } else if (status === 'DEVAM EDİYOR') {
+                    stats[stepKey].devamEdiyor++;
+                } else {
+                    stats[stepKey].baslamadi++;
+                }
+            });
+        };
+
+        dampers.forEach(damper => {
+            // Calculate statuses for this damper
+            const stepStatuses = {
+                kesimBukum: calculateMainStepStatus(damper, 'kesimBukum'),
+                sasiBitis: calculateMainStepStatus(damper, 'sasiBitis'),
+                onHazirlik: calculateMainStepStatus(damper, 'onHazirlik'),
+                montaj: calculateMainStepStatus(damper, 'montaj'),
+                hidrolik: damper.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                boyaBitis: calculateMainStepStatus(damper, 'boyaBitis'),
+                tamamlamaBitis: calculateMainStepStatus(damper, 'tamamlamaBitis'),
+                sonKontrol: damper.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                kurumMuayenesi: damper.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                dmoMuayenesi: damper.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                teslimat: damper.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
+            };
+
+            // Update Total Stats
+            updateStats(stepStats, stepStatuses);
+
+            // Update M3 Group Stats
+            const m3Value = damper.m3 || 0;
+            const m3Key = m3Value.toString();
+
+            if (!m3StepStats[m3Key]) {
+                m3StepStats[m3Key] = createInitStats();
+            }
+            updateStats(m3StepStats[m3Key], stepStatuses);
+        });
+
+        res.json({
+            total: stepStats,
+            byM3: m3StepStats
+        });
+    } catch (error) {
+        console.error('Error fetching analytics step stats:', error);
+        res.status(500).json({ error: 'Failed to fetch analytics step stats' });
+    }
+});
+
+// Get company distribution for pie chart
+app.get('/api/analytics/company-distribution', async (req, res) => {
+    try {
+        const dampers = await prisma.damper.findMany();
+
+        const companyMap = {};
+        dampers.forEach(damper => {
+            const baseCompany = getBaseCompany(damper.musteri);
+            if (baseCompany) {
+                companyMap[baseCompany] = (companyMap[baseCompany] || 0) + 1;
+            }
+        });
+
+        const distribution = Object.entries(companyMap)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 8); // Top 8 companies
+
+        res.json(distribution);
+    } catch (error) {
+        console.error('Error fetching company distribution:', error);
+        res.status(500).json({ error: 'Failed to fetch company distribution' });
+    }
+});
+
+// Get recent activity (today's updated dampers that have actual work done)
+app.get('/api/analytics/recent-activity', async (req, res) => {
+    try {
+        // Get start of today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const recentDampers = await prisma.damper.findMany({
+            where: {
+                updatedAt: {
+                    gte: today
+                }
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 50
+        });
+
+        const activity = recentDampers.map(damper => {
+            const kesimBukumStatus = calculateMainStepStatus(damper, 'kesimBukum');
+            const montajStatus = calculateMainStepStatus(damper, 'montaj');
+            const boyaBitisStatus = calculateMainStepStatus(damper, 'boyaBitis');
+            const teslimatStatus = damper.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI';
+
+            // Check if any step has progress (not just BAŞLAMADI)
+            const hasProgress =
+                kesimBukumStatus !== 'BAŞLAMADI' ||
+                montajStatus !== 'BAŞLAMADI' ||
+                boyaBitisStatus !== 'BAŞLAMADI' ||
+                teslimatStatus !== 'BAŞLAMADI' ||
+                damper.hidrolik === true ||
+                damper.sonKontrol === true;
+
+            // Build detailed completed steps list
+            const completedSubSteps = [];
+
+            // Kesim-Büküm alt aşamaları
+            if (damper.plazmaProgrami) completedSubSteps.push('Plazma Programı (Kesim-Büküm)');
+            if (damper.sacMalzemeKontrolu) completedSubSteps.push('Sac Malzeme Kontrolü (Kesim-Büküm)');
+            if (damper.plazmaKesim) completedSubSteps.push('Plazma Kesim (Kesim-Büküm)');
+            if (damper.damperSasiPlazmaKesim) completedSubSteps.push('Damper Şasi Plazma Kesim (Kesim-Büküm)');
+            if (damper.presBukum) completedSubSteps.push('Pres Büküm (Kesim-Büküm)');
+
+            // Şasi Bitiş alt aşamaları
+            if (damper.aracBraket) completedSubSteps.push('Araç Braket (Şasi Bitiş)');
+            if (damper.damperSasi) completedSubSteps.push('Damper Şasi (Şasi Bitiş)');
+            if (damper.sasiYukleme) completedSubSteps.push('Şasi Yükleme (Şasi Bitiş)');
+
+            // Ön Hazırlık alt aşamaları
+            if (damper.milAltKutuk) completedSubSteps.push('Mil Alt Kütük (Ön Hazırlık)');
+            if (damper.taban) completedSubSteps.push('Taban (Ön Hazırlık)');
+            if (damper.yan) completedSubSteps.push('Yan (Ön Hazırlık)');
+            if (damper.onGogus) completedSubSteps.push('Ön Göğüs (Ön Hazırlık)');
+            if (damper.arkaKapak) completedSubSteps.push('Arka Kapak (Ön Hazırlık)');
+            if (damper.yuklemeMalzemesi) completedSubSteps.push('Yükleme Malzemesi (Ön Hazırlık)');
+
+            // Montaj alt aşamaları
+            if (damper.damperKurulmasi) completedSubSteps.push('Damper Kurulması (Montaj)');
+            if (damper.damperKaynak) completedSubSteps.push('Damper Kaynak (Montaj)');
+            if (damper.sasiKapakSiperlik) completedSubSteps.push('Şasi Kapak Siperlik (Montaj)');
+            if (damper.yukleme) completedSubSteps.push('Yükleme (Montaj)');
+
+            // Diğer aşamalar
+            if (damper.hidrolik) completedSubSteps.push('Hidrolik');
+            if (damper.boyaHazirlik) completedSubSteps.push('Boya Hazırlık (Boya)');
+            if (damper.boya) completedSubSteps.push('Boya (Boya)');
+            if (damper.elektrik) completedSubSteps.push('Elektrik (Tamamlama)');
+            if (damper.hava) completedSubSteps.push('Hava (Tamamlama)');
+            if (damper.tamamlama) completedSubSteps.push('Tamamlama (Tamamlama)');
+            if (damper.sonKontrol) completedSubSteps.push('Son Kontrol');
+            if (damper.teslimat) completedSubSteps.push('Teslimat ✅');
+
+            return {
+                id: damper.id,
+                imalatNo: damper.imalatNo,
+                musteri: damper.musteri,
+                updatedAt: damper.updatedAt,
+                kesimBukumStatus,
+                montajStatus,
+                boyaBitisStatus,
+                teslimatStatus,
+                completedSubSteps,
+                hasProgress
+            };
+        });
+
+        // Only return dampers with actual progress
+        const activeWork = activity.filter(a => a.hasProgress);
+
+        res.json(activeWork.slice(0, 20));
+    } catch (error) {
+        console.error('Error fetching recent activity:', error);
+        res.status(500).json({ error: 'Failed to fetch recent activity' });
+    }
 });
 
 // Start server

@@ -9,6 +9,7 @@ export default function FirmaOzeti() {
     const [loading, setLoading] = useState(true);
     const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
     const [expandedVariant, setExpandedVariant] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         async function loadData() {
@@ -63,212 +64,210 @@ export default function FirmaOzeti() {
                         <h1 className="header-title">Firma Özeti</h1>
                         <p className="header-subtitle">Firmalara göre sipariş ve üretim durumu özeti</p>
                     </div>
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            type="text"
+                            className="input"
+                            placeholder="🔍 Firma ara..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{
+                                width: '250px',
+                                paddingLeft: '12px',
+                                paddingRight: searchQuery ? '36px' : '12px'
+                            }}
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                style={{
+                                    position: 'absolute',
+                                    right: '10px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--muted)',
+                                    fontSize: '16px'
+                                }}
+                            >✕</button>
+                        )}
+                    </div>
                 </header>
 
                 {/* Company Cards */}
                 <div>
-                    {companies.map((company) => {
-                        const isExpanded = expandedCompany === company.baseCompany;
-                        const completionRate = Math.round((company.tamamlanan / company.totalOrders) * 100) || 0;
+                    {companies
+                        .filter(c => c.baseCompany.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map((company) => {
+                            const isExpanded = expandedCompany === company.baseCompany;
+                            const completionRate = Math.round((company.tamamlanan / company.totalOrders) * 100) || 0;
 
-                        return (
-                            <div key={company.baseCompany} className="damper-card" style={{ marginBottom: '16px' }}>
-                                <div
-                                    className="damper-card-header"
-                                    onClick={() => setExpandedCompany(isExpanded ? null : company.baseCompany)}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--foreground)' }}>
-                                        🏢 {company.baseCompany}
-                                    </div>
-                                    <div style={{
-                                        background: 'var(--primary)',
-                                        color: 'white',
-                                        padding: '4px 12px',
-                                        borderRadius: '20px',
-                                        fontSize: '13px',
-                                        fontWeight: 600
-                                    }}>
-                                        {company.totalOrders} Sipariş
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <span className="badge badge-success">{company.tamamlanan} ✓</span>
-                                        <span className="badge badge-warning">{company.devamEden} ⟳</span>
-                                        <span className="badge badge-danger">{company.baslamayan} ✗</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <div className="progress-bar" style={{ width: '100px' }}>
-                                            <div className="progress-bar-fill" style={{ width: `${completionRate}%` }}></div>
+                            return (
+                                <div key={company.baseCompany} className="damper-card" style={{ marginBottom: '16px' }}>
+                                    <div
+                                        className="damper-card-header"
+                                        onClick={() => setExpandedCompany(isExpanded ? null : company.baseCompany)}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--foreground)' }}>
+                                            🏢 {company.baseCompany}
                                         </div>
-                                        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{completionRate}%</span>
+                                        <div style={{
+                                            background: 'var(--primary)',
+                                            color: 'white',
+                                            padding: '4px 12px',
+                                            borderRadius: '20px',
+                                            fontSize: '13px',
+                                            fontWeight: 600
+                                        }}>
+                                            {company.totalOrders} Sipariş
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <span className="badge badge-success">{company.tamamlanan} ✓</span>
+                                            <span className="badge badge-warning">{company.devamEden} ⟳</span>
+                                            <span className="badge badge-danger">{company.baslamayan} ✗</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <div className="progress-bar" style={{ width: '100px' }}>
+                                                <div className="progress-bar-fill" style={{ width: `${completionRate}%` }}></div>
+                                            </div>
+                                            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{completionRate}%</span>
+                                        </div>
+                                        <div style={{
+                                            fontSize: '20px',
+                                            transition: 'transform 0.3s',
+                                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)'
+                                        }}>▼</div>
                                     </div>
-                                    <div style={{
-                                        fontSize: '20px',
-                                        transition: 'transform 0.3s',
-                                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)'
-                                    }}>▼</div>
-                                </div>
 
-                                {isExpanded && (
-                                    <div className="damper-card-body">
-                                        {/* Variants Section */}
-                                        {company.variants.length > 1 && (
-                                            <div className="step-group">
-                                                <div className="step-group-title">SİPARİŞ DETAYI ({company.variants.length} adet)</div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
-                                                    {company.variants.map((variant) => (
-                                                        <div
-                                                            key={variant.name}
-                                                            style={{
-                                                                background: 'var(--secondary)',
-                                                                padding: '12px 16px',
-                                                                borderRadius: '8px',
-                                                                cursor: 'pointer',
-                                                                border: expandedVariant === variant.name ? '2px solid var(--primary)' : '1px solid var(--border)'
-                                                            }}
-                                                            onClick={() => setExpandedVariant(expandedVariant === variant.name ? null : variant.name)}
-                                                        >
-                                                            <div style={{ fontWeight: 600, marginBottom: '4px' }}>{variant.name}</div>
+                                    {isExpanded && (
+                                        <div className="damper-card-body">
+                                            {/* Renk Lejantı */}
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', fontSize: '11px', marginBottom: '16px', padding: '0 8px' }}>
+                                                <span style={{ color: '#ef4444' }}>🔴 Başlanmadı</span>
+                                                <span style={{ color: '#f59e0b' }}>🟡 Devam</span>
+                                                <span style={{ color: '#10b981' }}>🟢 Tamam</span>
+                                            </div>
 
-                                                            <div style={{ display: 'flex', gap: '6px', fontSize: '12px' }}>
-                                                                <span className="badge badge-success">{variant.tamamlanan}</span>
-                                                                <span className="badge badge-warning">{variant.devamEden}</span>
-                                                                <span className="badge badge-danger">{variant.baslamayan}</span>
-                                                            </div>
+                                            {/* M3 Grupları Döngüsü */}
+                                            {company.m3Groups.map((m3Group) => (
+                                                <div key={m3Group.m3} className="step-group" style={{ marginBottom: '24px', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+                                                    {/* Başlık */}
+                                                    <div className="step-group-title" style={{ background: 'var(--secondary)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--foreground)' }}>
+                                                            {m3Group.m3} M³ <span style={{ color: 'var(--muted)', fontWeight: 500, fontSize: '13px' }}>({m3Group.count} Adet)</span>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* M³ Groups Section */}
-                                        {company.m3Groups && company.m3Groups.length > 0 && (
-                                            <div className="step-group" style={{ marginTop: '16px' }}>
-                                                <div className="step-group-title">M³ GRUPLARI</div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                                                    {company.m3Groups.map((m3Group) => (
-                                                        <div
-                                                            key={m3Group.m3}
-                                                            style={{
-                                                                background: 'var(--secondary)',
-                                                                padding: '12px 16px',
-                                                                borderRadius: '8px',
-                                                                border: '1px solid var(--border)'
-                                                            }}
-                                                        >
-                                                            <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--accent)', marginBottom: '6px' }}>{m3Group.m3.toFixed(1)} M³</div>
-                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{m3Group.count} adet</div>
-                                                            <div style={{ display: 'flex', gap: '4px', fontSize: '11px' }}>
-                                                                <span className="badge badge-success" style={{ fontSize: '10px', padding: '2px 6px' }}>{m3Group.tamamlanan}</span>
-                                                                <span className="badge badge-warning" style={{ fontSize: '10px', padding: '2px 6px' }}>{m3Group.devamEden}</span>
-                                                                <span className="badge badge-danger" style={{ fontSize: '10px', padding: '2px 6px' }}>{m3Group.baslamayan}</span>
-                                                            </div>
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            <span className="badge badge-success" style={{ fontSize: '11px' }}>{m3Group.tamamlanan} ✓</span>
+                                                            <span className="badge badge-warning" style={{ fontSize: '11px' }}>{m3Group.devamEden} ⟳</span>
+                                                            <span className="badge badge-danger" style={{ fontSize: '11px' }}>{m3Group.baslamayan} ✗</span>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                                    </div>
 
-                                        {/* Dampers Table */}
-                                        <div className="step-group" style={{ marginTop: '16px' }}>
-                                            <div className="step-group-title">
-                                                DAMPER ADİM DURUMU
-                                                {expandedVariant && (
-                                                    <span style={{ marginLeft: '12px', color: 'var(--primary)', fontSize: '12px' }}>
-                                                        (Filtre: {expandedVariant})
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setExpandedVariant(null); }}
-                                                            style={{
-                                                                marginLeft: '8px',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                color: 'var(--muted)',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >✕</button>
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div style={{ overflowX: 'auto' }}>
-                                                <table style={{ width: '100%', marginTop: '8px' }}>
-                                                    <thead>
-                                                        <tr>
-                                                            <th style={{ textAlign: 'left' }}>İmalat No</th>
-                                                            <th style={{ textAlign: 'left' }}>Müşteri</th>
-                                                            <th>İlerleme</th>
-                                                            <th>Kesim</th>
-                                                            <th>Şasi</th>
-                                                            <th>Ön Haz.</th>
-                                                            <th>Montaj</th>
-                                                            <th>Hidrolik</th>
-                                                            <th>Boya</th>
-                                                            <th>Taml.</th>
-                                                            <th>S.Kon.</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {company.dampers
-                                                            .filter(d => !expandedVariant || d.musteri === expandedVariant)
-                                                            .map((damper) => (
-                                                                <tr key={damper.id}>
-                                                                    <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{damper.imalatNo}</td>
-                                                                    <td style={{ fontSize: '12px' }}>{damper.musteri}</td>
-                                                                    <td style={{ textAlign: 'center' }}>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
-                                                                            <div className="progress-bar" style={{ width: '50px', height: '6px' }}>
-                                                                                <div className="progress-bar-fill" style={{ width: `${damper.progress}%` }}></div>
+                                                    <div style={{ padding: '16px' }}>
+                                                        {/* Step Stats Grid */}
+                                                        {m3Group.stepStats && (
+                                                            <div style={{ marginBottom: '20px' }}>
+                                                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Aşama Durumları</div>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
+                                                                    {[
+                                                                        { key: 'kesimBukum', label: 'Kesim-Büküm' },
+                                                                        { key: 'sasiBitis', label: 'Şasi Bitiş' },
+                                                                        { key: 'onHazirlik', label: 'Ön Hazırlık' },
+                                                                        { key: 'montaj', label: 'Montaj' },
+                                                                        { key: 'hidrolik', label: 'Hidrolik' },
+                                                                        { key: 'boyaBitis', label: 'Boya Bitiş' },
+                                                                        { key: 'tamamlamaBitis', label: 'Tamamlama' },
+                                                                        { key: 'sonKontrol', label: 'Son Kontrol' },
+                                                                        { key: 'kurumMuayenesi', label: 'Kurum Muay.' },
+                                                                        { key: 'dmoMuayenesi', label: 'DMO Muay.' },
+                                                                        { key: 'teslimat', label: 'Teslimat' }
+                                                                    ].map(step => {
+                                                                        const stat = (m3Group.stepStats as any)[step.key] || { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 };
+                                                                        const total = stat.total || 0;
+                                                                        const tamamlandiPct = total > 0 ? (stat.tamamlandi / total) * 100 : 0;
+                                                                        const devamPct = total > 0 ? (stat.devamEdiyor / total) * 100 : 0;
+                                                                        return (
+                                                                            <div key={step.key} style={{ background: 'var(--background)', padding: '8px', borderRadius: '6px', textAlign: 'center', border: '1px solid var(--border)' }}>
+                                                                                <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '2px', fontWeight: 500 }}>{step.label}</div>
+                                                                                <div style={{ fontSize: '13px', fontWeight: 700, display: 'flex', justifyContent: 'center', gap: '2px' }}>
+                                                                                    <span style={{ color: '#ef4444' }}>{stat.baslamadi || 0}</span>/
+                                                                                    <span style={{ color: '#f59e0b' }}>{stat.devamEdiyor || 0}</span>/
+                                                                                    <span style={{ color: '#10b981' }}>{stat.tamamlandi || 0}</span>
+                                                                                </div>
+                                                                                <div className="progress-bar" style={{ height: '3px', marginTop: '4px', display: 'flex', borderRadius: '2px', overflow: 'hidden' }}>
+                                                                                    <div style={{ width: `${tamamlandiPct}%`, background: '#10b981' }}></div>
+                                                                                    <div style={{ width: `${devamPct}%`, background: '#f59e0b' }}></div>
+                                                                                    <div style={{ flex: 1, background: '#ef4444' }}></div>
+                                                                                </div>
                                                                             </div>
-                                                                            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{damper.progress}%</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.kesimBukumStatus)}</td>
-                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.sasiBitisStatus)}</td>
-                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.onHazirlikStatus)}</td>
-                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.montajStatus)}</td>
-                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.hidrolikStatus)}</td>
-                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.boyaBitisStatus)}</td>
-                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.tamamlamaBitisStatus)}</td>
-                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.sonKontrolStatus)}</td>
-                                                                </tr>
-                                                            ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Damper Table */}
+                                                        <div>
+                                                            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Damper Listesi</div>
+                                                            <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                                                                <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                                                                    <thead>
+                                                                        <tr style={{ background: 'var(--secondary)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                                                                            <th style={{ padding: '8px 12px', fontWeight: 600 }}>İmalat No</th>
+                                                                            <th style={{ padding: '8px 12px', fontWeight: 600 }}>Müşteri</th>
+                                                                            <th style={{ padding: '8px 12px', textAlign: 'center' }}>Kesim</th>
+                                                                            <th style={{ padding: '8px 12px', textAlign: 'center' }}>Şasi</th>
+                                                                            <th style={{ padding: '8px 12px', textAlign: 'center' }}>Hazırlık</th>
+                                                                            <th style={{ padding: '8px 12px', textAlign: 'center' }}>Montaj</th>
+                                                                            <th style={{ padding: '8px 12px', textAlign: 'center' }}>Hidrolik</th>
+                                                                            <th style={{ padding: '8px 12px', textAlign: 'center' }}>Boya</th>
+                                                                            <th style={{ padding: '8px 12px', textAlign: 'center' }}>Tamam</th>
+                                                                            <th style={{ padding: '8px 12px', textAlign: 'center' }}>Kalite</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {company.dampers
+                                                                            .filter(d => d.m3 === m3Group.m3)
+                                                                            .map((damper) => (
+                                                                                <tr key={damper.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                                                    <td style={{ padding: '8px 12px', fontWeight: 500 }}>{damper.imalatNo || '-'}</td>
+                                                                                    <td style={{ padding: '8px 12px' }}>{damper.musteri}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.kesimBukumStatus)}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.sasiBitisStatus)}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.onHazirlikStatus)}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.montajStatus)}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.hidrolikStatus)}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.boyaBitisStatus)}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.tamamlamaBitisStatus)}</td>
+                                                                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(damper.sonKontrolStatus)}</td>
+                                                                                </tr>
+                                                                            ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                                    )}
+                                </div>
+                            );
+                        })}
                 </div>
 
-                {/* Legend */}
-                <div style={{
-                    marginTop: '24px',
-                    padding: '16px 20px',
-                    background: 'var(--card)',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border)',
-                    display: 'flex',
-                    gap: '24px',
-                    flexWrap: 'wrap'
-                }}>
-                    <span style={{ color: 'var(--muted)', fontSize: '13px', fontWeight: 500 }}>Durum Göstergeleri:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="badge badge-success">✓</span>
-                        <span style={{ fontSize: '12px' }}>Tamamlandı</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="badge badge-warning">⟳</span>
-                        <span style={{ fontSize: '12px' }}>Devam Ediyor</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="badge badge-danger">✗</span>
-                        <span style={{ fontSize: '12px' }}>Başlamadı</span>
-                    </div>
+                {/* Footer Legend */}
+                <div style={{ marginTop: '24px', padding: '16px', background: 'var(--card)', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--muted)' }}>Durum Göstergeleri:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="badge badge-success">✓</span> <span style={{ fontSize: '12px' }}>Tamamlandı</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="badge badge-warning">⟳</span> <span style={{ fontSize: '12px' }}>Devam Ediyor</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="badge badge-danger">✗</span> <span style={{ fontSize: '12px' }}>Başlamadı</span></div>
                 </div>
-            </main>
+            </main >
         </>
     );
 }

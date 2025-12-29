@@ -111,9 +111,10 @@ export default function Dashboard() {
 
   const handleAddDamper = async (e: React.FormEvent) => {
     e.preventDefault();
+    const quantity = parseInt(formData.adet) || 1;
     try {
       await createDamper({
-        imalatNo: parseInt(formData.imalatNo),
+        imalatNo: formData.imalatNo ? parseInt(formData.imalatNo) : 0,
         musteri: formData.musteri,
         aracGeldiMi: formData.aracGeldiMi,
         aracMarka: formData.aracMarka || null,
@@ -121,7 +122,7 @@ export default function Dashboard() {
         tip: formData.tip,
         malzemeCinsi: formData.malzemeCinsi,
         m3: formData.m3 ? parseFloat(formData.m3) : null,
-        adet: parseInt(formData.adet) || 1,
+        adet: quantity,
       });
       setShowAddModal(false);
       setFormData({
@@ -136,6 +137,10 @@ export default function Dashboard() {
         adet: '1',
       });
       loadData();
+      // Show success message for multiple dampers
+      if (quantity > 1) {
+        alert(`${quantity} adet damper başarıyla oluşturuldu!\n(${formData.musteri} 1 - ${formData.musteri} ${quantity})`);
+      }
     } catch (error) {
       console.error('Error creating damper:', error);
       alert('Damper oluşturulurken hata oluştu');
@@ -297,15 +302,90 @@ export default function Dashboard() {
                   {isExpanded && (
                     <div className="damper-card-body">
                       {/* Araç Geldi Mi */}
-                      {/* Bilgi Kartları (Araç Durumu & Tarih) */}
+                      {/* Bilgi Kartları (İmalat No, Araç Durumu & Tarih) */}
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                         gap: '12px',
                         marginBottom: '20px',
                         paddingBottom: '20px',
                         borderBottom: '1px solid var(--border)'
                       }}>
+                        {/* İmalat No - Düzenlenebilir */}
+                        <div style={{
+                          background: 'var(--card-bg-secondary)',
+                          padding: '12px 16px',
+                          borderRadius: '10px',
+                          border: !damper.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px'
+                        }}>
+                          <div>
+                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                            <div style={{ fontSize: '14px', fontWeight: 500, color: !damper.imalatNo ? 'var(--warning)' : 'var(--foreground)' }}>
+                              {damper.imalatNo ?? 'Girilmedi'}
+                            </div>
+                          </div>
+                          <input
+                            type="number"
+                            className="input"
+                            style={{
+                              width: '100px',
+                              padding: '6px 10px',
+                              fontSize: '13px',
+                              textAlign: 'center',
+                              height: '34px'
+                            }}
+                            placeholder="İmalat No"
+                            value={damper.imalatNo ?? ''}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={async (e) => {
+                              const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                              const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
+                              setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                            }}
+                          />
+                        </div>
+
+                        {/* Şasi No - Düzenlenebilir */}
+                        <div style={{
+                          background: 'var(--card-bg-secondary)',
+                          padding: '12px 16px',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px'
+                        }}>
+                          <div>
+                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                            <div style={{ fontSize: '14px', fontWeight: 500, color: damper.sasiNo ? 'var(--foreground)' : 'var(--muted)' }}>
+                              {damper.sasiNo || 'Girilmedi'}
+                            </div>
+                          </div>
+                          <input
+                            type="text"
+                            className="input"
+                            style={{
+                              width: '120px',
+                              padding: '6px 10px',
+                              fontSize: '13px',
+                              height: '34px'
+                            }}
+                            placeholder="Şasi No"
+                            value={damper.sasiNo || ''}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={async (e) => {
+                              const newSasiNo = e.target.value;
+                              const updated = await updateDamper(damper.id, { sasiNo: newSasiNo });
+                              setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                            }}
+                          />
+                        </div>
+
                         {/* Araç Durumu */}
                         <div style={{
                           background: 'var(--card-bg-secondary)',
@@ -552,11 +632,11 @@ export default function Dashboard() {
                 <div className="modal-body">
                   <div className="form-grid">
                     <div className="form-group">
-                      <label className="form-label">İmalat No *</label>
+                      <label className="form-label">İmalat No <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>(sonra doldurulabilir)</span></label>
                       <input
                         type="number"
                         className="input"
-                        required
+                        placeholder="Sonra doldurulacak..."
                         value={formData.imalatNo}
                         onChange={(e) => setFormData(prev => ({ ...prev, imalatNo: e.target.value }))}
                       />
@@ -650,6 +730,11 @@ export default function Dashboard() {
                         value={formData.adet}
                         onChange={(e) => setFormData(prev => ({ ...prev, adet: e.target.value }))}
                       />
+                      {parseInt(formData.adet) > 1 && (
+                        <div style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px' }}>
+                          💡 {formData.adet} ayrı damper oluşturulacak: {formData.musteri || 'Firma'} 1, {formData.musteri || 'Firma'} 2, ... {formData.musteri || 'Firma'} {formData.adet}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

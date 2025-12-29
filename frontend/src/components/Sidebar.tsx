@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 const menuItems = [
@@ -35,8 +36,28 @@ export default function Sidebar() {
 
             {/* Sidebar */}
             <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-                <div className="sidebar-logo">
-                    🏭 İmalat Takip
+                <div className="sidebar-logo" style={{ padding: '24px 20px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ position: 'relative', width: '100%', height: '50px' }}>
+                        <Image
+                            src="/logo.png"
+                            alt="Özünlü Logo"
+                            fill
+                            style={{ objectFit: 'contain' }}
+                            priority
+                        />
+                    </div>
+                    <div style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: 'rgba(255,255,255,0.5)',
+                        letterSpacing: '1px',
+                        textAlign: 'center',
+                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                        paddingTop: '12px',
+                        width: '100%'
+                    }}>
+                        İMALAT TAKİP SİSTEMİ
+                    </div>
                 </div>
 
                 <nav className="sidebar-menu">

@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Damper İmalat Takip Sistemi",
   description: "Modern ERP tarzı damper imalat takip uygulaması",
+  icons: {
+    icon: '/logo.png',
+  },
 };
 
 export default function RootLayout({

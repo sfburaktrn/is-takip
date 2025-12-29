@@ -697,6 +697,49 @@ app.get('/api/analytics/recent-activity', async (req, res) => {
     }
 });
 
+// Delete dampers by Company and M3
+app.delete('/api/company-m3', async (req, res) => {
+    try {
+        const { companyName, m3 } = req.body;
+
+        if (!companyName || m3 === undefined) {
+            return res.status(400).json({ error: 'Company name and M3 value are required' });
+        }
+
+        // Fetch dampers that might match to filter them in memory
+        // Optimization: rough filter by name first
+        const potentialDampers = await prisma.damper.findMany({
+            where: {
+                musteri: {
+                    contains: companyName,
+                    mode: 'insensitive'
+                },
+                m3: parseFloat(m3)
+            }
+        });
+
+        // Filter using the exact same logic as the summary view
+        const targetIds = potentialDampers
+            .filter(d => getBaseCompany(d.musteri) === companyName)
+            .map(d => d.id);
+
+        if (targetIds.length > 0) {
+            await prisma.damper.deleteMany({
+                where: {
+                    id: {
+                        in: targetIds
+                    }
+                }
+            });
+        }
+
+        res.json({ message: 'Dampers deleted successfully', deletedCount: targetIds.length });
+    } catch (error) {
+        console.error('Error deleting company M3 group:', error);
+        res.status(500).json({ error: 'Failed to delete company M3 group' });
+    }
+});
+
 // Start server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

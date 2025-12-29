@@ -234,6 +234,15 @@ export async function getCompanySummary(): Promise<CompanySummary[]> {
     return res.json();
 }
 
+export async function deleteCompanyM3Group(companyName: string, m3: number): Promise<void> {
+    const res = await fetch(`${API_URL}/company-m3`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyName, m3 }),
+    });
+    if (!res.ok) throw new Error('Failed to delete company M3 group');
+}
+
 // Step Groups for UI
 export const STEP_GROUPS = [
     {

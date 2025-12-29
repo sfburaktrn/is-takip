@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import { getCompanySummary, type CompanySummary } from '@/lib/api';
+import { getCompanySummary, deleteCompanyM3Group, type CompanySummary } from '@/lib/api';
 
 export default function FirmaOzeti() {
     const [companies, setCompanies] = useState<CompanySummary[]>([]);
@@ -11,19 +11,35 @@ export default function FirmaOzeti() {
     const [expandedVariant, setExpandedVariant] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const data = await getCompanySummary();
-                setCompanies(data);
-            } catch (error) {
-                console.error('Error loading data:', error);
-            } finally {
-                setLoading(false);
-            }
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const data = await getCompanySummary();
+            setCompanies(data);
+        } catch (error) {
+            console.error('Error loading data:', error);
+        } finally {
+            setLoading(false);
         }
+    };
+
+    useEffect(() => {
         loadData();
     }, []);
+
+    const handleDeleteM3Group = async (companyName: string, m3: number) => {
+        if (!confirm(`${companyName} firmasına ait ${m3} m³ grubunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
+            return;
+        }
+
+        try {
+            await deleteCompanyM3Group(companyName, m3);
+            await loadData(); // Reload data to reflect changes
+        } catch (error) {
+            console.error('Error deleting M3 group:', error);
+            alert('Silme işlemi başarısız oldu.');
+        }
+    };
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -160,7 +176,29 @@ export default function FirmaOzeti() {
                                                         <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--foreground)' }}>
                                                             {m3Group.m3} M³ <span style={{ color: 'var(--muted)', fontWeight: 500, fontSize: '13px' }}>({m3Group.count} Adet)</span>
                                                         </div>
-                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteM3Group(company.baseCompany, m3Group.m3);
+                                                                }}
+                                                                title="Bu grubu sil"
+                                                                style={{
+                                                                    background: '#fee2e2',
+                                                                    border: '1px solid #ef4444',
+                                                                    color: '#ef4444',
+                                                                    borderRadius: '4px',
+                                                                    padding: '4px 8px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '12px',
+                                                                    marginRight: '8px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                }}
+                                                            >
+                                                                🗑️ Sil
+                                                            </button>
                                                             <span className="badge badge-success" style={{ fontSize: '11px' }}>{m3Group.tamamlanan} ✓</span>
                                                             <span className="badge badge-warning" style={{ fontSize: '11px' }}>{m3Group.devamEden} ⟳</span>
                                                             <span className="badge badge-danger" style={{ fontSize: '11px' }}>{m3Group.baslamayan} ✗</span>

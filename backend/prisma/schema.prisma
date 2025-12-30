@@ -9,66 +9,64 @@ datasource db {
 }
 
 model Damper {
+  id                    Int      @id @default(autoincrement())
+  imalatNo              Int?
+  musteri               String
+  aracGeldiMi           Boolean  @default(false)
+  aracMarka             String?
+  model                 String?
+  tip                   String
+  malzemeCinsi          String
+  m3                    Float?
+  plazmaProgrami        Boolean  @default(false)
+  sacMalzemeKontrolu    Boolean  @default(false)
+  plazmaKesim           Boolean  @default(false)
+  damperSasiPlazmaKesim Boolean  @default(false)
+  presBukum             Boolean  @default(false)
+  aracBraket            Boolean  @default(false)
+  damperSasi            Boolean  @default(false)
+  sasiYukleme           Boolean  @default(false)
+  milAltKutuk           Boolean  @default(false)
+  taban                 Boolean  @default(false)
+  yan                   Boolean  @default(false)
+  onGogus               Boolean  @default(false)
+  arkaKapak             Boolean  @default(false)
+  yuklemeMalzemesi      Boolean  @default(false)
+  damperKurulmasi       Boolean  @default(false)
+  damperKaynak          Boolean  @default(false)
+  sasiKapakSiperlik     Boolean  @default(false)
+  yukleme               Boolean  @default(false)
+  hidrolik              Boolean  @default(false)
+  boyaHazirlik          Boolean  @default(false)
+  boya                  Boolean  @default(false)
+  elektrik              Boolean  @default(false)
+  hava                  Boolean  @default(false)
+  tamamlama             Boolean  @default(false)
+  sonKontrol            Boolean  @default(false)
+  kurumMuayenesi        String   @default("YOK")
+  dmoMuayenesi          String   @default("MUAYENE YOK")
+  teslimat              Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  adet                  Int      @default(1)
+  sasiNo                String?
+}
+
+model User {
   id        Int      @id @default(autoincrement())
-  imalatNo  Int?     // Opsiyonel - sonradan girilecek
-  musteri   String
-  sasiNo    String?  // Şasi Numarası - manuel girilecek
-  
-  // Araç Bilgileri
-  aracGeldiMi   Boolean  @default(false)
-  aracMarka     String?
-  model         String?
-  tip           String
-  malzemeCinsi  String
-  m3            Float?
-  adet          Int      @default(1)
-  
-  // === KESİM - BÜKÜM Grubu ===
-  plazmaProgrami        Boolean @default(false) // PLAZMA PROGRAMI
-  sacMalzemeKontrolu    Boolean @default(false) // SAC MALZEME KONTROLÜ
-  plazmaKesim           Boolean @default(false) // PLAZMA KESİM
-  damperSasiPlazmaKesim Boolean @default(false) // DAMPER ŞASİ PLAZMA KESİM
-  presBukum             Boolean @default(false) // PRES BÜKÜM
-  
-  // === ŞASİ BİTİŞ Grubu ===
-  aracBraket    Boolean @default(false) // ARAÇ BRAKET
-  damperSasi    Boolean @default(false) // DAMPER ŞASİ
-  sasiYukleme   Boolean @default(false) // ŞASİ YÜKLEME
-  
-  // === ÖN HAZIRLIK Grubu ===
-  milAltKutuk       Boolean @default(false) // MİL ALT KÜTÜK
-  taban             Boolean @default(false) // TABAN
-  yan               Boolean @default(false) // YAN
-  onGogus           Boolean @default(false) // ÖN GÖĞÜS
-  arkaKapak         Boolean @default(false) // ARKA KAPAK
-  yuklemeMalzemesi  Boolean @default(false) // YÜKLEME MALZEMESİ
-  
-  // === MONTAJ Grubu ===
-  damperKurulmasi   Boolean @default(false) // DAMPER KURULMASI
-  damperKaynak      Boolean @default(false) // DAMPER KAYNAK
-  sasiKapakSiperlik Boolean @default(false) // ŞASİ KAPAK-SİPERLİK
-  yukleme           Boolean @default(false) // YÜKLEME
-  
-  // === HİDROLİK (Bağımsız) ===
-  hidrolik Boolean @default(false)
-  
-  // === BOYA BİTİŞ Grubu ===
-  boyaHazirlik Boolean @default(false) // BOYA HAZIRLIK
-  boya         Boolean @default(false) // BOYA
-  
-  // === TAMAMLAMA BİTİŞ Grubu ===
-  elektrik  Boolean @default(false) // ELEKTRİK
-  hava      Boolean @default(false) // HAVA
-  tamamlama Boolean @default(false) // TAMAMLAMA
-  
-  // === SON KONTROL (Bağımsız) ===
-  sonKontrol Boolean @default(false)
-  
-  // === Muayene ve Teslimat ===
-  kurumMuayenesi String  @default("YOK")         // YOK, YAPILDI
-  dmoMuayenesi   String  @default("MUAYENE YOK") // MUAYENE YOK, YAPILDI
-  teslimat       Boolean @default(false)
-  
+  username  String   @unique
+  password  String
+  fullName  String
+  isAdmin   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  loginLogs LoginLog[]
+}
+
+model LoginLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  loginAt   DateTime @default(now())
+  ipAddress String?
 }

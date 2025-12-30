@@ -1,14 +1,50 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:3000', 'http://frontend:3000'],
+    credentials: true
+}));
 app.use(express.json());
+
+// Session middleware
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'damper-takip-secret-key-2024',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // production'da true yapılmalı (HTTPS)
+        httpOnly: true,
+        maxAge: 8 * 60 * 60 * 1000 // 8 saat (1 vardiya)
+    }
+}));
+
+// Auth Middleware - Giriş kontrolü
+const requireAuth = (req, res, next) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Giriş yapmanız gerekiyor' });
+    }
+    next();
+};
+
+// Admin Middleware - Admin kontrolü
+const requireAdmin = (req, res, next) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Giriş yapmanız gerekiyor' });
+    }
+    if (!req.session.isAdmin) {
+        return res.status(403).json({ error: 'Bu işlem için admin yetkisi gerekiyor' });
+    }
+    next();
+};
 
 // Step group definitions - which sub-steps belong to which main step
 const STEP_GROUPS = {
@@ -67,7 +103,233 @@ function addCalculatedSteps(damper) {
     };
 }
 
-// ==================== ROUTES ====================
+// ==================== AUTH ROUTES ====================
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { username }
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
+        }
+
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
+            return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
+        }
+
+        // Session'a kullanıcı bilgilerini kaydet
+        req.session.userId = user.id;
+        req.session.isAdmin = user.isAdmin;
+
+        // Giriş logunu kaydet
+        await prisma.loginLog.create({
+            data: {
+                userId: user.id,
+                ipAddress: req.ip || req.connection.remoteAddress
+            }
+        });
+
+        res.json({
+            id: user.id,
+            username: user.username,
+            fullName: user.fullName,
+            isAdmin: user.isAdmin
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Giriş yapılamadı' });
+    }
+});
+
+// Logout
+app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Çıkış yapılamadı' });
+        }
+        res.json({ message: 'Başarıyla çıkış yapıldı' });
+    });
+});
+
+// Get current user
+app.get('/api/auth/me', async (req, res) => {
+    try {
+        if (!req.session.userId) {
+            return res.status(401).json({ error: 'Giriş yapılmamış' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: req.session.userId }
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: 'Kullanıcı bulunamadı' });
+        }
+
+        res.json({
+            id: user.id,
+            username: user.username,
+            fullName: user.fullName,
+            isAdmin: user.isAdmin
+        });
+    } catch (error) {
+        console.error('Get current user error:', error);
+        res.status(500).json({ error: 'Kullanıcı bilgisi alınamadı' });
+    }
+});
+
+// ==================== USER MANAGEMENT ROUTES (Admin Only) ====================
+
+// Get all users
+app.get('/api/users', requireAdmin, async (req, res) => {
+    try {
+        const users = await prisma.user.findMany({
+            select: {
+                id: true,
+                username: true,
+                fullName: true,
+                isAdmin: true,
+                createdAt: true
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(users);
+    } catch (error) {
+        console.error('Get users error:', error);
+        res.status(500).json({ error: 'Kullanıcılar alınamadı' });
+    }
+});
+
+// Create new user
+app.post('/api/users', requireAdmin, async (req, res) => {
+    try {
+        const { username, password, fullName, isAdmin } = req.body;
+
+        if (!username || !password || !fullName) {
+            return res.status(400).json({ error: 'Kullanıcı adı, şifre ve isim gerekli' });
+        }
+
+        // Check if username exists
+        const existingUser = await prisma.user.findUnique({
+            where: { username }
+        });
+
+        if (existingUser) {
+            return res.status(400).json({ error: 'Bu kullanıcı adı zaten kullanılıyor' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = await prisma.user.create({
+            data: {
+                username,
+                password: hashedPassword,
+                fullName,
+                isAdmin: isAdmin || false
+            },
+            select: {
+                id: true,
+                username: true,
+                fullName: true,
+                isAdmin: true,
+                createdAt: true
+            }
+        });
+
+        res.status(201).json(user);
+    } catch (error) {
+        console.error('Create user error:', error);
+        res.status(500).json({ error: 'Kullanıcı oluşturulamadı' });
+    }
+});
+
+// Update user (change password, fullName, isAdmin)
+app.put('/api/users/:id', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { password, fullName, isAdmin } = req.body;
+
+        const updateData = {};
+        if (fullName) updateData.fullName = fullName;
+        if (isAdmin !== undefined) updateData.isAdmin = isAdmin;
+        if (password) updateData.password = await bcrypt.hash(password, 10);
+
+        const user = await prisma.user.update({
+            where: { id: parseInt(id) },
+            data: updateData,
+            select: {
+                id: true,
+                username: true,
+                fullName: true,
+                isAdmin: true,
+                createdAt: true
+            }
+        });
+
+        res.json(user);
+    } catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({ error: 'Kullanıcı güncellenemedi' });
+    }
+});
+
+// Delete user
+app.delete('/api/users/:id', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Prevent deleting self
+        if (parseInt(id) === req.session.userId) {
+            return res.status(400).json({ error: 'Kendinizi silemezsiniz' });
+        }
+
+        await prisma.user.delete({
+            where: { id: parseInt(id) }
+        });
+
+        res.json({ message: 'Kullanıcı silindi' });
+    } catch (error) {
+        console.error('Delete user error:', error);
+        res.status(500).json({ error: 'Kullanıcı silinemedi' });
+    }
+});
+
+// Get login logs
+app.get('/api/login-logs', requireAdmin, async (req, res) => {
+    try {
+        const { limit = 100 } = req.query;
+
+        const logs = await prisma.loginLog.findMany({
+            include: {
+                user: {
+                    select: {
+                        username: true,
+                        fullName: true
+                    }
+                }
+            },
+            orderBy: { loginAt: 'desc' },
+            take: parseInt(limit)
+        });
+
+        res.json(logs);
+    } catch (error) {
+        console.error('Get login logs error:', error);
+        res.status(500).json({ error: 'Giriş logları alınamadı' });
+    }
+});
+
+// ==================== DAMPER ROUTES ====================
 
 // Get all dampers with optional filters
 app.get('/api/dampers', async (req, res) => {

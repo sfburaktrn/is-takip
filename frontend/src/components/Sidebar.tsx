@@ -3,19 +3,33 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-
-const menuItems = [
-    { href: '/', label: 'Dashboard', icon: '📊' },
-    { href: '/damper-listesi', label: 'Damper Listesi', icon: '🚛' },
-    { href: '/ozet', label: 'Özet Görünüm', icon: '📋' },
-    { href: '/firma-ozeti', label: 'Firma Özeti', icon: '🏢' },
-    { href: '/analiz', label: 'Analiz', icon: '📈' },
-];
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
+    const { user, isAdmin, logout } = useAuth();
+
+    const menuItems = [
+        { href: '/', label: 'Dashboard', icon: '📊' },
+        { href: '/damper-listesi', label: 'Damper Listesi', icon: '🚛' },
+        { href: '/ozet', label: 'Özet Görünüm', icon: '📋' },
+        { href: '/firma-ozeti', label: 'Firma Özeti', icon: '🏢' },
+        { href: '/analiz', label: 'Analiz', icon: '📈' },
+    ];
+
+    // Admin menu items
+    const adminMenuItems = [
+        { href: '/ayarlar', label: 'Ayarlar', icon: '⚙️' },
+        { href: '/giris-loglari', label: 'Giriş Logları', icon: '📝' },
+    ];
+
+    const handleLogout = async () => {
+        await logout();
+        router.push('/login');
+    };
 
     return (
         <>
@@ -36,8 +50,8 @@ export default function Sidebar() {
 
             {/* Sidebar */}
             <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-                <div className="sidebar-logo" style={{ padding: '24px 20px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ position: 'relative', width: '100%', height: '50px' }}>
+                <div className="sidebar-logo" style={{ padding: '12px 12px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ position: 'relative', width: '100%', height: '28px' }}>
                         <Image
                             src="/logo.png"
                             alt="Özünlü Logo"
@@ -66,34 +80,90 @@ export default function Sidebar() {
                             key={item.href}
                             href={item.href}
                             className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
-                            onClick={() => setIsOpen(false)} // Menüye tıklanınca mobilde kapansın
+                            onClick={() => setIsOpen(false)}
                             suppressHydrationWarning
                         >
                             <span style={{ fontSize: '20px' }}>{item.icon}</span>
                             <span>{item.label}</span>
                         </Link>
                     ))}
+
+                    {/* Admin Menu Items */}
+                    {isAdmin && (
+                        <>
+                            <div style={{
+                                padding: '10px 10px 4px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                color: 'rgba(255,255,255,0.4)',
+                                letterSpacing: '1px',
+                                borderTop: '1px solid rgba(255,255,255,0.1)',
+                                marginTop: '2px'
+                            }}>
+                                YÖNETİM
+                            </div>
+                            {adminMenuItems.map((item) => (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
+                                    onClick={() => setIsOpen(false)}
+                                    suppressHydrationWarning
+                                >
+                                    <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                                    <span>{item.label}</span>
+                                </Link>
+                            ))}
+                        </>
+                    )}
                 </nav>
 
-                <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                         <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '12px',
-                            background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '8px',
+                            background: isAdmin
+                                ? 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)'
+                                : 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '18px'
+                            fontSize: '14px'
                         }}>
-                            👤
+                            {isAdmin ? '👑' : '👤'}
                         </div>
-                        <div>
-                            <div style={{ fontWeight: 600, fontSize: '14px' }}>Yönetici</div>
-                            <div style={{ color: 'var(--muted)', fontSize: '12px' }}>Özünlü Damper</div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: '13px' }}>
+                                {user?.fullName || 'Kullanıcı'}
+                            </div>
+                            <div style={{ color: 'var(--muted)', fontSize: '11px' }}>
+                                {isAdmin ? 'Yönetici' : 'Kullanıcı'}
+                            </div>
                         </div>
                     </div>
+                    <button
+                        onClick={handleLogout}
+                        style={{
+                            width: '100%',
+                            padding: '8px',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '8px',
+                            color: '#fca5a5',
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🚪 Çıkış Yap
+                    </button>
                 </div>
             </aside>
         </>

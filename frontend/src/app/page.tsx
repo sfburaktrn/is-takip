@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import AuthGuard from '@/components/AuthGuard';
 import { getStats, getDampers, getDropdowns, createDamper, updateDamper, deleteDamper, type Stats, type Damper, type Dropdowns, STEP_GROUPS } from '@/lib/api';
 import Link from 'next/link';
 
-export default function Dashboard() {
+function DashboardContent() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [dampers, setDampers] = useState<Damper[]>([]);
   const [dropdowns, setDropdowns] = useState<Dropdowns | null>(null);
@@ -752,5 +753,13 @@ export default function Dashboard() {
         )}
       </main>
     </>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <AuthGuard>
+      <DashboardContent />
+    </AuthGuard>
   );
 }

@@ -1,5 +1,15 @@
 // API base URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const getBaseUrl = () => {
+    let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    // Remove trailing slash if present
+    if (url.endsWith('/')) url = url.slice(0, -1);
+    // Add /api if not present
+    if (!url.endsWith('/api')) url += '/api';
+    return url;
+};
+
+export const API_URL = getBaseUrl();
+console.log('Using API URL:', API_URL);
 
 // Types
 export interface Damper {
@@ -170,74 +180,89 @@ export interface CompanySummary {
     stepStats: StepStats;
 }
 
-// API Functions
-export async function getDampers(): Promise<Damper[]> {
-    const res = await fetch(`${API_URL}/dampers`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Failed to fetch dampers');
+// Helper to handle response
+async function handleResponse<T>(res: Response): Promise<T> {
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`API Error: ${res.status} ${res.statusText} - ${text.substring(0, 100)}`);
+    }
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+        // Handle redirect to login or non-JSON response
+        const text = await res.text();
+        console.error('Received non-JSON response:', text.substring(0, 200));
+        if (res.redirected || text.includes('<!DOCTYPE') || text.includes('<html')) {
+            throw new Error('Session expired or invalid API endpoint');
+        }
+        throw new Error('Invalid response format (not JSON)');
+    }
     return res.json();
 }
 
+// API Functions
+export async function getDampers(): Promise<Damper[]> {
+    const res = await fetch(`${API_URL}/dampers`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<Damper[]>(res);
+}
+
 export async function getDamper(id: number): Promise<Damper> {
-    const res = await fetch(`${API_URL}/dampers/${id}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Failed to fetch damper');
-    return res.json();
+    const res = await fetch(`${API_URL}/dampers/${id}`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<Damper>(res);
 }
 
 export async function createDamper(data: Partial<Damper>): Promise<Damper> {
     const res = await fetch(`${API_URL}/dampers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to create damper');
-    return res.json();
+    return handleResponse<Damper>(res);
 }
 
 export async function updateDamper(id: number, data: Partial<Damper>): Promise<Damper> {
     const res = await fetch(`${API_URL}/dampers/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to update damper');
-    return res.json();
+    return handleResponse<Damper>(res);
 }
 
 export async function deleteDamper(id: number): Promise<void> {
     const res = await fetch(`${API_URL}/dampers/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
     });
     if (!res.ok) throw new Error('Failed to delete damper');
 }
 
 export async function getDampersSummary(): Promise<DamperSummary[]> {
-    const res = await fetch(`${API_URL}/dampers-summary`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Failed to fetch summary');
-    return res.json();
+    const res = await fetch(`${API_URL}/dampers-summary`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<DamperSummary[]>(res);
 }
 
 export async function getStats(): Promise<Stats> {
-    const res = await fetch(`${API_URL}/stats`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Failed to fetch stats');
-    return res.json();
+    const res = await fetch(`${API_URL}/stats`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<Stats>(res);
 }
 
 export async function getDropdowns(): Promise<Dropdowns> {
-    const res = await fetch(`${API_URL}/dropdowns`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Failed to fetch dropdowns');
-    return res.json();
+    const res = await fetch(`${API_URL}/dropdowns`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<Dropdowns>(res);
 }
 
 export async function getCompanySummary(): Promise<CompanySummary[]> {
-    const res = await fetch(`${API_URL}/company-summary`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Failed to fetch company summary');
-    return res.json();
+    const res = await fetch(`${API_URL}/company-summary`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<CompanySummary[]>(res);
 }
 
 export async function deleteCompanyM3Group(companyName: string, m3: number): Promise<void> {
     const res = await fetch(`${API_URL}/company-m3`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ companyName, m3 }),
     });
     if (!res.ok) throw new Error('Failed to delete company M3 group');

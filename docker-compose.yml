@@ -10,7 +10,6 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - /app/prisma
     restart: unless-stopped
 
   frontend:
@@ -20,7 +19,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3001/api
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
     volumes:
       - ./frontend:/app
       - /app/node_modules

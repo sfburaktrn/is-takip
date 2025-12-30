@@ -1,8 +1,37 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
 const prisma = new PrismaClient();
+
+// Admin user seed function
+async function seedAdminUser() {
+    try {
+        const existingAdmin = await prisma.user.findUnique({
+            where: { username: 'admin' }
+        });
+
+        if (!existingAdmin) {
+            const hashedPassword = await bcrypt.hash('Ozunlu22', 10);
+            await prisma.user.create({
+                data: {
+                    username: 'admin',
+                    password: hashedPassword,
+                    fullName: 'Sistem Yöneticisi',
+                    isAdmin: true
+                }
+            });
+            console.log('Admin user created: admin / Ozunlu22');
+        } else {
+            console.log('Admin user already exists');
+        }
+    } catch (error) {
+        console.error('Error seeding admin user:', error);
+        // Continue execution even if admin creation fails
+    }
+}
+
 
 // Excel data from JSON export
 const excelData = [
@@ -41,9 +70,12 @@ const excelData = [
 async function main() {
     console.log('Starting to seed database...');
 
-    // Clear existing data
+    // Seed admin user first
+    await seedAdminUser();
+
+    // Clear existing damper data
     await prisma.damper.deleteMany({});
-    console.log('Cleared existing data');
+    console.log('Cleared existing damper data');
 
     // Insert new data
     for (const data of excelData) {

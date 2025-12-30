@@ -9,8 +9,14 @@ const prisma = new PrismaClient();
 const app = express();
 
 // Middleware
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://frontend:3000',
+    process.env.CORS_ORIGIN
+].filter(Boolean);
+
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://frontend:3000'],
+    origin: allowedOrigins,
     credentials: true
 }));
 app.use(express.json());

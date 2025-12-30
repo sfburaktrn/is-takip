@@ -150,6 +150,36 @@ is-takip-2/
 - Frontend Next.js Turbopack ile çalışır, değişiklikler otomatik yansır
 - Prisma şemasında değişiklik yaparsanız `npx prisma db push` komutunu çalıştırın
 
+## 🐳 Docker ile Çalıştırma
+
+### Gereksinimler
+- Docker Desktop kurulu olmalı
+
+### 1. Backend `.env` dosyası oluşturun
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+`.env` dosyasını Supabase bilgilerinizle doldurun.
+
+### 2. Docker Compose ile başlatın
+
+```bash
+# Geliştirme ortamı (hot-reload destekli)
+docker-compose up --build
+
+# Arka planda çalıştırma
+docker-compose up -d
+
+# Durdurma
+docker-compose down
+```
+
+Frontend: http://localhost:3000
+Backend: http://localhost:3001
+
 ## 📝 Lisans
 
 MIT License

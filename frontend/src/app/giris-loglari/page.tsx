@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import { API_URL } from '@/lib/api';
 
 interface LoginLog {
     id: number;
@@ -14,8 +15,6 @@ interface LoginLog {
     };
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
 export default function GirisLoglariPage() {
     const [logs, setLogs] = useState<LoginLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -26,7 +25,7 @@ export default function GirisLoglariPage() {
 
     const fetchLogs = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/login-logs?limit=200`, { credentials: 'include' });
+            const res = await fetch(`${API_URL}/login-logs?limit=200`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setLogs(data);

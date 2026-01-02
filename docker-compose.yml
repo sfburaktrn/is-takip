@@ -10,6 +10,9 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: unless-stopped
 
   frontend:

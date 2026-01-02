@@ -2,16 +2,14 @@
 const getBaseUrl = () => {
     // In browser (client-side)
     if (typeof window !== 'undefined') {
-        // Check if we're on localhost (development)
-        if (window.location.hostname === 'localhost') {
-            return 'http://localhost:3001/api';
-        }
-        // Production: use proxy to avoid cross-domain cookie issues
-        return '/api/proxy';
+        // Use relative path which will be handled by Next.js rewrites
+        // This solves cross-domain cookie issues effectively
+        return '/api';
     }
 
     // Server-side: use direct backend URL
-    let url = process.env.SERVER_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const backendUrl = process.env.SERVER_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    let url = backendUrl;
     if (url.endsWith('/')) url = url.slice(0, -1);
     if (!url.endsWith('/api')) url += '/api';
     return url;

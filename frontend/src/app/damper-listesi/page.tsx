@@ -118,7 +118,7 @@ export default function DamperListesi() {
     const filteredDampers = dampers.filter(d => {
         const matchesSearch = searchTerm === '' ||
             d.musteri.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            d.imalatNo.toString().includes(searchTerm);
+            d.imalatNo?.toString().includes(searchTerm);
         const matchesTip = filterTip === '' || d.tip === filterTip;
         return matchesSearch && matchesTip;
     });

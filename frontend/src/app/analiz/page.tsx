@@ -63,11 +63,12 @@ export default function Analiz() {
         try {
             // Add timestamp to prevent caching
             const timestamp = Date.now();
+            const fetchOptions = { cache: 'no-store' as const, credentials: 'include' as const };
             const [statsData, stepStatsRes, companyDistRes, activityRes] = await Promise.all([
                 getStats(),
-                fetch(`${API_URL}/analytics/step-stats?t=${timestamp}`).then(r => r.json()),
-                fetch(`${API_URL}/analytics/company-distribution?t=${timestamp}`).then(r => r.json()),
-                fetch(`${API_URL}/analytics/recent-activity?t=${timestamp}`).then(r => r.json())
+                fetch(`${API_URL}/analytics/step-stats?t=${timestamp}`, fetchOptions).then(r => r.json()),
+                fetch(`${API_URL}/analytics/company-distribution?t=${timestamp}`, fetchOptions).then(r => r.json()),
+                fetch(`${API_URL}/analytics/recent-activity?t=${timestamp}`, fetchOptions).then(r => r.json())
             ]);
             console.log('Activity refreshed:', activityRes);
             setStats(statsData);

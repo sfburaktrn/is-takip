@@ -22,14 +22,19 @@ app.use(cors({
 app.use(express.json());
 
 // Session middleware
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction) {
+    app.set('trust proxy', 1); // Trust first proxy for secure cookies
+}
 app.use(session({
     secret: process.env.SESSION_SECRET || 'damper-takip-secret-key-2024',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // production'da true yapılmalı (HTTPS)
+        secure: isProduction, // HTTPS only in production
         httpOnly: true,
-        maxAge: 8 * 60 * 60 * 1000 // 8 saat (1 vardiya)
+        maxAge: 8 * 60 * 60 * 1000, // 8 saat (1 vardiya)
+        sameSite: isProduction ? 'none' : 'lax' // Cross-domain cookies in production
     }
 }));
 

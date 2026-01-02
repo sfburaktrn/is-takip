@@ -2,35 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.SERVER_API_URL || 'http://localhost:3001/api';
 
-export async function GET(
-    request: NextRequest,
-    context: { params: Promise<{ path: string[] }> }
-) {
-    const { path } = await context.params;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RouteContext = { params: any };
+
+export async function GET(request: NextRequest, context: RouteContext) {
+    const resolvedParams = await Promise.resolve(context.params);
+    const path = resolvedParams.path as string[];
     return proxyRequest(request, path, 'GET');
 }
 
-export async function POST(
-    request: NextRequest,
-    context: { params: Promise<{ path: string[] }> }
-) {
-    const { path } = await context.params;
+export async function POST(request: NextRequest, context: RouteContext) {
+    const resolvedParams = await Promise.resolve(context.params);
+    const path = resolvedParams.path as string[];
     return proxyRequest(request, path, 'POST');
 }
 
-export async function PUT(
-    request: NextRequest,
-    context: { params: Promise<{ path: string[] }> }
-) {
-    const { path } = await context.params;
+export async function PUT(request: NextRequest, context: RouteContext) {
+    const resolvedParams = await Promise.resolve(context.params);
+    const path = resolvedParams.path as string[];
     return proxyRequest(request, path, 'PUT');
 }
 
-export async function DELETE(
-    request: NextRequest,
-    context: { params: Promise<{ path: string[] }> }
-) {
-    const { path } = await context.params;
+export async function DELETE(request: NextRequest, context: RouteContext) {
+    const resolvedParams = await Promise.resolve(context.params);
+    const path = resolvedParams.path as string[];
     return proxyRequest(request, path, 'DELETE');
 }
 
@@ -59,7 +54,6 @@ async function proxyRequest(
         const fetchOptions: RequestInit = {
             method,
             headers,
-            credentials: 'include',
         };
 
         // Add body for POST/PUT requests

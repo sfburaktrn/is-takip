@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/lib/AuthContext';
 
 export default function LoginPage() {
@@ -59,17 +60,24 @@ export default function LoginPage() {
                 {/* Logo/Title */}
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                     <div style={{
-                        width: '80px',
-                        height: '80px',
+                        width: '200px',
+                        height: 'auto',
                         margin: '0 auto 20px',
-                        background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                        borderRadius: '20px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '36px'
+                        justifyContent: 'center'
                     }}>
-                        🔐
+                        <Image
+                            src="/logo.png"
+                            alt="ÖZÜNLÜ Logo"
+                            width={200}
+                            height={80}
+                            style={{
+                                width: '100%',
+                                height: 'auto',
+                                objectFit: 'contain'
+                            }}
+                        />
                     </div>
                     <h1 style={{
                         fontSize: '24px',

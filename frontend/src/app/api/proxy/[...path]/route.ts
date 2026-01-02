@@ -4,39 +4,42 @@ const BACKEND_URL = process.env.SERVER_API_URL || 'http://localhost:3001/api';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ path: string[] }> }
+    context: { params: Promise<{ path: string[] }> }
 ) {
-    return proxyRequest(request, params, 'GET');
+    const { path } = await context.params;
+    return proxyRequest(request, path, 'GET');
 }
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: Promise<{ path: string[] }> }
+    context: { params: Promise<{ path: string[] }> }
 ) {
-    return proxyRequest(request, params, 'POST');
+    const { path } = await context.params;
+    return proxyRequest(request, path, 'POST');
 }
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: Promise<{ path: string[] }> }
+    context: { params: Promise<{ path: string[] }> }
 ) {
-    return proxyRequest(request, params, 'PUT');
+    const { path } = await context.params;
+    return proxyRequest(request, path, 'PUT');
 }
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: Promise<{ path: string[] }> }
+    context: { params: Promise<{ path: string[] }> }
 ) {
-    return proxyRequest(request, params, 'DELETE');
+    const { path } = await context.params;
+    return proxyRequest(request, path, 'DELETE');
 }
 
 async function proxyRequest(
     request: NextRequest,
-    paramsPromise: { params: Promise<{ path: string[] }> },
+    path: string[],
     method: string
 ) {
     try {
-        const { path } = await paramsPromise.params;
         const pathString = path.join('/');
         const searchParams = request.nextUrl.searchParams.toString();
         const url = `${BACKEND_URL}/${pathString}${searchParams ? `?${searchParams}` : ''}`;

@@ -1,9 +1,18 @@
 // API base URL
 const getBaseUrl = () => {
-    let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    // Remove trailing slash if present
+    // In browser (client-side)
+    if (typeof window !== 'undefined') {
+        // Check if we're on localhost (development)
+        if (window.location.hostname === 'localhost') {
+            return 'http://localhost:3001/api';
+        }
+        // Production: use proxy to avoid cross-domain cookie issues
+        return '/api/proxy';
+    }
+
+    // Server-side: use direct backend URL
+    let url = process.env.SERVER_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     if (url.endsWith('/')) url = url.slice(0, -1);
-    // Add /api if not present
     if (!url.endsWith('/api')) url += '/api';
     return url;
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { getDampers, getDropdowns, createDamper, updateDamper, deleteDamper, type Damper, type Dropdowns, STEP_GROUPS } from '@/lib/api';
 
@@ -12,6 +12,7 @@ export default function DamperListesi() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTip, setFilterTip] = useState('');
+    const [sortBy, setSortBy] = useState<'progress-asc' | 'progress-desc' | 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc' | null>(null);
     const [formData, setFormData] = useState({
         imalatNo: '',
         musteri: '',
@@ -115,13 +116,39 @@ export default function DamperListesi() {
         }
     };
 
-    const filteredDampers = dampers.filter(d => {
-        const matchesSearch = searchTerm === '' ||
-            d.musteri.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            d.imalatNo?.toString().includes(searchTerm);
-        const matchesTip = filterTip === '' || d.tip === filterTip;
-        return matchesSearch && matchesTip;
-    });
+    // Filter and sort dampers
+    const sortedDampers = useMemo(() => {
+        let result = dampers.filter(d => {
+            const matchesSearch = searchTerm === '' ||
+                d.musteri.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                d.imalatNo?.toString().includes(searchTerm);
+            const matchesTip = filterTip === '' || d.tip === filterTip;
+            return matchesSearch && matchesTip;
+        });
+
+        if (sortBy) {
+            result.sort((a, b) => {
+                switch (sortBy) {
+                    case 'progress-asc':
+                        return calculateProgress(a) - calculateProgress(b);
+                    case 'progress-desc':
+                        return calculateProgress(b) - calculateProgress(a);
+                    case 'name-asc':
+                        return a.musteri.localeCompare(b.musteri, 'tr');
+                    case 'name-desc':
+                        return b.musteri.localeCompare(a.musteri, 'tr');
+                    case 'date-asc':
+                        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+                    case 'date-desc':
+                        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                    default:
+                        return 0;
+                }
+            });
+        }
+
+        return result;
+    }, [dampers, searchTerm, filterTip, sortBy, calculateProgress]);
 
     if (loading) {
         return (
@@ -174,11 +201,80 @@ export default function DamperListesi() {
                             <option key={t} value={t}>{t}</option>
                         ))}
                     </select>
+
+                    {/* Sıralama Butonları */}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)', alignSelf: 'center', marginRight: '4px' }}>Sırala:</span>
+
+                        {/* Tamamlama % */}
+                        <button
+                            className={`btn btn-secondary`}
+                            style={{
+                                fontSize: '12px',
+                                padding: '6px 12px',
+                                background: sortBy?.startsWith('progress') ? 'var(--primary)' : undefined,
+                                color: sortBy?.startsWith('progress') ? 'white' : undefined
+                            }}
+                            onClick={() => {
+                                if (sortBy === 'progress-asc') setSortBy('progress-desc');
+                                else if (sortBy === 'progress-desc') setSortBy(null);
+                                else setSortBy('progress-asc');
+                            }}
+                        >
+                            📊 % {sortBy === 'progress-asc' ? '↑' : sortBy === 'progress-desc' ? '↓' : ''}
+                        </button>
+
+                        {/* İsim */}
+                        <button
+                            className={`btn btn-secondary`}
+                            style={{
+                                fontSize: '12px',
+                                padding: '6px 12px',
+                                background: sortBy?.startsWith('name') ? 'var(--primary)' : undefined,
+                                color: sortBy?.startsWith('name') ? 'white' : undefined
+                            }}
+                            onClick={() => {
+                                if (sortBy === 'name-asc') setSortBy('name-desc');
+                                else if (sortBy === 'name-desc') setSortBy(null);
+                                else setSortBy('name-asc');
+                            }}
+                        >
+                            🔤 {sortBy === 'name-asc' ? 'A→Z' : sortBy === 'name-desc' ? 'Z→A' : 'İsim'}
+                        </button>
+
+                        {/* Tarih */}
+                        <button
+                            className={`btn btn-secondary`}
+                            style={{
+                                fontSize: '12px',
+                                padding: '6px 12px',
+                                background: sortBy?.startsWith('date') ? 'var(--primary)' : undefined,
+                                color: sortBy?.startsWith('date') ? 'white' : undefined
+                            }}
+                            onClick={() => {
+                                if (sortBy === 'date-desc') setSortBy('date-asc');
+                                else if (sortBy === 'date-asc') setSortBy(null);
+                                else setSortBy('date-desc');
+                            }}
+                        >
+                            📅 {sortBy === 'date-desc' ? 'Yeni' : sortBy === 'date-asc' ? 'Eski' : 'Tarih'}
+                        </button>
+
+                        {sortBy && (
+                            <button
+                                className="btn"
+                                style={{ fontSize: '12px', padding: '6px 12px', color: 'var(--danger)' }}
+                                onClick={() => setSortBy(null)}
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Damper Cards */}
-                <div>
-                    {filteredDampers.map((damper) => {
+                <div style={{ marginTop: '20px' }}>
+                    {sortedDampers.map((damper) => {
                         const progress = calculateProgress(damper);
                         const isExpanded = expandedId === damper.id;
 

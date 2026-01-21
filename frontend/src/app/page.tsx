@@ -154,7 +154,7 @@ function DashboardContent() {
     let result = statusFilter
       ? dampers.filter(d => getDamperStatus(d) === statusFilter)
       : [...dampers];
-    
+
     if (sortBy) {
       result.sort((a, b) => {
         switch (sortBy) {
@@ -175,7 +175,7 @@ function DashboardContent() {
         }
       });
     }
-    
+
     return statusFilter || sortBy ? result : result.slice(0, 5);
   }, [dampers, statusFilter, sortBy, calculateProgress, getDamperStatus]);
 
@@ -279,9 +279,9 @@ function DashboardContent() {
           </div>
 
           {/* Sıralama Butonları */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px', marginBottom: '20px' }}>
             <span style={{ fontSize: '13px', color: 'var(--muted)', alignSelf: 'center', marginRight: '4px' }}>Sırala:</span>
-            
+
             {/* Tamamlama % */}
             <button
               className={`btn btn-secondary`}
@@ -299,7 +299,7 @@ function DashboardContent() {
             >
               📊 Tamamlama % {sortBy === 'progress-asc' ? '↑' : sortBy === 'progress-desc' ? '↓' : ''}
             </button>
-            
+
             {/* İsim */}
             <button
               className={`btn btn-secondary`}
@@ -317,7 +317,7 @@ function DashboardContent() {
             >
               🔤 İsim {sortBy === 'name-asc' ? 'A→Z' : sortBy === 'name-desc' ? 'Z→A' : ''}
             </button>
-            
+
             {/* Tarih */}
             <button
               className={`btn btn-secondary`}
@@ -335,7 +335,7 @@ function DashboardContent() {
             >
               📅 Tarih {sortBy === 'date-desc' ? 'Yeni→Eski' : sortBy === 'date-asc' ? 'Eski→Yeni' : ''}
             </button>
-            
+
             {sortBy && (
               <button
                 className="btn"

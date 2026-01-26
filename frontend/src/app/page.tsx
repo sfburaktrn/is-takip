@@ -815,7 +815,7 @@ function DashboardContent() {
                                       <span className="step-item-label">{step.label}</span>
                                       <div
                                         className={`step-toggle ${isCompleted ? 'active' : ''}`}
-                                        onClick={() => handleStepToggle(damper.id, step.key, isCompleted)}
+                                        onClick={() => handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER')}
                                       ></div>
                                     </div>
                                   );
@@ -865,7 +865,7 @@ function DashboardContent() {
                               <span className="step-item-label">Teslimat</span>
                               <div
                                 className={`step-toggle ${damper.teslimat ? 'active' : ''}`}
-                                onClick={() => handleStepToggle(damper.id, 'teslimat', damper.teslimat)}
+                                onClick={() => handleStepToggle(damper.id, 'teslimat', damper.teslimat, 'DAMPER')}
                               ></div>
                             </div>
                           </div>

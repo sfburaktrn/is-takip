@@ -161,17 +161,19 @@ export interface StepStat {
 }
 
 export interface StepStats {
-    kesimBukum: StepStat;
-    sasiBitis: StepStat;
-    onHazirlik: StepStat;
-    montaj: StepStat;
-    hidrolik: StepStat;
-    boyaBitis: StepStat;
-    tamamlamaBitis: StepStat;
-    sonKontrol: StepStat;
-    kurumMuayenesi: StepStat;
-    dmoMuayenesi: StepStat;
-    teslimat: StepStat;
+    kesimBukum?: StepStat;
+    sasiBitis?: StepStat;
+    onHazirlik?: StepStat;
+    montaj?: StepStat;
+    hidrolik?: StepStat;
+    boya?: StepStat; // Dorse
+    boyaBitis?: StepStat; // Damper
+    tamamlama?: StepStat; // Dorse
+    tamamlamaBitis?: StepStat; // Damper
+    sonKontrol?: StepStat;
+    kurumMuayenesi?: StepStat;
+    dmoMuayenesi?: StepStat;
+    teslimat?: StepStat;
 }
 
 export interface CompanySummary {
@@ -250,8 +252,8 @@ export async function getDampersSummary(): Promise<DamperSummary[]> {
     return handleResponse<DamperSummary[]>(res);
 }
 
-export async function getStats(): Promise<Stats> {
-    const res = await fetch(`${API_URL}/stats`, { cache: 'no-store', credentials: 'include' });
+export async function getStats(type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<Stats> {
+    const res = await fetch(`${API_URL}/stats?type=${type}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Stats>(res);
 }
 
@@ -260,8 +262,8 @@ export async function getDropdowns(): Promise<Dropdowns> {
     return handleResponse<Dropdowns>(res);
 }
 
-export async function getCompanySummary(): Promise<CompanySummary[]> {
-    const res = await fetch(`${API_URL}/company-summary`, { cache: 'no-store', credentials: 'include' });
+export async function getCompanySummary(type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<CompanySummary[]> {
+    const res = await fetch(`${API_URL}/company-summary?type=${type}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<CompanySummary[]>(res);
 }
 
@@ -354,6 +356,152 @@ export const STEP_GROUPS = [
         key: 'sonKontrol',
         name: 'SON KONTROL',
         statusKey: 'sonKontrolStatus',
+        subSteps: [
+            { key: 'sonKontrol', label: 'Son Kontrol' },
+        ],
+    },
+];
+
+export interface Dorse {
+    id: number;
+    imalatNo: number | null;
+    musteri: string;
+    dorseGeldiMi: boolean;
+    dingil: string | null;
+    lastik: string | null;
+    tampon: string | null;
+    sacCinsi: string | null;
+    m3: number | null;
+    adet: number;
+
+    // Sub-steps
+    plazmaProgrami: boolean;
+    sacMalzemeKontrolu: boolean;
+    plazmaKesim: boolean;
+    presBukum: boolean;
+    dorseSasi: boolean;
+
+    milAltKutuk: boolean;
+    taban: boolean;
+    onGogus: boolean;
+    arkaKapak: boolean;
+    yuklemeMalzemesi: boolean;
+
+    dorseCatim: boolean;
+    dorseKaynak: boolean;
+    kapakSiperlik: boolean;
+    montajBitis: boolean;
+
+    kumlama: boolean;
+    boyaAstar: boolean;
+    boya: boolean;
+
+    sasiMontaj: boolean;
+    tabanTahtasi: boolean;
+    aksesuarMontaj: boolean;
+    elektrik: boolean;
+    hava: boolean;
+    tamamlama: boolean;
+
+    sonKontrol: boolean;
+    kurumMuayenesi: string;
+    dmoMuayenesi: string;
+    teslimat: boolean;
+
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export async function getDorses(): Promise<Dorse[]> {
+    const res = await fetch(`${API_URL}/dorses`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<Dorse[]>(res);
+}
+
+export async function createDorse(data: Partial<Dorse>): Promise<Dorse> {
+    const res = await fetch(`${API_URL}/dorses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data),
+    });
+    return handleResponse<Dorse>(res);
+}
+
+export async function updateDorse(id: number, data: Partial<Dorse>): Promise<Dorse> {
+    const res = await fetch(`${API_URL}/dorses/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data),
+    });
+    return handleResponse<Dorse>(res);
+}
+
+export async function deleteDorse(id: number): Promise<void> {
+    const res = await fetch(`${API_URL}/dorses/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete dorse');
+}
+
+export const DORSE_STEP_GROUPS = [
+    {
+        key: 'kesimBukum',
+        name: 'KESİM - BÜKÜM',
+        subSteps: [
+            { key: 'plazmaProgrami', label: 'Plazma Programı' },
+            { key: 'sacMalzemeKontrolu', label: 'Sac Malzeme Kontrolü' },
+            { key: 'plazmaKesim', label: 'Plazma Kesim' },
+            { key: 'presBukum', label: 'Pres Büküm' },
+            { key: 'dorseSasi', label: 'Dorse Şasi' },
+        ],
+    },
+    {
+        key: 'onHazirlik',
+        name: 'ÖN HAZIRLIK',
+        subSteps: [
+            { key: 'milAltKutuk', label: 'Mil Alt Kütük' },
+            { key: 'taban', label: 'Taban' },
+            { key: 'onGogus', label: 'Ön Göğüs' },
+            { key: 'arkaKapak', label: 'Arka Kapak' },
+            { key: 'yuklemeMalzemesi', label: 'Yükleme Malzemesi' },
+        ],
+    },
+    {
+        key: 'montaj',
+        name: 'MONTAJ',
+        subSteps: [
+            { key: 'dorseCatim', label: 'Dorse Çatım' },
+            { key: 'dorseKaynak', label: 'Dorse Kaynak' },
+            { key: 'kapakSiperlik', label: 'Kapak Siperlik' },
+            { key: 'montajBitis', label: 'Montaj Bitiş' },
+        ],
+    },
+    {
+        key: 'boya',
+        name: 'BOYA',
+        subSteps: [
+            { key: 'kumlama', label: 'Kumlama' },
+            { key: 'boyaAstar', label: 'Boya Astar' },
+            { key: 'boya', label: 'Boya' },
+        ],
+    },
+    {
+        key: 'tamamlama',
+        name: 'TAMAMLAMA',
+        subSteps: [
+            { key: 'sasiMontaj', label: 'Şasi Montaj' },
+            { key: 'tabanTahtasi', label: 'Taban Tahtası' },
+            { key: 'aksesuarMontaj', label: 'Aksesuar Montaj' },
+            { key: 'elektrik', label: 'Elektrik' },
+            { key: 'hava', label: 'Hava' },
+            { key: 'tamamlama', label: 'Tamamlama' },
+        ],
+    },
+    {
+        key: 'sonKontrol',
+        name: 'SON KONTROL',
         subSteps: [
             { key: 'sonKontrol', label: 'Son Kontrol' },
         ],

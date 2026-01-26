@@ -14,7 +14,7 @@ export default function Sidebar() {
 
     const menuItems = [
         { href: '/', label: 'Dashboard', icon: '📊' },
-        { href: '/damper-listesi', label: 'Damper Listesi', icon: '🚛' },
+        { href: '/urun-listesi', label: 'Ürün Listesi', icon: '🚛' },
         { href: '/ozet', label: 'Özet Görünüm', icon: '📋' },
         { href: '/firma-ozeti', label: 'Firma Özeti', icon: '🏢' },
         { href: '/analiz', label: 'Analiz', icon: '📈' },

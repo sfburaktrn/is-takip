@@ -101,12 +101,47 @@ const STEP_GROUPS = {
     }
 };
 
+const DORSE_STEP_GROUPS = {
+    kesimBukum: {
+        name: 'KESİM - BÜKÜM',
+        subSteps: ['plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum', 'dorseSasi']
+    },
+    onHazirlik: {
+        name: 'ÖN HAZIRLIK',
+        subSteps: ['milAltKutuk', 'taban', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi']
+    },
+    montaj: {
+        name: 'MONTAJ',
+        subSteps: ['dorseCatim', 'dorseKaynak', 'kapakSiperlik', 'montajBitis']
+    },
+    boya: {
+        name: 'BOYA',
+        subSteps: ['kumlama', 'boyaAstar', 'boya']
+    },
+    tamamlama: {
+        name: 'TAMAMLAMA',
+        subSteps: ['sasiMontaj', 'tabanTahtasi', 'aksesuarMontaj', 'elektrik', 'hava', 'tamamlama']
+    }
+};
+
 // Calculate main step status based on sub-steps
 function calculateMainStepStatus(damper, groupKey) {
     const group = STEP_GROUPS[groupKey];
     if (!group) return 'BAŞLAMADI';
 
     const completedCount = group.subSteps.filter(step => damper[step] === true).length;
+    const totalCount = group.subSteps.length;
+
+    if (completedCount === 0) return 'BAŞLAMADI';
+    if (completedCount === totalCount) return 'TAMAMLANDI';
+    return 'DEVAM EDİYOR';
+}
+
+function calculateMainDorseStepStatus(dorse, groupKey) {
+    const group = DORSE_STEP_GROUPS[groupKey];
+    if (!group) return 'BAŞLAMADI';
+
+    const completedCount = group.subSteps.filter(step => dorse[step] === true).length;
     const totalCount = group.subSteps.length;
 
     if (completedCount === 0) return 'BAŞLAMADI';
@@ -525,12 +560,18 @@ function getBaseCompany(name) {
 // Get company summary with step completion stats
 app.get('/api/company-summary', async (req, res) => {
     try {
-        const dampers = await prisma.damper.findMany({
-            orderBy: { musteri: 'asc' }
-        });
+        const { type } = req.query; // 'DAMPER' or 'DORSE'
+        const productType = type === 'DORSE' ? 'DORSE' : 'DAMPER';
+
+        let items;
+        if (productType === 'DORSE') {
+            items = await prisma.dorse.findMany({ orderBy: { musteri: 'asc' } });
+        } else {
+            items = await prisma.damper.findMany({ orderBy: { musteri: 'asc' } });
+        }
 
         // All step fields to check
-        const allSteps = [
+        const damperSteps = [
             'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'damperSasiPlazmaKesim', 'presBukum',
             'aracBraket', 'damperSasi', 'sasiYukleme',
             'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
@@ -539,11 +580,52 @@ app.get('/api/company-summary', async (req, res) => {
             'elektrik', 'hava', 'tamamlama', 'sonKontrol', 'teslimat'
         ];
 
+        const dorseSteps = [
+            'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum', 'dorseSasi',
+            'milAltKutuk', 'taban', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
+            'dorseCatim', 'dorseKaynak', 'kapakSiperlik', 'montajBitis',
+            'kumlama', 'boyaAstar', 'boya',
+            'sasiMontaj', 'tabanTahtasi', 'aksesuarMontaj', 'elektrik', 'hava', 'tamamlama',
+            'sonKontrol', 'teslimat'
+        ];
+
+        const allSteps = productType === 'DORSE' ? dorseSteps : damperSteps;
+
+        // Initial stats object creator
+        const createInitStats = () => {
+            if (productType === 'DORSE') {
+                return {
+                    kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    boya: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    tamamlama: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
+                };
+            }
+            return {
+                kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                sasiBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                hidrolik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                boyaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                tamamlamaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
+            };
+        };
+
         // Group by base company
         const companyMap = {};
 
-        dampers.forEach(damper => {
-            const baseCompany = getBaseCompany(damper.musteri);
+        items.forEach(item => {
+            const baseCompany = getBaseCompany(item.musteri);
             if (!baseCompany) return;
 
             if (!companyMap[baseCompany]) {
@@ -556,21 +638,8 @@ app.get('/api/company-summary', async (req, res) => {
                     baslamayan: 0,
                     variants: {},
                     m3Groups: {},
-                    dampers: [],
-                    // Step-based completion statistics - 3 states
-                    stepStats: {
-                        kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        sasiBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        hidrolik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        boyaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        tamamlamaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
-                    }
+                    dampers: [], // Keeping the key 'dampers' for compatibility, but it contains items
+                    stepStats: createInitStats()
                 };
             }
 
@@ -578,11 +647,11 @@ app.get('/api/company-summary', async (req, res) => {
             company.totalOrders++;
 
             // Track M³
-            const m3Value = damper.m3 || 0;
+            const m3Value = item.m3 || 0;
             company.totalM3 += m3Value;
 
-            // Calculate damper status
-            const completedSteps = allSteps.filter(step => damper[step] === true).length;
+            // Calculate status
+            const completedSteps = allSteps.filter(step => item[step] === true).length;
             const progress = Math.round((completedSteps / allSteps.length) * 100);
 
             let status;
@@ -598,36 +667,53 @@ app.get('/api/company-summary', async (req, res) => {
             }
 
             // Update step-based statistics
-            const stepStatuses = {
-                kesimBukum: calculateMainStepStatus(damper, 'kesimBukum'),
-                sasiBitis: calculateMainStepStatus(damper, 'sasiBitis'),
-                onHazirlik: calculateMainStepStatus(damper, 'onHazirlik'),
-                montaj: calculateMainStepStatus(damper, 'montaj'),
-                hidrolik: damper.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                boyaBitis: calculateMainStepStatus(damper, 'boyaBitis'),
-                tamamlamaBitis: calculateMainStepStatus(damper, 'tamamlamaBitis'),
-                sonKontrol: damper.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                kurumMuayenesi: damper.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                dmoMuayenesi: damper.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                teslimat: damper.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
-            };
+            let stepStatuses;
+            if (productType === 'DORSE') {
+                stepStatuses = {
+                    kesimBukum: calculateMainDorseStepStatus(item, 'kesimBukum'),
+                    onHazirlik: calculateMainDorseStepStatus(item, 'onHazirlik'),
+                    montaj: calculateMainDorseStepStatus(item, 'montaj'),
+                    boya: calculateMainDorseStepStatus(item, 'boya'),
+                    tamamlama: calculateMainDorseStepStatus(item, 'tamamlama'),
+                    sonKontrol: item.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    kurumMuayenesi: item.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    dmoMuayenesi: item.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    teslimat: item.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
+                };
+            } else {
+                stepStatuses = {
+                    kesimBukum: calculateMainStepStatus(item, 'kesimBukum'),
+                    sasiBitis: calculateMainStepStatus(item, 'sasiBitis'),
+                    onHazirlik: calculateMainStepStatus(item, 'onHazirlik'),
+                    montaj: calculateMainStepStatus(item, 'montaj'),
+                    hidrolik: item.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    boyaBitis: calculateMainStepStatus(item, 'boyaBitis'),
+                    tamamlamaBitis: calculateMainStepStatus(item, 'tamamlamaBitis'),
+                    sonKontrol: item.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    kurumMuayenesi: item.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    dmoMuayenesi: item.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    teslimat: item.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
+                };
+            }
 
             Object.keys(stepStatuses).forEach(stepKey => {
-                company.stepStats[stepKey].total++;
-                const status = stepStatuses[stepKey];
-                if (status === 'TAMAMLANDI') {
-                    company.stepStats[stepKey].tamamlandi++;
-                } else if (status === 'DEVAM EDİYOR') {
-                    company.stepStats[stepKey].devamEdiyor++;
-                } else {
-                    company.stepStats[stepKey].baslamadi++;
+                if (company.stepStats[stepKey]) {
+                    company.stepStats[stepKey].total++;
+                    const status = stepStatuses[stepKey];
+                    if (status === 'TAMAMLANDI') {
+                        company.stepStats[stepKey].tamamlandi++;
+                    } else if (status === 'DEVAM EDİYOR') {
+                        company.stepStats[stepKey].devamEdiyor++;
+                    } else {
+                        company.stepStats[stepKey].baslamadi++;
+                    }
                 }
             });
 
             // Track variant (original customer name)
-            if (!company.variants[damper.musteri]) {
-                company.variants[damper.musteri] = {
-                    name: damper.musteri,
+            if (!company.variants[item.musteri]) {
+                company.variants[item.musteri] = {
+                    name: item.musteri,
                     total: 0,
                     totalM3: 0,
                     tamamlanan: 0,
@@ -635,9 +721,9 @@ app.get('/api/company-summary', async (req, res) => {
                     baslamayan: 0
                 };
             }
-            company.variants[damper.musteri].total++;
-            company.variants[damper.musteri].totalM3 += m3Value;
-            company.variants[damper.musteri][status]++;
+            company.variants[item.musteri].total++;
+            company.variants[item.musteri].totalM3 += m3Value;
+            company.variants[item.musteri][status]++;
 
             // Track M³ groups with stepStats
             const m3Key = m3Value.toString();
@@ -648,19 +734,7 @@ app.get('/api/company-summary', async (req, res) => {
                     tamamlanan: 0,
                     devamEden: 0,
                     baslamayan: 0,
-                    stepStats: {
-                        kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        sasiBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        hidrolik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        boyaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        tamamlamaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                        teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
-                    }
+                    stepStats: createInitStats()
                 };
             }
             company.m3Groups[m3Key].count++;
@@ -668,33 +742,49 @@ app.get('/api/company-summary', async (req, res) => {
 
             // Update M³ group stepStats
             Object.keys(stepStatuses).forEach(stepKey => {
-                company.m3Groups[m3Key].stepStats[stepKey].total++;
-                const stepStatus = stepStatuses[stepKey];
-                if (stepStatus === 'TAMAMLANDI') {
-                    company.m3Groups[m3Key].stepStats[stepKey].tamamlandi++;
-                } else if (stepStatus === 'DEVAM EDİYOR') {
-                    company.m3Groups[m3Key].stepStats[stepKey].devamEdiyor++;
-                } else {
-                    company.m3Groups[m3Key].stepStats[stepKey].baslamadi++;
+                if (company.m3Groups[m3Key].stepStats[stepKey]) {
+                    company.m3Groups[m3Key].stepStats[stepKey].total++;
+                    const stepStatus = stepStatuses[stepKey];
+                    if (stepStatus === 'TAMAMLANDI') {
+                        company.m3Groups[m3Key].stepStats[stepKey].tamamlandi++;
+                    } else if (stepStatus === 'DEVAM EDİYOR') {
+                        company.m3Groups[m3Key].stepStats[stepKey].devamEdiyor++;
+                    } else {
+                        company.m3Groups[m3Key].stepStats[stepKey].baslamadi++;
+                    }
                 }
             });
 
-            // Add damper info
+            // Add item info with keys mapped for frontend table
+            // We use the same keys as stepStatuses which already handles the difference
             company.dampers.push({
-                id: damper.id,
-                imalatNo: damper.imalatNo,
-                musteri: damper.musteri,
+                id: item.id,
+                imalatNo: item.imalatNo,
+                musteri: item.musteri,
                 m3: m3Value,
                 progress,
                 status,
-                kesimBukumStatus: calculateMainStepStatus(damper, 'kesimBukum'),
-                sasiBitisStatus: calculateMainStepStatus(damper, 'sasiBitis'),
-                onHazirlikStatus: calculateMainStepStatus(damper, 'onHazirlik'),
-                montajStatus: calculateMainStepStatus(damper, 'montaj'),
-                hidrolikStatus: damper.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                boyaBitisStatus: calculateMainStepStatus(damper, 'boyaBitis'),
-                tamamlamaBitisStatus: calculateMainStepStatus(damper, 'tamamlamaBitis'),
-                sonKontrolStatus: damper.sonKontrol ? 'YAPILDI' : 'BAŞLAMADI'
+                ...stepStatuses,
+                // Add specific status keys based on type so table can rely on them being present if needed,
+                // but simpler to just spread stepStatuses which are the calculated main steps.
+                // However, the frontend table expects keys like 'kesimBukumStatus'.
+                // calculateMainStepStatus returns a string.
+                // We'll add the 'Status' suffix to keys to match frontend expectation
+                kesimBukumStatus: stepStatuses.kesimBukum,
+                onHazirlikStatus: stepStatuses.onHazirlik,
+                montajStatus: stepStatuses.montaj,
+                sonKontrolStatus: stepStatuses.sonKontrol,
+
+                // Conditioner fields
+                ...(productType === 'DORSE' ? {
+                    boyaStatus: stepStatuses.boya,
+                    tamamlamaStatus: stepStatuses.tamamlama
+                } : {
+                    sasiBitisStatus: stepStatuses.sasiBitis,
+                    hidrolikStatus: stepStatuses.hidrolik,
+                    boyaBitisStatus: stepStatuses.boyaBitis,
+                    tamamlamaBitisStatus: stepStatuses.tamamlamaBitis,
+                })
             });
         });
 
@@ -736,15 +826,24 @@ app.get('/api/dropdowns', async (req, res) => {
 // Get statistics
 app.get('/api/stats', async (req, res) => {
     try {
-        const totalDampers = await prisma.damper.count();
-        const dampers = await prisma.damper.findMany();
+        const { type } = req.query;
+        const isDorse = type === 'DORSE';
+
+        let total, items;
+        if (isDorse) {
+            total = await prisma.dorse.count();
+            items = await prisma.dorse.findMany();
+        } else {
+            total = await prisma.damper.count();
+            items = await prisma.damper.findMany();
+        }
 
         let tamamlanan = 0;
         let devamEden = 0;
         let baslamayan = 0;
 
         // All step fields to check
-        const allSteps = [
+        const damperSteps = [
             'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'damperSasiPlazmaKesim', 'presBukum',
             'aracBraket', 'damperSasi', 'sasiYukleme',
             'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
@@ -753,9 +852,20 @@ app.get('/api/stats', async (req, res) => {
             'elektrik', 'hava', 'tamamlama', 'sonKontrol', 'teslimat'
         ];
 
-        dampers.forEach(damper => {
+        const dorseSteps = [
+            'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum', 'dorseSasi',
+            'milAltKutuk', 'taban', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
+            'dorseCatim', 'dorseKaynak', 'kapakSiperlik', 'montajBitis',
+            'kumlama', 'boyaAstar', 'boya',
+            'sasiMontaj', 'tabanTahtasi', 'aksesuarMontaj', 'elektrik', 'hava', 'tamamlama',
+            'sonKontrol', 'teslimat'
+        ];
+
+        const allSteps = isDorse ? dorseSteps : damperSteps;
+
+        items.forEach(item => {
             // Count completed steps
-            const completedSteps = allSteps.filter(step => damper[step] === true).length;
+            const completedSteps = allSteps.filter(step => item[step] === true).length;
             const totalSteps = allSteps.length;
 
             if (completedSteps === totalSteps) {
@@ -771,7 +881,7 @@ app.get('/api/stats', async (req, res) => {
         });
 
         res.json({
-            total: totalDampers,
+            total,
             tamamlanan,
             devamEden,
             baslamayan
@@ -790,64 +900,104 @@ app.get('/api/health', (req, res) => {
 // ==================== ANALYTICS ENDPOINTS ====================
 
 // Get analytics step stats (for charts) - with 3 states: başlanmadı, devam ediyor, tamamlandı
+// Get analytics step stats (for charts) - with 3 states
 app.get('/api/analytics/step-stats', async (req, res) => {
     try {
-        const dampers = await prisma.damper.findMany();
+        const { type } = req.query;
+        const productType = type === 'DORSE' ? 'DORSE' : 'DAMPER';
+
+        let items;
+        if (productType === 'DORSE') {
+            items = await prisma.dorse.findMany();
+        } else {
+            items = await prisma.damper.findMany();
+        }
 
         // Helper to initialize stats structure
-        const createInitStats = () => ({
-            kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            sasiBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            hidrolik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            boyaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            tamamlamaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-            teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
-        });
+        const createInitStats = () => {
+            if (productType === 'DORSE') {
+                return {
+                    kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    boya: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    tamamlama: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
+                };
+            }
+            return {
+                kesimBukum: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                sasiBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                onHazirlik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                montaj: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                hidrolik: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                boyaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                tamamlamaBitis: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
+            };
+        };
 
         const stepStats = createInitStats();
         const m3StepStats = {}; // Objects keyed by M3 string (e.g. "16", "18")
 
-        // Helper to update a stats object based on a damper
+        // Helper to update a stats object based on an item
         const updateStats = (stats, stepStatuses) => {
             Object.keys(stepStatuses).forEach(stepKey => {
-                const status = stepStatuses[stepKey];
-                stats[stepKey].total++;
-                if (status === 'TAMAMLANDI') {
-                    stats[stepKey].tamamlandi++;
-                } else if (status === 'DEVAM EDİYOR') {
-                    stats[stepKey].devamEdiyor++;
-                } else {
-                    stats[stepKey].baslamadi++;
+                if (stats[stepKey]) {
+                    const status = stepStatuses[stepKey];
+                    stats[stepKey].total++;
+                    if (status === 'TAMAMLANDI') {
+                        stats[stepKey].tamamlandi++;
+                    } else if (status === 'DEVAM EDİYOR') {
+                        stats[stepKey].devamEdiyor++;
+                    } else {
+                        stats[stepKey].baslamadi++;
+                    }
                 }
             });
         };
 
-        dampers.forEach(damper => {
-            // Calculate statuses for this damper
-            const stepStatuses = {
-                kesimBukum: calculateMainStepStatus(damper, 'kesimBukum'),
-                sasiBitis: calculateMainStepStatus(damper, 'sasiBitis'),
-                onHazirlik: calculateMainStepStatus(damper, 'onHazirlik'),
-                montaj: calculateMainStepStatus(damper, 'montaj'),
-                hidrolik: damper.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                boyaBitis: calculateMainStepStatus(damper, 'boyaBitis'),
-                tamamlamaBitis: calculateMainStepStatus(damper, 'tamamlamaBitis'),
-                sonKontrol: damper.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                kurumMuayenesi: damper.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                dmoMuayenesi: damper.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                teslimat: damper.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
-            };
+        items.forEach(item => {
+            let stepStatuses;
+            if (productType === 'DORSE') {
+                stepStatuses = {
+                    kesimBukum: calculateMainDorseStepStatus(item, 'kesimBukum'),
+                    onHazirlik: calculateMainDorseStepStatus(item, 'onHazirlik'),
+                    montaj: calculateMainDorseStepStatus(item, 'montaj'),
+                    boya: calculateMainDorseStepStatus(item, 'boya'),
+                    tamamlama: calculateMainDorseStepStatus(item, 'tamamlama'),
+                    sonKontrol: item.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    kurumMuayenesi: item.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    dmoMuayenesi: item.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    teslimat: item.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
+                };
+            } else {
+                stepStatuses = {
+                    kesimBukum: calculateMainStepStatus(item, 'kesimBukum'),
+                    sasiBitis: calculateMainStepStatus(item, 'sasiBitis'),
+                    onHazirlik: calculateMainStepStatus(item, 'onHazirlik'),
+                    montaj: calculateMainStepStatus(item, 'montaj'),
+                    hidrolik: item.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    boyaBitis: calculateMainStepStatus(item, 'boyaBitis'),
+                    tamamlamaBitis: calculateMainStepStatus(item, 'tamamlamaBitis'),
+                    sonKontrol: item.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    kurumMuayenesi: item.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    dmoMuayenesi: item.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    teslimat: item.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
+                };
+            }
 
             // Update Total Stats
             updateStats(stepStats, stepStatuses);
 
             // Update M3 Group Stats
-            const m3Value = damper.m3 || 0;
+            const m3Value = item.m3 || 0;
             const m3Key = m3Value.toString();
 
             if (!m3StepStats[m3Key]) {
@@ -867,13 +1017,22 @@ app.get('/api/analytics/step-stats', async (req, res) => {
 });
 
 // Get company distribution for pie chart
+// Get company distribution for pie chart
 app.get('/api/analytics/company-distribution', async (req, res) => {
     try {
-        const dampers = await prisma.damper.findMany();
+        const { type } = req.query;
+        const isDorse = type === 'DORSE';
+
+        let items;
+        if (isDorse) {
+            items = await prisma.dorse.findMany();
+        } else {
+            items = await prisma.damper.findMany();
+        }
 
         const companyMap = {};
-        dampers.forEach(damper => {
-            const baseCompany = getBaseCompany(damper.musteri);
+        items.forEach(item => {
+            const baseCompany = getBaseCompany(item.musteri);
             if (baseCompany) {
                 companyMap[baseCompany] = (companyMap[baseCompany] || 0) + 1;
             }
@@ -892,81 +1051,143 @@ app.get('/api/analytics/company-distribution', async (req, res) => {
 });
 
 // Get recent activity (today's updated dampers that have actual work done)
+// Get recent activity (today's updated items that have actual work done)
 app.get('/api/analytics/recent-activity', async (req, res) => {
     try {
+        const { type } = req.query;
+        const productType = type === 'DORSE' ? 'DORSE' : 'DAMPER';
+
         // Get start of today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const recentDampers = await prisma.damper.findMany({
-            where: {
-                updatedAt: {
-                    gte: today
-                }
-            },
-            orderBy: { updatedAt: 'desc' },
-            take: 50
-        });
+        let recentItems = [];
+        if (productType === 'DORSE') {
+            recentItems = await prisma.dorse.findMany({
+                where: { updatedAt: { gte: today } },
+                orderBy: { updatedAt: 'desc' },
+                take: 50
+            });
+        } else {
+            recentItems = await prisma.damper.findMany({
+                where: { updatedAt: { gte: today } },
+                orderBy: { updatedAt: 'desc' },
+                take: 50
+            });
+        }
 
-        const activity = recentDampers.map(damper => {
-            const kesimBukumStatus = calculateMainStepStatus(damper, 'kesimBukum');
-            const montajStatus = calculateMainStepStatus(damper, 'montaj');
-            const boyaBitisStatus = calculateMainStepStatus(damper, 'boyaBitis');
-            const teslimatStatus = damper.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI';
+        const activity = recentItems.map(item => {
+            let kesimBukumStatus, montajStatus, boyaBitisStatus, teslimatStatus, hasProgress, completedSubSteps;
 
-            // Check if any step has progress (not just BAŞLAMADI)
-            const hasProgress =
-                kesimBukumStatus !== 'BAŞLAMADI' ||
-                montajStatus !== 'BAŞLAMADI' ||
-                boyaBitisStatus !== 'BAŞLAMADI' ||
-                teslimatStatus !== 'BAŞLAMADI' ||
-                damper.hidrolik === true ||
-                damper.sonKontrol === true;
+            if (productType === 'DORSE') {
+                kesimBukumStatus = calculateMainDorseStepStatus(item, 'kesimBukum');
+                montajStatus = calculateMainDorseStepStatus(item, 'montaj');
+                boyaBitisStatus = calculateMainDorseStepStatus(item, 'boya');
+                teslimatStatus = item.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI';
 
-            // Build detailed completed steps list
-            const completedSubSteps = [];
+                // Check progress
+                hasProgress =
+                    kesimBukumStatus !== 'BAŞLAMADI' ||
+                    montajStatus !== 'BAŞLAMADI' ||
+                    boyaBitisStatus !== 'BAŞLAMADI' ||
+                    teslimatStatus !== 'BAŞLAMADI' ||
+                    item.sonKontrol === true;
 
-            // Kesim-Büküm alt aşamaları
-            if (damper.plazmaProgrami) completedSubSteps.push('Plazma Programı (Kesim-Büküm)');
-            if (damper.sacMalzemeKontrolu) completedSubSteps.push('Sac Malzeme Kontrolü (Kesim-Büküm)');
-            if (damper.plazmaKesim) completedSubSteps.push('Plazma Kesim (Kesim-Büküm)');
-            if (damper.damperSasiPlazmaKesim) completedSubSteps.push('Damper Şasi Plazma Kesim (Kesim-Büküm)');
-            if (damper.presBukum) completedSubSteps.push('Pres Büküm (Kesim-Büküm)');
+                completedSubSteps = [];
+                // Kesim-Büküm
+                if (item.plazmaProgrami) completedSubSteps.push('Plazma Programı');
+                if (item.sacMalzemeKontrolu) completedSubSteps.push('Sac Malzeme Kontrolü');
+                if (item.plazmaKesim) completedSubSteps.push('Plazma Kesim');
+                if (item.presBukum) completedSubSteps.push('Pres Büküm');
+                if (item.dorseSasi) completedSubSteps.push('Dorse Şasi');
 
-            // Şasi Bitiş alt aşamaları
-            if (damper.aracBraket) completedSubSteps.push('Araç Braket (Şasi Bitiş)');
-            if (damper.damperSasi) completedSubSteps.push('Damper Şasi (Şasi Bitiş)');
-            if (damper.sasiYukleme) completedSubSteps.push('Şasi Yükleme (Şasi Bitiş)');
+                // Ön Hazırlık
+                if (item.milAltKutuk) completedSubSteps.push('Mil Alt Kütük');
+                if (item.taban) completedSubSteps.push('Taban');
+                if (item.onGogus) completedSubSteps.push('Ön Göğüs');
+                if (item.arkaKapak) completedSubSteps.push('Arka Kapak');
+                if (item.yuklemeMalzemesi) completedSubSteps.push('Yükleme Malzemesi');
 
-            // Ön Hazırlık alt aşamaları
-            if (damper.milAltKutuk) completedSubSteps.push('Mil Alt Kütük (Ön Hazırlık)');
-            if (damper.taban) completedSubSteps.push('Taban (Ön Hazırlık)');
-            if (damper.yan) completedSubSteps.push('Yan (Ön Hazırlık)');
-            if (damper.onGogus) completedSubSteps.push('Ön Göğüs (Ön Hazırlık)');
-            if (damper.arkaKapak) completedSubSteps.push('Arka Kapak (Ön Hazırlık)');
-            if (damper.yuklemeMalzemesi) completedSubSteps.push('Yükleme Malzemesi (Ön Hazırlık)');
+                // Montaj
+                if (item.dorseCatim) completedSubSteps.push('Dorse Çatım');
+                if (item.dorseKaynak) completedSubSteps.push('Dorse Kaynak');
+                if (item.kapakSiperlik) completedSubSteps.push('Kapak Siperlik');
+                if (item.montajBitis) completedSubSteps.push('Montaj Bitiş');
 
-            // Montaj alt aşamaları
-            if (damper.damperKurulmasi) completedSubSteps.push('Damper Kurulması (Montaj)');
-            if (damper.damperKaynak) completedSubSteps.push('Damper Kaynak (Montaj)');
-            if (damper.sasiKapakSiperlik) completedSubSteps.push('Şasi Kapak Siperlik (Montaj)');
-            if (damper.yukleme) completedSubSteps.push('Yükleme (Montaj)');
+                // Boya
+                if (item.kumlama) completedSubSteps.push('Kumlama');
+                if (item.boyaAstar) completedSubSteps.push('Boya Astar');
+                if (item.boya) completedSubSteps.push('Boya');
 
-            // Diğer aşamalar
-            if (damper.hidrolik) completedSubSteps.push('Hidrolik');
-            if (damper.boyaHazirlik) completedSubSteps.push('Boya Hazırlık (Boya)');
-            if (damper.boya) completedSubSteps.push('Boya (Boya)');
-            if (damper.elektrik) completedSubSteps.push('Elektrik (Tamamlama)');
-            if (damper.hava) completedSubSteps.push('Hava (Tamamlama)');
-            if (damper.tamamlama) completedSubSteps.push('Tamamlama (Tamamlama)');
-            if (damper.sonKontrol) completedSubSteps.push('Son Kontrol');
-            if (damper.teslimat) completedSubSteps.push('Teslimat ✅');
+                // Tamamlama
+                if (item.sasiMontaj) completedSubSteps.push('Şasi Montaj');
+                if (item.tabanTahtasi) completedSubSteps.push('Taban Tahtası');
+                if (item.aksesuarMontaj) completedSubSteps.push('Aksesuar Montaj');
+                if (item.elektrik) completedSubSteps.push('Elektrik');
+                if (item.hava) completedSubSteps.push('Hava');
+                if (item.tamamlama) completedSubSteps.push('Tamamlama');
+
+                if (item.sonKontrol) completedSubSteps.push('Son Kontrol');
+                if (item.teslimat) completedSubSteps.push('Teslimat ✅');
+
+            } else {
+                // DAMPER LOGIC (Existing)
+                kesimBukumStatus = calculateMainStepStatus(item, 'kesimBukum');
+                montajStatus = calculateMainStepStatus(item, 'montaj');
+                boyaBitisStatus = calculateMainStepStatus(item, 'boyaBitis');
+                teslimatStatus = item.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI';
+
+                hasProgress =
+                    kesimBukumStatus !== 'BAŞLAMADI' ||
+                    montajStatus !== 'BAŞLAMADI' ||
+                    boyaBitisStatus !== 'BAŞLAMADI' ||
+                    teslimatStatus !== 'BAŞLAMADI' ||
+                    item.hidrolik === true ||
+                    item.sonKontrol === true;
+
+                completedSubSteps = [];
+                // Kesim-Büküm
+                if (item.plazmaProgrami) completedSubSteps.push('Plazma Programı (Kesim-Büküm)');
+                if (item.sacMalzemeKontrolu) completedSubSteps.push('Sac Malzeme Kontrolü (Kesim-Büküm)');
+                if (item.plazmaKesim) completedSubSteps.push('Plazma Kesim (Kesim-Büküm)');
+                if (item.damperSasiPlazmaKesim) completedSubSteps.push('Damper Şasi Plazma Kesim (Kesim-Büküm)');
+                if (item.presBukum) completedSubSteps.push('Pres Büküm (Kesim-Büküm)');
+
+                // Şasi Bitiş
+                if (item.aracBraket) completedSubSteps.push('Araç Braket (Şasi Bitiş)');
+                if (item.damperSasi) completedSubSteps.push('Damper Şasi (Şasi Bitiş)');
+                if (item.sasiYukleme) completedSubSteps.push('Şasi Yükleme (Şasi Bitiş)');
+
+                // Ön Hazırlık
+                if (item.milAltKutuk) completedSubSteps.push('Mil Alt Kütük (Ön Hazırlık)');
+                if (item.taban) completedSubSteps.push('Taban (Ön Hazırlık)');
+                if (item.yan) completedSubSteps.push('Yan (Ön Hazırlık)');
+                if (item.onGogus) completedSubSteps.push('Ön Göğüs (Ön Hazırlık)');
+                if (item.arkaKapak) completedSubSteps.push('Arka Kapak (Ön Hazırlık)');
+                if (item.yuklemeMalzemesi) completedSubSteps.push('Yükleme Malzemesi (Ön Hazırlık)');
+
+                // Montaj
+                if (item.damperKurulmasi) completedSubSteps.push('Damper Kurulması (Montaj)');
+                if (item.damperKaynak) completedSubSteps.push('Damper Kaynak (Montaj)');
+                if (item.sasiKapakSiperlik) completedSubSteps.push('Şasi Kapak Siperlik (Montaj)');
+                if (item.yukleme) completedSubSteps.push('Yükleme (Montaj)');
+
+                // Diğer
+                if (item.hidrolik) completedSubSteps.push('Hidrolik');
+                if (item.boyaHazirlik) completedSubSteps.push('Boya Hazırlık (Boya)');
+                if (item.boya) completedSubSteps.push('Boya (Boya)');
+                if (item.elektrik) completedSubSteps.push('Elektrik (Tamamlama)');
+                if (item.hava) completedSubSteps.push('Hava (Tamamlama)');
+                if (item.tamamlama) completedSubSteps.push('Tamamlama (Tamamlama)');
+                if (item.sonKontrol) completedSubSteps.push('Son Kontrol');
+                if (item.teslimat) completedSubSteps.push('Teslimat ✅');
+            }
 
             return {
-                id: damper.id,
-                imalatNo: damper.imalatNo,
-                musteri: damper.musteri,
-                updatedAt: damper.updatedAt,
+                id: item.id,
+                imalatNo: item.imalatNo,
+                musteri: item.musteri,
+                updatedAt: item.updatedAt,
                 kesimBukumStatus,
                 montajStatus,
                 boyaBitisStatus,
@@ -976,7 +1197,6 @@ app.get('/api/analytics/recent-activity', async (req, res) => {
             };
         });
 
-        // Only return dampers with actual progress
         const activeWork = activity.filter(a => a.hasProgress);
 
         res.json(activeWork.slice(0, 20));
@@ -1026,6 +1246,86 @@ app.delete('/api/company-m3', async (req, res) => {
     } catch (error) {
         console.error('Error deleting company M3 group:', error);
         res.status(500).json({ error: 'Failed to delete company M3 group' });
+    }
+});
+
+// ==================== DORSE ROUTES ====================
+
+// Get all dorses
+app.get('/api/dorses', async (req, res) => {
+    try {
+        const dorses = await prisma.dorse.findMany({
+            orderBy: { imalatNo: 'desc' }
+        });
+        res.json(dorses);
+    } catch (error) {
+        console.error('Error fetching dorses:', error);
+        res.status(500).json({ error: 'Failed to fetch dorses' });
+    }
+});
+
+// Create new dorse
+app.post('/api/dorses', async (req, res) => {
+    try {
+        const { adet, musteri, ...restData } = req.body;
+        const quantity = adet || 1;
+
+        if (quantity === 1) {
+            const dorse = await prisma.dorse.create({
+                data: {
+                    ...restData,
+                    musteri,
+                    adet: 1
+                }
+            });
+            return res.status(201).json(dorse);
+        }
+
+        const createdDorses = [];
+        for (let i = 1; i <= quantity; i++) {
+            const dorse = await prisma.dorse.create({
+                data: {
+                    ...restData,
+                    musteri: `${musteri} ${i}`,
+                    adet: 1
+                }
+            });
+            createdDorses.push(dorse);
+        }
+
+        res.status(201).json(createdDorses);
+    } catch (error) {
+        console.error('Error creating dorse:', error);
+        res.status(500).json({ error: 'Failed to create dorse' });
+    }
+});
+
+// Update dorse
+app.put('/api/dorses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const dorse = await prisma.dorse.update({
+            where: { id: parseInt(id) },
+            data: req.body
+        });
+        res.json(dorse);
+    } catch (error) {
+        console.error('Error updating dorse:', error);
+        res.status(500).json({ error: 'Failed to update dorse' });
+    }
+});
+
+// Delete dorse
+app.delete('/api/dorses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.dorse.delete({
+            where: { id: parseInt(id) }
+        });
+        res.json({ message: 'Dorse deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting dorse:', error);
+        res.status(500).json({ error: 'Failed to delete dorse' });
     }
 });
 

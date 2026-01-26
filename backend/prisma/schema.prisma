@@ -52,6 +52,61 @@ model Damper {
   sasiNo                String?
 }
 
+model Dorse {
+  id                    Int      @id @default(autoincrement())
+  imalatNo              Int?
+  musteri               String
+  dorseGeldiMi          Boolean  @default(false)
+  dingil                String?
+  lastik                String?
+  tampon                String?
+  sacCinsi              String?
+  m3                    Float?
+  
+  // KESIM - BUKUM
+  plazmaProgrami        Boolean  @default(false)
+  sacMalzemeKontrolu    Boolean  @default(false)
+  plazmaKesim           Boolean  @default(false)
+  presBukum             Boolean  @default(false)
+  dorseSasi             Boolean  @default(false)
+
+  // ON HAZIRLIK
+  milAltKutuk           Boolean  @default(false)
+  taban                 Boolean  @default(false)
+  onGogus               Boolean  @default(false)
+  arkaKapak             Boolean  @default(false)
+  yuklemeMalzemesi      Boolean  @default(false)
+
+  // MONTAJ
+  dorseCatim            Boolean  @default(false)
+  dorseKaynak           Boolean  @default(false)
+  kapakSiperlik         Boolean  @default(false)
+  montajBitis           Boolean  @default(false)
+
+  // BOYA
+  kumlama               Boolean  @default(false)
+  boyaAstar             Boolean  @default(false)
+  boya                  Boolean  @default(false)
+
+  // TAMAMLAMA
+  sasiMontaj            Boolean  @default(false)
+  tabanTahtasi          Boolean  @default(false)
+  aksesuarMontaj        Boolean  @default(false)
+  elektrik              Boolean  @default(false)
+  hava                  Boolean  @default(false)
+  tamamlama             Boolean  @default(false)
+  
+  sonKontrol            Boolean  @default(false)
+  kurumMuayenesi        String   @default("YOK")
+  dmoMuayenesi          String   @default("MUAYENE YOK")
+  teslimat              Boolean  @default(false)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  adet                  Int      @default(1)
+  sasiNo                String?
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   username  String   @unique

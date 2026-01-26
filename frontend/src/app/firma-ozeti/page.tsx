@@ -283,7 +283,6 @@ export default function FirmaOzeti() {
                                                                         <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Aşama Durumları</div>
                                                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
                                                                             {columns.map(step => {
-                                                                                // @ts-expect-error - Dynamic key access
                                                                                 const stat = m3Group.stepStats[step.key] || { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 };
                                                                                 const total = stat.total || 0;
                                                                                 const tamamlandiPct = total > 0 ? (stat.tamamlandi / total) * 100 : 0;
@@ -338,9 +337,7 @@ export default function FirmaOzeti() {
                                                                                             <td style={{ padding: '8px 12px', fontWeight: 500 }}>{item.imalatNo || '-'}</td>
                                                                                             <td style={{ padding: '8px 12px' }}>{item.musteri}</td>
                                                                                             {columns.map(col => (
-                                                                                                // @ts-expect-error - Dynamic key access
                                                                                                 <td key={col.key} style={{ textAlign: 'center' }}>
-                                                                                                    {/* @ts-expect-error */}
                                                                                                     {getStatusBadge(item[col.statusKey] || item[col.key])}
                                                                                                 </td>
                                                                                             ))}

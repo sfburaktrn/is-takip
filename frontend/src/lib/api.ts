@@ -137,6 +137,7 @@ export interface M3Group {
 }
 
 export interface CompanyDamper {
+    [key: string]: any;
     id: number;
     imalatNo: number;
     musteri: string;
@@ -161,6 +162,7 @@ export interface StepStat {
 }
 
 export interface StepStats {
+    [key: string]: StepStat | undefined;
     kesimBukum?: StepStat;
     sasiBitis?: StepStat;
     onHazirlik?: StepStat;

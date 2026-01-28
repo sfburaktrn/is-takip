@@ -554,7 +554,7 @@ app.get('/api/dorses-summary', async (req, res) => {
             // Specific extra fields if needed:
             kurumMuayenesi: dorse.akmTseMuayenesi || 'YOK', // Map to akmTse?
             dmoMuayenesi: dorse.dmoMuayenesi || 'YOK',
-            teslimat: dorse.teslimat ? 'YAMAMLANDI' : 'BAŞLAMADI'
+            teslimat: dorse.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
         }));
 
         res.json(summary);

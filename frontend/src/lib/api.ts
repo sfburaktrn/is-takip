@@ -525,14 +525,20 @@ export const DORSE_STEP_GROUPS = [
         ],
     },
     {
+        key: 'cekici',
+        name: 'ÇEKİCİ',
+        subSteps: [
+            { key: 'cekiciElektrik', label: 'Çekici Elektrik' },
+            { key: 'cekiciHidrolik', label: 'Çekici Hidrolik' },
+        ],
+    },
+    {
         key: 'tamamlama',
         name: 'TAMAMLAMA',
         subSteps: [
             { key: 'fren', label: 'Fren' },
             { key: 'dorseElektrik', label: 'Dorse Elektrik' },
             { key: 'tamamlama', label: 'Tamamlama' },
-            { key: 'cekiciElektrik', label: 'Çekici Elektrik' },
-            { key: 'cekiciHidrolik', label: 'Çekici Hidrolik' },
             { key: 'aracKontrolBypassAyari', label: 'Araç kontrol bypass ayarı' },
         ],
     },

@@ -127,18 +127,14 @@ function DashboardContent() {
       dorse.milAltKutuk, dorse.taban, dorse.yan, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
       dorse.dorseKurulmasi, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.yukleme, dorse.hidrolik,
       dorse.boyaHazirlik, dorse.dorseSasiBoyama,
-      dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.cekiciElektrik, dorse.cekiciHidrolik, dorse.aracKontrolBypassAyari,
+      dorse.cekiciElektrik, dorse.cekiciHidrolik,
+      dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
       dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
     ];
-    let completed = steps.filter(Boolean).length;
-    // Special handling for string based statuses if we want to include them in progress
-    // but typically progress is based on booleans here.
-    // akmTseMuayenesi and dmoMuayenesi are strings.
-    if (dorse.akmTseMuayenesi === 'YAPILDI') completed++;
-    if (dorse.dmoMuayenesi === 'YAPILDI') completed++;
-
-    // Total steps = boolean steps + 2 string steps
-    return Math.round((completed / (steps.length + 2)) * 100);
+    const completed = steps.filter(Boolean).length;
+    // akmTseMuayenesi and dmoMuayenesi are excluded from progress calculation
+    // They don't block completion status
+    return Math.round((completed / steps.length) * 100);
   };
 
   const getDamperStatus = (damper: Damper): string => {
@@ -172,21 +168,18 @@ function DashboardContent() {
       dorse.milAltKutuk, dorse.taban, dorse.yan, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
       dorse.dorseKurulmasi, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.yukleme, dorse.hidrolik,
       dorse.boyaHazirlik, dorse.dorseSasiBoyama,
-      dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.cekiciElektrik, dorse.cekiciHidrolik, dorse.aracKontrolBypassAyari,
+      dorse.cekiciElektrik, dorse.cekiciHidrolik,
+      dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
       dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
     ];
 
     const completedSteps = allSteps.filter(Boolean).length;
-    // Add string checks
-    let extraCompleted = 0;
-    if (dorse.akmTseMuayenesi === 'YAPILDI') extraCompleted++;
-    if (dorse.dmoMuayenesi === 'YAPILDI') extraCompleted++;
+    // akmTseMuayenesi and dmoMuayenesi are excluded - they don't block completion
+    const totalSteps = allSteps.length;
 
-    const totalSteps = allSteps.length + 2;
-
-    if (completedSteps + extraCompleted === totalSteps) {
+    if (completedSteps === totalSteps) {
       return 'tamamlanan';
-    } else if (completedSteps + extraCompleted === 0) {
+    } else if (completedSteps === 0) {
       return 'baslamayan';
     } else {
       return 'devamEden';

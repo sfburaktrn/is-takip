@@ -1274,18 +1274,21 @@ app.get('/api/analytics/recent-activity', async (req, res) => {
     }
 });
 
-// Delete dampers by Company and M3
+// Delete dampers/dorses by Company and M3
 app.delete('/api/company-m3', async (req, res) => {
     try {
-        const { companyName, m3 } = req.body;
+        const { companyName, m3, type = 'DAMPER' } = req.body;
 
         if (!companyName || m3 === undefined) {
             return res.status(400).json({ error: 'Company name and M3 value are required' });
         }
 
-        // Fetch dampers that might match to filter them in memory
+        const isDorse = type === 'DORSE';
+        const prismaModel = isDorse ? prisma.dorse : prisma.damper;
+
+        // Fetch items that might match to filter them in memory
         // Optimization: rough filter by name first
-        const potentialDampers = await prisma.damper.findMany({
+        const potentialItems = await prismaModel.findMany({
             where: {
                 musteri: {
                     contains: companyName,
@@ -1296,12 +1299,12 @@ app.delete('/api/company-m3', async (req, res) => {
         });
 
         // Filter using the exact same logic as the summary view
-        const targetIds = potentialDampers
+        const targetIds = potentialItems
             .filter(d => getBaseCompany(d.musteri) === companyName)
             .map(d => d.id);
 
         if (targetIds.length > 0) {
-            await prisma.damper.deleteMany({
+            await prismaModel.deleteMany({
                 where: {
                     id: {
                         in: targetIds
@@ -1310,7 +1313,7 @@ app.delete('/api/company-m3', async (req, res) => {
             });
         }
 
-        res.json({ message: 'Dampers deleted successfully', deletedCount: targetIds.length });
+        res.json({ message: `${isDorse ? 'Dorses' : 'Dampers'} deleted successfully`, deletedCount: targetIds.length });
     } catch (error) {
         console.error('Error deleting company M3 group:', error);
         res.status(500).json({ error: 'Failed to delete company M3 group' });

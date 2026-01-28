@@ -296,12 +296,12 @@ export async function getCompanySummary(type: 'DAMPER' | 'DORSE' = 'DAMPER'): Pr
     return handleResponse<CompanySummary[]>(res);
 }
 
-export async function deleteCompanyM3Group(companyName: string, m3: number): Promise<void> {
+export async function deleteCompanyM3Group(companyName: string, m3: number, type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<void> {
     const res = await fetch(`${API_URL}/company-m3`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ companyName, m3 }),
+        body: JSON.stringify({ companyName, m3, type }),
     });
     if (!res.ok) throw new Error('Failed to delete company M3 group');
 }

@@ -35,7 +35,7 @@ export default function FirmaOzeti() {
         }
 
         try {
-            await deleteCompanyM3Group(companyName, m3);
+            await deleteCompanyM3Group(companyName, m3, productType);
             await loadData(); // Reload data to reflect changes
         } catch (error) {
             console.error('Error deleting M3 group:', error);

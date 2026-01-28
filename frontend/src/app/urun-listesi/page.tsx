@@ -121,14 +121,17 @@ function UrunListesiContent() {
         const steps = [
             dorse.plazmaProgrami, dorse.sacMalzemeKontrolu, dorse.plazmaKesim,
             dorse.presBukum, dorse.dorseSasi,
-            dorse.milAltKutuk, dorse.taban, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
-            dorse.dorseCatim, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.montajBitis,
-            dorse.kumlama, dorse.boyaAstar, dorse.boya,
-            dorse.sasiMontaj, dorse.tabanTahtasi, dorse.aksesuarMontaj, dorse.elektrik, dorse.hava, dorse.tamamlama,
-            dorse.sonKontrol, dorse.teslimat
+            dorse.milAltKutuk, dorse.taban, dorse.yan, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
+            dorse.dorseKurulmasi, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.yukleme, dorse.hidrolik,
+            dorse.boyaHazirlik, dorse.dorseSasiBoyama,
+            dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.cekiciElektrik, dorse.cekiciHidrolik, dorse.aracKontrolBypassAyari,
+            dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
         ];
-        const completed = steps.filter(Boolean).length;
-        return Math.round((completed / steps.length) * 100);
+        let completed = steps.filter(Boolean).length;
+        if (dorse.akmTseMuayenesi === 'YAPILDI') completed++;
+        if (dorse.dmoMuayenesi === 'YAPILDI') completed++;
+
+        return Math.round((completed / (steps.length + 2)) * 100);
     };
 
     const getDamperStatus = (damper: Damper): string => {
@@ -159,19 +162,23 @@ function UrunListesiContent() {
         const allSteps = [
             dorse.plazmaProgrami, dorse.sacMalzemeKontrolu, dorse.plazmaKesim,
             dorse.presBukum, dorse.dorseSasi,
-            dorse.milAltKutuk, dorse.taban, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
-            dorse.dorseCatim, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.montajBitis,
-            dorse.kumlama, dorse.boyaAstar, dorse.boya,
-            dorse.sasiMontaj, dorse.tabanTahtasi, dorse.aksesuarMontaj, dorse.elektrik, dorse.hava, dorse.tamamlama,
-            dorse.sonKontrol, dorse.teslimat
+            dorse.milAltKutuk, dorse.taban, dorse.yan, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
+            dorse.dorseKurulmasi, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.yukleme, dorse.hidrolik,
+            dorse.boyaHazirlik, dorse.dorseSasiBoyama,
+            dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.cekiciElektrik, dorse.cekiciHidrolik, dorse.aracKontrolBypassAyari,
+            dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
         ];
 
         const completedSteps = allSteps.filter(Boolean).length;
-        const totalSteps = allSteps.length;
+        let extraCompleted = 0;
+        if (dorse.akmTseMuayenesi === 'YAPILDI') extraCompleted++;
+        if (dorse.dmoMuayenesi === 'YAPILDI') extraCompleted++;
 
-        if (completedSteps === totalSteps) {
+        const totalSteps = allSteps.length + 2;
+
+        if (completedSteps + extraCompleted === totalSteps) {
             return 'tamamlanan';
-        } else if (completedSteps === 0) {
+        } else if (completedSteps + extraCompleted === 0) {
             return 'baslamayan';
         } else {
             return 'devamEden';

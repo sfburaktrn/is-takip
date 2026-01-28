@@ -1192,6 +1192,34 @@ function DashboardContent() {
                               </div>
                               <div className="step-items">
                                 {group.subSteps.map((step) => {
+                                  // Handle non-boolean steps (Dropdowns for Muayene fields)
+                                  if (step.key === 'akmTseMuayenesi' || step.key === 'dmoMuayenesi') {
+                                    const currentValue = dorse[step.key as keyof Dorse] as string;
+                                    const options = step.key === 'akmTseMuayenesi' ? dropdowns?.kurumMuayenesi : dropdowns?.dmoMuayenesi;
+
+                                    return (
+                                      <div key={step.key} className="step-item">
+                                        <span className="step-item-label">{step.label}</span>
+                                        <select
+                                          className="select"
+                                          style={{ width: '130px', padding: '4px 8px', fontSize: '12px' }}
+                                          value={currentValue || ''}
+                                          onClick={(e) => e.stopPropagation()}
+                                          onChange={async (e) => {
+                                            const updated = await updateDorse(dorse.id, { [step.key]: e.target.value });
+                                            setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                          }}
+                                        >
+                                          <option value="">Seçiniz</option>
+                                          {options?.map(v => (
+                                            <option key={v} value={v}>{v}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    );
+                                  }
+
+                                  // Handle boolean steps (Toggles)
                                   const isCompleted = dorse[step.key as keyof Dorse] as boolean;
                                   return (
                                     <div key={step.key} className="step-item">

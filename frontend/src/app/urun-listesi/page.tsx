@@ -51,16 +51,18 @@ function UrunListesiContent() {
     });
 
     // Dorse Form State
+    // Dorse Form State
     const [dorseFormData, setDorseFormData] = useState({
         imalatNo: '',
         musteri: '',
-        dorseGeldiMi: false,
+        cekiciGeldiMi: false,
         dingil: '',
         lastik: '',
         tampon: '',
-        sacCinsi: '',
+        kalinlik: '',
         m3: '',
         adet: '1',
+        sasiNo: '',
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,25 +245,27 @@ function UrunListesiContent() {
                 await createDorse({
                     imalatNo: dorseFormData.imalatNo ? parseInt(dorseFormData.imalatNo) : 0,
                     musteri: dorseFormData.musteri,
-                    dorseGeldiMi: dorseFormData.dorseGeldiMi,
+                    cekiciGeldiMi: dorseFormData.cekiciGeldiMi,
                     dingil: dorseFormData.dingil || null,
                     lastik: dorseFormData.lastik || null,
                     tampon: dorseFormData.tampon || null,
-                    sacCinsi: dorseFormData.sacCinsi,
+                    kalinlik: dorseFormData.kalinlik,
                     m3: dorseFormData.m3 ? parseFloat(dorseFormData.m3) : null,
                     adet: quantity,
+                    sasiNo: dorseFormData.sasiNo || null,
                 });
                 setShowAddModal(false);
                 setDorseFormData({
                     imalatNo: '',
                     musteri: '',
-                    dorseGeldiMi: false,
+                    cekiciGeldiMi: false,
                     dingil: '',
                     lastik: '',
                     tampon: '',
-                    sacCinsi: '',
+                    kalinlik: '',
                     m3: '',
                     adet: '1',
+                    sasiNo: '',
                 });
                 loadData();
                 if (quantity > 1) {
@@ -936,7 +940,7 @@ function UrunListesiContent() {
                                                     borderRadius: '6px',
                                                     fontSize: '12px'
                                                 }}>
-                                                    {dorse.sacCinsi}
+                                                    {dorse.kalinlik}
                                                 </span>
                                             </div>
                                             <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
@@ -953,8 +957,8 @@ function UrunListesiContent() {
                                                 width: '10px',
                                                 height: '10px',
                                                 borderRadius: '50%',
-                                                background: dorse.dorseGeldiMi ? 'var(--success)' : 'var(--danger)'
-                                            }} title={dorse.dorseGeldiMi ? 'Dorse Geldi' : 'Dorse Gelmedi'}></div>
+                                                background: dorse.cekiciGeldiMi ? 'var(--success)' : 'var(--danger)'
+                                            }} title={dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}></div>
                                             <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
                                         </div>
 
@@ -1000,7 +1004,71 @@ function UrunListesiContent() {
                                                         />
                                                     </div>
 
-                                                    {/* Dorse Durumu */}
+                                                    {/* Şasi No */}
+                                                    <div style={{
+                                                        background: 'var(--card-bg-secondary)',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '12px'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.sasiNo ? 'var(--muted)' : 'var(--foreground)' }}>
+                                                                {dorse.sasiNo ?? 'Girilmedi'}
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            className="input"
+                                                            style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                            placeholder="Şasi No"
+                                                            value={dorse.sasiNo ?? ''}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onChange={async (e) => {
+                                                                const newSasiNo = e.target.value;
+                                                                const updated = await updateDorse(dorse.id, { sasiNo: newSasiNo });
+                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    {/* Kalınlık */}
+                                                    <div style={{
+                                                        background: 'var(--card-bg-secondary)',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '12px'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>KALINLIK</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.kalinlik ? 'var(--muted)' : 'var(--foreground)' }}>
+                                                                {dorse.kalinlik ?? 'Girilmedi'}
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            className="input"
+                                                            style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                            placeholder="Kalınlık"
+                                                            value={dorse.kalinlik ?? ''}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onChange={async (e) => {
+                                                                const newKalinlik = e.target.value;
+                                                                const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
+                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    {/* Çekici Durumu */}
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
@@ -1011,16 +1079,16 @@ function UrunListesiContent() {
                                                         justifyContent: 'space-between'
                                                     }}>
                                                         <div>
-                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DORSE DURUMU</div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ÇEKİCİ DURUMU</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                {dorse.dorseGeldiMi ? 'Dorse Fabrikada' : 'Dorse Gelmedi'}
+                                                                {dorse.cekiciGeldiMi ? 'Çekici Fabrikada' : 'Çekici Gelmedi'}
                                                             </div>
                                                         </div>
                                                         <div
-                                                            className={`step-toggle ${dorse.dorseGeldiMi ? 'active' : ''}`}
+                                                            className={`step-toggle ${dorse.cekiciGeldiMi ? 'active' : ''}`}
                                                             onClick={async (e) => {
                                                                 e.stopPropagation();
-                                                                const updated = await updateDorse(dorse.id, { dorseGeldiMi: !dorse.dorseGeldiMi });
+                                                                const updated = await updateDorse(dorse.id, { cekiciGeldiMi: !dorse.cekiciGeldiMi });
                                                                 setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                                                             }}
                                                             style={{ transform: 'scale(1.1)' }}
@@ -1297,6 +1365,16 @@ function UrunListesiContent() {
                                                 />
                                             </div>
                                             <div className="form-group">
+                                                <label className="form-label">Şasi No</label>
+                                                <input
+                                                    type="text"
+                                                    className="input"
+                                                    placeholder="Şasi No giriniz..."
+                                                    value={dorseFormData.sasiNo}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, sasiNo: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div className="form-group">
                                                 <label className="form-label">Müşteri *</label>
                                                 <input
                                                     type="text"
@@ -1307,11 +1385,11 @@ function UrunListesiContent() {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label className="form-label">Dorse Geldi Mi *</label>
+                                                <label className="form-label">Çekici Geldi Mi *</label>
                                                 <select
                                                     className="select"
-                                                    value={dorseFormData.dorseGeldiMi ? 'EVET' : 'HAYIR'}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, dorseGeldiMi: e.target.value === 'EVET' }))}
+                                                    value={dorseFormData.cekiciGeldiMi ? 'EVET' : 'HAYIR'}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, cekiciGeldiMi: e.target.value === 'EVET' }))}
                                                 >
                                                     <option value="HAYIR">HAYIR</option>
                                                     <option value="EVET">EVET</option>
@@ -1348,18 +1426,14 @@ function UrunListesiContent() {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label className="form-label">Sac Cinsi</label>
-                                                <select
-                                                    className="select"
-                                                    value={dorseFormData.sacCinsi}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, sacCinsi: e.target.value }))}
-                                                >
-                                                    <option value="">Seçiniz</option>
-                                                    <option value="HARDOX">HARDOX</option>
-                                                    <option value="MC 700">MC 700</option>
-                                                    <option value="ST 37">ST 37</option>
-                                                    <option value="ST 52">ST 52</option>
-                                                </select>
+                                                <label className="form-label">Kalınlık</label>
+                                                <input
+                                                    type="text"
+                                                    className="input"
+                                                    placeholder="Örn: 4mm..."
+                                                    value={dorseFormData.kalinlik}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: e.target.value }))}
+                                                />
                                             </div>
                                             <div className="form-group">
                                                 <label className="form-label">M³</label>

@@ -62,6 +62,8 @@ function DashboardContent() {
     m3: '',
     adet: '1',
     sasiNo: '',
+    silindir: '',
+    malzemeCinsi: '',
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -257,6 +259,8 @@ function DashboardContent() {
           m3: dorseFormData.m3 ? parseFloat(dorseFormData.m3) : null,
           adet: quantity,
           sasiNo: dorseFormData.sasiNo || null,
+          silindir: dorseFormData.silindir || null,
+          malzemeCinsi: dorseFormData.malzemeCinsi || null,
         });
         setShowAddModal(false);
         setDorseFormData({
@@ -270,6 +274,8 @@ function DashboardContent() {
           m3: '',
           adet: '1',
           sasiNo: '',
+          silindir: '',
+          malzemeCinsi: '',
         });
         loadData();
         if (quantity > 1) {
@@ -1049,6 +1055,73 @@ function DashboardContent() {
                             />
                           </div>
 
+                          {/* Silindir */}
+                          <div style={{
+                            background: 'var(--card-bg-secondary)',
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px'
+                          }}>
+                            <div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>SİLİNDİR</div>
+                              <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                {dorse.silindir || '-'}
+                              </div>
+                            </div>
+                            <input
+                              type="text"
+                              className="input"
+                              style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                              placeholder="Silindir"
+                              value={dorse.silindir ?? ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={async (e) => {
+                                const newSilindir = e.target.value;
+                                const updated = await updateDorse(dorse.id, { silindir: newSilindir });
+                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                              }}
+                            />
+                          </div>
+
+                          {/* Malzeme Cinsi */}
+                          <div style={{
+                            background: 'var(--card-bg-secondary)',
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px'
+                          }}>
+                            <div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MALZEME CİNSİ</div>
+                              <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                {dorse.malzemeCinsi || '-'}
+                              </div>
+                            </div>
+                            <select
+                              className="select"
+                              style={{ width: '100px', padding: '6px 10px', fontSize: '12px', height: '34px' }}
+                              value={dorse.malzemeCinsi ?? ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={async (e) => {
+                                const newMalzemeCinsi = e.target.value;
+                                const updated = await updateDorse(dorse.id, { malzemeCinsi: newMalzemeCinsi });
+                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                              }}
+                            >
+                              <option value="">Seçiniz</option>
+                              {dropdowns?.malzemeCinsi.map(m => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+                          </div>
+
                           {/* Kalınlık */}
                           <div style={{
                             background: 'var(--card-bg-secondary)',
@@ -1414,6 +1487,29 @@ function DashboardContent() {
                           value={dorseFormData.sasiNo}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, sasiNo: e.target.value }))}
                         />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Silindir</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Silindir bilgisi..."
+                          value={dorseFormData.silindir}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, silindir: e.target.value }))}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Malzeme Cinsi</label>
+                        <select
+                          className="select"
+                          value={dorseFormData.malzemeCinsi}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, malzemeCinsi: e.target.value }))}
+                        >
+                          <option value="">Seçiniz</option>
+                          {dropdowns?.malzemeCinsi.map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Müşteri *</label>

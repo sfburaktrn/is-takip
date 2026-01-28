@@ -110,6 +110,8 @@ model Dorse {
   updatedAt             DateTime @updatedAt
   adet                  Int      @default(1)
   sasiNo                String?
+  silindir              String?
+  malzemeCinsi          String?
 }
 
 model User {

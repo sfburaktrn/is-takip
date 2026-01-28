@@ -403,6 +403,8 @@ export interface Dorse {
     m3: number | null;
     adet: number;
     sasiNo: string | null;
+    silindir: string | null;
+    malzemeCinsi: string | null;
 
     // Sub-steps
     plazmaProgrami: boolean;

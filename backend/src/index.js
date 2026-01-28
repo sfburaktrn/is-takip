@@ -108,19 +108,23 @@ const DORSE_STEP_GROUPS = {
     },
     onHazirlik: {
         name: 'ÖN HAZIRLIK',
-        subSteps: ['milAltKutuk', 'taban', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi']
+        subSteps: ['milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi']
     },
     montaj: {
         name: 'MONTAJ',
-        subSteps: ['dorseCatim', 'dorseKaynak', 'kapakSiperlik', 'montajBitis']
+        subSteps: ['dorseKurulmasi', 'dorseKaynak', 'kapakSiperlik', 'yukleme', 'hidrolik']
     },
     boya: {
         name: 'BOYA',
-        subSteps: ['kumlama', 'boyaAstar', 'boya']
+        subSteps: ['boyaHazirlik', 'dorseSasiBoyama']
     },
     tamamlama: {
         name: 'TAMAMLAMA',
-        subSteps: ['sasiMontaj', 'tabanTahtasi', 'aksesuarMontaj', 'elektrik', 'hava', 'tamamlama']
+        subSteps: ['fren', 'dorseElektrik', 'tamamlama', 'cekiciElektrik', 'cekiciHidrolik', 'aracKontrolBypassAyari']
+    },
+    sonKontrol: {
+        name: 'SON KONTROL',
+        subSteps: ['sonKontrol', 'tipOnay', 'fatura', 'akmTseMuayenesi', 'dmoMuayenesi', 'tahsilat', 'teslimat']
     }
 };
 
@@ -582,11 +586,11 @@ app.get('/api/company-summary', async (req, res) => {
 
         const dorseSteps = [
             'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum', 'dorseSasi',
-            'milAltKutuk', 'taban', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
-            'dorseCatim', 'dorseKaynak', 'kapakSiperlik', 'montajBitis',
-            'kumlama', 'boyaAstar', 'boya',
-            'sasiMontaj', 'tabanTahtasi', 'aksesuarMontaj', 'elektrik', 'hava', 'tamamlama',
-            'sonKontrol', 'teslimat'
+            'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
+            'dorseKurulmasi', 'dorseKaynak', 'kapakSiperlik', 'yukleme', 'hidrolik',
+            'boyaHazirlik', 'dorseSasiBoyama',
+            'fren', 'dorseElektrik', 'tamamlama', 'cekiciElektrik', 'cekiciHidrolik', 'aracKontrolBypassAyari',
+            'sonKontrol', 'tipOnay', 'fatura', 'akmTseMuayenesi', 'dmoMuayenesi', 'tahsilat', 'teslimat'
         ];
 
         const allSteps = productType === 'DORSE' ? dorseSteps : damperSteps;
@@ -676,8 +680,12 @@ app.get('/api/company-summary', async (req, res) => {
                     boya: calculateMainDorseStepStatus(item, 'boya'),
                     tamamlama: calculateMainDorseStepStatus(item, 'tamamlama'),
                     sonKontrol: item.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                    kurumMuayenesi: item.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    // New Son Kontrol Steps
+                    tipOnay: item.tipOnay ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    fatura: item.fatura ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    akmTseMuayenesi: item.akmTseMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
                     dmoMuayenesi: item.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    tahsilat: item.tahsilat ? 'TAMAMLANDI' : 'BAŞLAMADI',
                     teslimat: item.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
                 };
             } else {
@@ -854,11 +862,11 @@ app.get('/api/stats', async (req, res) => {
 
         const dorseSteps = [
             'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum', 'dorseSasi',
-            'milAltKutuk', 'taban', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
-            'dorseCatim', 'dorseKaynak', 'kapakSiperlik', 'montajBitis',
-            'kumlama', 'boyaAstar', 'boya',
-            'sasiMontaj', 'tabanTahtasi', 'aksesuarMontaj', 'elektrik', 'hava', 'tamamlama',
-            'sonKontrol', 'teslimat'
+            'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
+            'dorseKurulmasi', 'dorseKaynak', 'kapakSiperlik', 'yukleme', 'hidrolik',
+            'boyaHazirlik', 'dorseSasiBoyama',
+            'fren', 'dorseElektrik', 'tamamlama', 'cekiciElektrik', 'cekiciHidrolik', 'aracKontrolBypassAyari',
+            'sonKontrol', 'tipOnay', 'fatura', 'akmTseMuayenesi', 'dmoMuayenesi', 'tahsilat', 'teslimat'
         ];
 
         const allSteps = isDorse ? dorseSteps : damperSteps;
@@ -923,8 +931,11 @@ app.get('/api/analytics/step-stats', async (req, res) => {
                     boya: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     tamamlama: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                    kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    tipOnay: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    fatura: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    akmTseMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    tahsilat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
                 };
             }
@@ -1104,30 +1115,36 @@ app.get('/api/analytics/recent-activity', async (req, res) => {
                 // Ön Hazırlık
                 if (item.milAltKutuk) completedSubSteps.push('Mil Alt Kütük');
                 if (item.taban) completedSubSteps.push('Taban');
+                if (item.yan) completedSubSteps.push('Yan');
                 if (item.onGogus) completedSubSteps.push('Ön Göğüs');
                 if (item.arkaKapak) completedSubSteps.push('Arka Kapak');
                 if (item.yuklemeMalzemesi) completedSubSteps.push('Yükleme Malzemesi');
 
                 // Montaj
-                if (item.dorseCatim) completedSubSteps.push('Dorse Çatım');
+                if (item.dorseKurulmasi) completedSubSteps.push('Dorse Kurulması');
                 if (item.dorseKaynak) completedSubSteps.push('Dorse Kaynak');
                 if (item.kapakSiperlik) completedSubSteps.push('Kapak Siperlik');
-                if (item.montajBitis) completedSubSteps.push('Montaj Bitiş');
+                if (item.yukleme) completedSubSteps.push('Yükleme');
+                if (item.hidrolik) completedSubSteps.push('Hidrolik');
 
                 // Boya
-                if (item.kumlama) completedSubSteps.push('Kumlama');
-                if (item.boyaAstar) completedSubSteps.push('Boya Astar');
-                if (item.boya) completedSubSteps.push('Boya');
+                if (item.boyaHazirlik) completedSubSteps.push('Boya Hazırlık');
+                if (item.dorseSasiBoyama) completedSubSteps.push('Dorse Şasi Boyama');
 
                 // Tamamlama
-                if (item.sasiMontaj) completedSubSteps.push('Şasi Montaj');
-                if (item.tabanTahtasi) completedSubSteps.push('Taban Tahtası');
-                if (item.aksesuarMontaj) completedSubSteps.push('Aksesuar Montaj');
-                if (item.elektrik) completedSubSteps.push('Elektrik');
-                if (item.hava) completedSubSteps.push('Hava');
+                if (item.fren) completedSubSteps.push('Fren');
+                if (item.dorseElektrik) completedSubSteps.push('Dorse Elektrik');
                 if (item.tamamlama) completedSubSteps.push('Tamamlama');
+                if (item.cekiciElektrik) completedSubSteps.push('Çekici Elektrik');
+                if (item.cekiciHidrolik) completedSubSteps.push('Çekici Hidrolik');
+                if (item.aracKontrolBypassAyari) completedSubSteps.push('Araç Kontrol Bypass Ayarı');
 
                 if (item.sonKontrol) completedSubSteps.push('Son Kontrol');
+                if (item.tipOnay) completedSubSteps.push('Tip Onay');
+                if (item.fatura) completedSubSteps.push('Fatura');
+                if (item.akmTseMuayenesi === 'YAPILDI') completedSubSteps.push('AKM-TSE Muayenesi');
+                if (item.dmoMuayenesi === 'YAPILDI') completedSubSteps.push('DMO Muayenesi');
+                if (item.tahsilat) completedSubSteps.push('Tahsilat');
                 if (item.teslimat) completedSubSteps.push('Teslimat ✅');
 
             } else {

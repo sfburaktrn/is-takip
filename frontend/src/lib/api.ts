@@ -368,13 +368,14 @@ export interface Dorse {
     id: number;
     imalatNo: number | null;
     musteri: string;
-    dorseGeldiMi: boolean;
+    cekiciGeldiMi: boolean;
     dingil: string | null;
     lastik: string | null;
     tampon: string | null;
-    sacCinsi: string | null;
+    kalinlik: string | null;
     m3: number | null;
     adet: number;
+    sasiNo: string | null;
 
     // Sub-steps
     plazmaProgrami: boolean;
@@ -385,29 +386,33 @@ export interface Dorse {
 
     milAltKutuk: boolean;
     taban: boolean;
+    yan: boolean;
     onGogus: boolean;
     arkaKapak: boolean;
     yuklemeMalzemesi: boolean;
 
-    dorseCatim: boolean;
+    dorseKurulmasi: boolean;
     dorseKaynak: boolean;
     kapakSiperlik: boolean;
-    montajBitis: boolean;
+    yukleme: boolean;
+    hidrolik: boolean;
 
-    kumlama: boolean;
-    boyaAstar: boolean;
-    boya: boolean;
+    boyaHazirlik: boolean;
+    dorseSasiBoyama: boolean;
 
-    sasiMontaj: boolean;
-    tabanTahtasi: boolean;
-    aksesuarMontaj: boolean;
-    elektrik: boolean;
-    hava: boolean;
+    fren: boolean;
+    dorseElektrik: boolean;
     tamamlama: boolean;
+    cekiciElektrik: boolean;
+    cekiciHidrolik: boolean;
+    aracKontrolBypassAyari: boolean;
 
     sonKontrol: boolean;
-    kurumMuayenesi: string;
+    tipOnay: boolean;
+    fatura: boolean;
+    akmTseMuayenesi: string;
     dmoMuayenesi: string;
+    tahsilat: boolean;
     teslimat: boolean;
 
     createdAt?: string;
@@ -465,6 +470,7 @@ export const DORSE_STEP_GROUPS = [
         subSteps: [
             { key: 'milAltKutuk', label: 'Mil Alt Kütük' },
             { key: 'taban', label: 'Taban' },
+            { key: 'yan', label: 'Yan' },
             { key: 'onGogus', label: 'Ön Göğüs' },
             { key: 'arkaKapak', label: 'Arka Kapak' },
             { key: 'yuklemeMalzemesi', label: 'Yükleme Malzemesi' },
@@ -474,31 +480,31 @@ export const DORSE_STEP_GROUPS = [
         key: 'montaj',
         name: 'MONTAJ',
         subSteps: [
-            { key: 'dorseCatim', label: 'Dorse Çatım' },
+            { key: 'dorseKurulmasi', label: 'Dorse Kurulması' },
             { key: 'dorseKaynak', label: 'Dorse Kaynak' },
             { key: 'kapakSiperlik', label: 'Kapak Siperlik' },
-            { key: 'montajBitis', label: 'Montaj Bitiş' },
+            { key: 'yukleme', label: 'Yükleme' },
+            { key: 'hidrolik', label: 'Hidrolik' },
         ],
     },
     {
         key: 'boya',
         name: 'BOYA',
         subSteps: [
-            { key: 'kumlama', label: 'Kumlama' },
-            { key: 'boyaAstar', label: 'Boya Astar' },
-            { key: 'boya', label: 'Boya' },
+            { key: 'boyaHazirlik', label: 'Boya Hazırlık' },
+            { key: 'dorseSasiBoyama', label: 'Dorse Şasi Boyama' },
         ],
     },
     {
         key: 'tamamlama',
         name: 'TAMAMLAMA',
         subSteps: [
-            { key: 'sasiMontaj', label: 'Şasi Montaj' },
-            { key: 'tabanTahtasi', label: 'Taban Tahtası' },
-            { key: 'aksesuarMontaj', label: 'Aksesuar Montaj' },
-            { key: 'elektrik', label: 'Elektrik' },
-            { key: 'hava', label: 'Hava' },
+            { key: 'fren', label: 'Fren' },
+            { key: 'dorseElektrik', label: 'Dorse Elektrik' },
             { key: 'tamamlama', label: 'Tamamlama' },
+            { key: 'cekiciElektrik', label: 'Çekici Elektrik' },
+            { key: 'cekiciHidrolik', label: 'Çekici Hidrolik' },
+            { key: 'aracKontrolBypassAyari', label: 'Araç kontrol bypass ayarı' },
         ],
     },
     {
@@ -506,6 +512,12 @@ export const DORSE_STEP_GROUPS = [
         name: 'SON KONTROL',
         subSteps: [
             { key: 'sonKontrol', label: 'Son Kontrol' },
+            { key: 'tipOnay', label: 'Tip Onay' },
+            { key: 'fatura', label: 'Fatura' },
+            { key: 'akmTseMuayenesi', label: 'Akm-Tse Muayenesi' },
+            { key: 'dmoMuayenesi', label: 'Dmo Muayenesi' },
+            { key: 'tahsilat', label: 'Tahsilat' },
+            { key: 'teslimat', label: 'Teslimat' },
         ],
     },
 ];

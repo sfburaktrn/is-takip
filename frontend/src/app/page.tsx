@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import {
@@ -54,13 +54,14 @@ function DashboardContent() {
   const [dorseFormData, setDorseFormData] = useState({
     imalatNo: '',
     musteri: '',
-    dorseGeldiMi: false,
+    cekiciGeldiMi: false,
     dingil: '',
     lastik: '',
     tampon: '',
-    sacCinsi: '',
+    kalinlik: '',
     m3: '',
     adet: '1',
+    sasiNo: '',
   });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,14 +122,21 @@ function DashboardContent() {
     const steps = [
       dorse.plazmaProgrami, dorse.sacMalzemeKontrolu, dorse.plazmaKesim,
       dorse.presBukum, dorse.dorseSasi,
-      dorse.milAltKutuk, dorse.taban, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
-      dorse.dorseCatim, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.montajBitis,
-      dorse.kumlama, dorse.boyaAstar, dorse.boya,
-      dorse.sasiMontaj, dorse.tabanTahtasi, dorse.aksesuarMontaj, dorse.elektrik, dorse.hava, dorse.tamamlama,
-      dorse.sonKontrol, dorse.teslimat
+      dorse.milAltKutuk, dorse.taban, dorse.yan, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
+      dorse.dorseKurulmasi, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.yukleme, dorse.hidrolik,
+      dorse.boyaHazirlik, dorse.dorseSasiBoyama,
+      dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.cekiciElektrik, dorse.cekiciHidrolik, dorse.aracKontrolBypassAyari,
+      dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
     ];
-    const completed = steps.filter(Boolean).length;
-    return Math.round((completed / steps.length) * 100);
+    let completed = steps.filter(Boolean).length;
+    // Special handling for string based statuses if we want to include them in progress
+    // but typically progress is based on booleans here.
+    // akmTseMuayenesi and dmoMuayenesi are strings.
+    if (dorse.akmTseMuayenesi === 'YAPILDI') completed++;
+    if (dorse.dmoMuayenesi === 'YAPILDI') completed++;
+
+    // Total steps = boolean steps + 2 string steps
+    return Math.round((completed / (steps.length + 2)) * 100);
   };
 
   const getDamperStatus = (damper: Damper): string => {
@@ -159,19 +167,24 @@ function DashboardContent() {
     const allSteps = [
       dorse.plazmaProgrami, dorse.sacMalzemeKontrolu, dorse.plazmaKesim,
       dorse.presBukum, dorse.dorseSasi,
-      dorse.milAltKutuk, dorse.taban, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
-      dorse.dorseCatim, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.montajBitis,
-      dorse.kumlama, dorse.boyaAstar, dorse.boya,
-      dorse.sasiMontaj, dorse.tabanTahtasi, dorse.aksesuarMontaj, dorse.elektrik, dorse.hava, dorse.tamamlama,
-      dorse.sonKontrol, dorse.teslimat
+      dorse.milAltKutuk, dorse.taban, dorse.yan, dorse.onGogus, dorse.arkaKapak, dorse.yuklemeMalzemesi,
+      dorse.dorseKurulmasi, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.yukleme, dorse.hidrolik,
+      dorse.boyaHazirlik, dorse.dorseSasiBoyama,
+      dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.cekiciElektrik, dorse.cekiciHidrolik, dorse.aracKontrolBypassAyari,
+      dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
     ];
 
     const completedSteps = allSteps.filter(Boolean).length;
-    const totalSteps = allSteps.length;
+    // Add string checks
+    let extraCompleted = 0;
+    if (dorse.akmTseMuayenesi === 'YAPILDI') extraCompleted++;
+    if (dorse.dmoMuayenesi === 'YAPILDI') extraCompleted++;
 
-    if (completedSteps === totalSteps) {
+    const totalSteps = allSteps.length + 2;
+
+    if (completedSteps + extraCompleted === totalSteps) {
       return 'tamamlanan';
-    } else if (completedSteps === 0) {
+    } else if (completedSteps + extraCompleted === 0) {
       return 'baslamayan';
     } else {
       return 'devamEden';
@@ -236,25 +249,27 @@ function DashboardContent() {
         await createDorse({
           imalatNo: dorseFormData.imalatNo ? parseInt(dorseFormData.imalatNo) : 0,
           musteri: dorseFormData.musteri,
-          dorseGeldiMi: dorseFormData.dorseGeldiMi,
+          cekiciGeldiMi: dorseFormData.cekiciGeldiMi,
           dingil: dorseFormData.dingil || null,
           lastik: dorseFormData.lastik || null,
           tampon: dorseFormData.tampon || null,
-          sacCinsi: dorseFormData.sacCinsi,
+          kalinlik: dorseFormData.kalinlik,
           m3: dorseFormData.m3 ? parseFloat(dorseFormData.m3) : null,
           adet: quantity,
+          sasiNo: dorseFormData.sasiNo || null,
         });
         setShowAddModal(false);
         setDorseFormData({
           imalatNo: '',
           musteri: '',
-          dorseGeldiMi: false,
+          cekiciGeldiMi: false,
           dingil: '',
           lastik: '',
           tampon: '',
-          sacCinsi: '',
+          kalinlik: '',
           m3: '',
           adet: '1',
+          sasiNo: '',
         });
         loadData();
         if (quantity > 1) {
@@ -937,7 +952,7 @@ function DashboardContent() {
                           borderRadius: '6px',
                           fontSize: '12px'
                         }}>
-                          {dorse.sacCinsi}
+                          {dorse.kalinlik}
                         </span>
                       </div>
                       <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
@@ -954,8 +969,8 @@ function DashboardContent() {
                         width: '10px',
                         height: '10px',
                         borderRadius: '50%',
-                        background: dorse.dorseGeldiMi ? 'var(--success)' : 'var(--danger)'
-                      }} title={dorse.dorseGeldiMi ? 'Dorse Geldi' : 'Dorse Gelmedi'}></div>
+                        background: dorse.cekiciGeldiMi ? 'var(--success)' : 'var(--danger)'
+                      }} title={dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}></div>
                       <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
                     </div>
 
@@ -969,6 +984,7 @@ function DashboardContent() {
                           paddingBottom: '20px',
                           borderBottom: '1px solid var(--border)'
                         }}>
+                          {/* İmalat No */}
                           {/* İmalat No */}
                           <div style={{
                             background: 'var(--card-bg-secondary)',
@@ -989,8 +1005,8 @@ function DashboardContent() {
                             <input
                               type="number"
                               className="input"
-                              style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
-                              placeholder="İmalat No"
+                              style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                              placeholder="No"
                               value={dorse.imalatNo ?? ''}
                               onClick={(e) => e.stopPropagation()}
                               onChange={async (e) => {
@@ -1001,7 +1017,71 @@ function DashboardContent() {
                             />
                           </div>
 
-                          {/* Dorse Durumu */}
+                          {/* Şasi No */}
+                          <div style={{
+                            background: 'var(--card-bg-secondary)',
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px'
+                          }}>
+                            <div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                              <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                {dorse.sasiNo || '-'}
+                              </div>
+                            </div>
+                            <input
+                              type="text"
+                              className="input"
+                              style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                              placeholder="Şasi No"
+                              value={dorse.sasiNo ?? ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={async (e) => {
+                                const newSasiNo = e.target.value;
+                                const updated = await updateDorse(dorse.id, { sasiNo: newSasiNo });
+                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                              }}
+                            />
+                          </div>
+
+                          {/* Kalınlık */}
+                          <div style={{
+                            background: 'var(--card-bg-secondary)',
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px'
+                          }}>
+                            <div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>KALINLIK</div>
+                              <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                {dorse.kalinlik || '-'}
+                              </div>
+                            </div>
+                            <input
+                              type="text"
+                              className="input"
+                              style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                              placeholder="Kalınlık"
+                              value={dorse.kalinlik ?? ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={async (e) => {
+                                const newKalinlik = e.target.value;
+                                const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
+                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                              }}
+                            />
+                          </div>
+
+                          {/* Dorse Durumu -> Çekici Durumu */}
                           <div style={{
                             background: 'var(--card-bg-secondary)',
                             padding: '12px 16px',
@@ -1012,16 +1092,16 @@ function DashboardContent() {
                             justifyContent: 'space-between'
                           }}>
                             <div>
-                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DORSE DURUMU</div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ÇEKİCİ DURUMU</div>
                               <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                {dorse.dorseGeldiMi ? 'Dorse Fabrikada' : 'Dorse Gelmedi'}
+                                {dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}
                               </div>
                             </div>
                             <div
-                              className={`step-toggle ${dorse.dorseGeldiMi ? 'active' : ''}`}
+                              className={`step-toggle ${dorse.cekiciGeldiMi ? 'active' : ''}`}
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                const updated = await updateDorse(dorse.id, { dorseGeldiMi: !dorse.dorseGeldiMi });
+                                const updated = await updateDorse(dorse.id, { cekiciGeldiMi: !dorse.cekiciGeldiMi });
                                 setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                               }}
                               style={{ transform: 'scale(1.1)' }}
@@ -1298,6 +1378,16 @@ function DashboardContent() {
                         />
                       </div>
                       <div className="form-group">
+                        <label className="form-label">Şasi No</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Şasi No giriniz..."
+                          value={dorseFormData.sasiNo}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, sasiNo: e.target.value }))}
+                        />
+                      </div>
+                      <div className="form-group">
                         <label className="form-label">Müşteri *</label>
                         <input
                           type="text"
@@ -1308,11 +1398,11 @@ function DashboardContent() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Dorse Geldi Mi *</label>
+                        <label className="form-label">Çekici Geldi Mi *</label>
                         <select
                           className="select"
-                          value={dorseFormData.dorseGeldiMi ? 'EVET' : 'HAYIR'}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, dorseGeldiMi: e.target.value === 'EVET' }))}
+                          value={dorseFormData.cekiciGeldiMi ? 'EVET' : 'HAYIR'}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, cekiciGeldiMi: e.target.value === 'EVET' }))}
                         >
                           <option value="HAYIR">HAYIR</option>
                           <option value="EVET">EVET</option>
@@ -1349,18 +1439,14 @@ function DashboardContent() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Sac Cinsi</label>
-                        <select
-                          className="select"
-                          value={dorseFormData.sacCinsi}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, sacCinsi: e.target.value }))}
-                        >
-                          <option value="">Seçiniz</option>
-                          <option value="HARDOX">HARDOX</option>
-                          <option value="MC 700">MC 700</option>
-                          <option value="ST 37">ST 37</option>
-                          <option value="ST 52">ST 52</option>
-                        </select>
+                        <label className="form-label">Kalınlık</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Örn: 4mm..."
+                          value={dorseFormData.kalinlik}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: e.target.value }))}
+                        />
                       </div>
                       <div className="form-group">
                         <label className="form-label">M³</label>

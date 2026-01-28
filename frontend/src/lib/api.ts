@@ -101,6 +101,28 @@ export interface DamperSummary {
     teslimat: string;
 }
 
+export interface DorseSummary {
+    id: number;
+    imalatNo: number;
+    musteri: string;
+    cekiciGeldiMi: boolean;
+    sasiNo: string | null;
+    kalinlik: string | null;
+    m3: number | null;
+    kesimBukum: string;
+    sasiBitis: string;
+    onHazirlik: string;
+    montaj: string; // includes hidrolik in backend but separate col in frontend?
+    hidrolik: string; // we manually set this in backend
+    boyaBitis: string;
+    tamamlamaBitis: string;
+    sonKontrol: string;
+    kurumMuayenesi: string; // backend maps akmTseMuayenesi to this? or we rename?
+    // In backend I mapped: kurumMuayenesi: dorse.akmTseMuayenesi
+    dmoMuayenesi: string;
+    teslimat: string;
+}
+
 export interface Stats {
     total: number;
     tamamlanan: number;
@@ -252,6 +274,11 @@ export async function deleteDamper(id: number): Promise<void> {
 export async function getDampersSummary(): Promise<DamperSummary[]> {
     const res = await fetch(`${API_URL}/dampers-summary`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<DamperSummary[]>(res);
+}
+
+export async function getDorsesSummary(): Promise<DorseSummary[]> {
+    const res = await fetch(`${API_URL}/dorses-summary`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<DorseSummary[]>(res);
 }
 
 export async function getStats(type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<Stats> {

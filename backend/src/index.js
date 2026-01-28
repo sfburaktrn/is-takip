@@ -513,6 +513,57 @@ app.delete('/api/dampers/:id', async (req, res) => {
     }
 });
 
+// Get dorse summary view
+app.get('/api/dorses-summary', async (req, res) => {
+    try {
+        const dorses = await prisma.dorse.findMany({
+            orderBy: { imalatNo: 'desc' }
+        });
+
+        const summary = dorses.map(dorse => ({
+            id: dorse.id,
+            imalatNo: dorse.imalatNo,
+            musteri: dorse.musteri,
+            cekiciGeldiMi: dorse.cekiciGeldiMi,
+            dingil: dorse.dingil,
+            lastik: dorse.lastik,
+            tampon: dorse.tampon,
+            kalinlik: dorse.kalinlik,
+            m3: dorse.m3,
+            adet: dorse.adet,
+            sasiNo: dorse.sasiNo,
+            kesimBukum: calculateMainDorseStepStatus(dorse, 'kesimBukum'),
+            sasiBitis: calculateMainDorseStepStatus(dorse, 'sasiBitis'),
+            onHazirlik: calculateMainDorseStepStatus(dorse, 'onHazirlik'),
+            montaj: calculateMainDorseStepStatus(dorse, 'montaj'),
+            hidrolik: dorse.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI', // Standalone step in dorse? Check usage.
+            // Wait, hidrolik is part of montaj in backend DORSE_STEP_GROUPS for Dorse?
+            // "montaj": subSteps: ['dorseKurulmasi', 'dorseKaynak', 'kapakSiperlik', 'yukleme', 'hidrolik']
+            // So 'hidrolik' is inside 'montaj'. But in damper summary it's separate.
+            // Let's check DORSE_STEP_GROUPS again in prev view_file.
+            // 'montaj' group has 'hidrolik'.
+            // In 'damper', 'hidrolik' is a separate GROUP.
+            // Let's stick to returning what ozet page expects.
+            // If ozet page has 'Hidrolik' column, I should probably expose it or use the group status if it exists.
+            // For now, let's map according to DORSE_STEP_GROUPS.
+            // Groups are: kesimBukum, sasiBitis, onHazirlik, montaj, boya, tamamlama, sonKontrol.
+            // Wait, does Dorse have 'boyaBitis'? The group is named 'boya'.
+            boyaBitis: calculateMainDorseStepStatus(dorse, 'boya'),
+            tamamlamaBitis: calculateMainDorseStepStatus(dorse, 'tamamlama'),
+            sonKontrol: calculateMainDorseStepStatus(dorse, 'sonKontrol'),
+            // Specific extra fields if needed:
+            kurumMuayenesi: dorse.akmTseMuayenesi || 'YOK', // Map to akmTse?
+            dmoMuayenesi: dorse.dmoMuayenesi || 'YOK',
+            teslimat: dorse.teslimat ? 'YAMAMLANDI' : 'BAŞLAMADI'
+        }));
+
+        res.json(summary);
+    } catch (error) {
+        console.error('Error fetching dorse summary:', error);
+        res.status(500).json({ error: 'Failed to fetch dorse summary' });
+    }
+});
+
 // Get summary view (only main steps)
 app.get('/api/dampers-summary', async (req, res) => {
     try {

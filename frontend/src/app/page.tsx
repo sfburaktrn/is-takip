@@ -7,33 +7,41 @@ import {
   getStats,
   getDampers,
   getDorses,
+  getSasis,
   getDropdowns,
   createDamper,
   createDorse,
+  createSasi,
   updateDamper,
   updateDorse,
+  updateSasi,
   deleteDamper,
   deleteDorse,
+  deleteSasi,
   type Stats,
   type Damper,
   type Dorse,
+  type Sasi,
   type Dropdowns,
   STEP_GROUPS,
-  DORSE_STEP_GROUPS
+  DORSE_STEP_GROUPS,
+  SASI_STEP_GROUPS
 } from '@/lib/api';
 import Link from 'next/link';
 
-type ProductType = 'DAMPER' | 'DORSE';
+type ProductType = 'DAMPER' | 'DORSE' | 'SASI';
 
 function DashboardContent() {
   const [productType, setProductType] = useState<ProductType>('DAMPER');
   const [stats, setStats] = useState<Stats | null>(null);
   const [dampers, setDampers] = useState<Damper[]>([]);
   const [dorses, setDorses] = useState<Dorse[]>([]);
+  const [sasis, setSasis] = useState<Sasi[]>([]);
   const [dropdowns, setDropdowns] = useState<Dropdowns | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [sasiFilter, setSasiFilter] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'progress-asc' | 'progress-desc' | 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc' | null>(null);
 
@@ -66,6 +74,17 @@ function DashboardContent() {
     malzemeCinsi: '',
   });
 
+  // Sasi Form State
+  const [sasiFormData, setSasiFormData] = useState({
+    imalatNo: '',
+    musteri: '',
+    adet: '1',
+    sasiNo: '',
+    tampon: '',
+    dingil: '',
+    isStok: true,
+  });
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadData();
@@ -73,15 +92,17 @@ function DashboardContent() {
 
   async function loadData() {
     try {
-      const [statsData, dampersData, dorsesData, dropdownsData] = await Promise.all([
+      const [statsData, dampersData, dorsesData, sasisData, dropdownsData] = await Promise.all([
         getStats(),
         getDampers(),
         getDorses(),
+        getSasis(),
         getDropdowns()
       ]);
       setStats(statsData);
       setDampers(dampersData);
       setDorses(dorsesData);
+      setSasis(sasisData);
       setDropdowns(dropdownsData);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -186,14 +207,49 @@ function DashboardContent() {
     }
   };
 
+  const calculateSasiProgress = (sasi: Sasi): number => {
+    // Collect all sub-steps from SASI_STEP_GROUPS
+    const allSteps: boolean[] = [];
+    SASI_STEP_GROUPS.forEach(group => {
+      group.subSteps.forEach(step => {
+        // @ts-ignore
+        allSteps.push(sasi[step.key]);
+      });
+    });
+
+    const completed = allSteps.filter(Boolean).length;
+    const total = allSteps.length;
+    return total === 0 ? 0 : Math.round((completed / total) * 100);
+  };
+
+  const getSasiStatus = (sasi: Sasi): string => {
+    const allSteps: boolean[] = [];
+    SASI_STEP_GROUPS.forEach(group => {
+      group.subSteps.forEach(step => {
+        // @ts-ignore
+        allSteps.push(sasi[step.key]);
+      });
+    });
+
+    const completedSteps = allSteps.filter(Boolean).length;
+    const totalSteps = allSteps.length;
+
+    if (completedSteps === totalSteps) return 'tamamlanan';
+    if (completedSteps === 0) return 'baslamayan';
+    return 'devamEden';
+  };
+
   const handleStepToggle = async (id: number, stepKey: string, currentValue: boolean, type: ProductType) => {
     try {
       if (type === 'DAMPER') {
         const updated = await updateDamper(id, { [stepKey]: !currentValue });
         setDampers(prev => prev.map(d => d.id === id ? updated : d));
-      } else {
+      } else if (type === 'DORSE') {
         const updated = await updateDorse(id, { [stepKey]: !currentValue });
         setDorses(prev => prev.map(d => d.id === id ? updated : d));
+      } else if (type === 'SASI') {
+        const updated = await updateSasi(id, { [stepKey]: !currentValue });
+        setSasis(prev => prev.map(s => s.id === id ? updated : s));
       }
     } catch (error) {
       console.error('Error updating step:', error);
@@ -237,7 +293,7 @@ function DashboardContent() {
         console.error('Error creating damper:', error);
         alert('Damper oluşturulurken hata oluştu');
       }
-    } else {
+    } else if (productType === 'DORSE') {
       // Dorse Creation
       const quantity = parseInt(dorseFormData.adet) || 1;
       try {
@@ -277,6 +333,36 @@ function DashboardContent() {
       } catch (error) {
         console.error('Error creating dorse:', error);
         alert('Dorse oluşturulurken hata oluştu');
+      }
+    } else if (productType === 'SASI') {
+      // Sasi Creation
+      const quantity = parseInt(sasiFormData.adet) || 1;
+      try {
+        await createSasi({
+          imalatNo: sasiFormData.imalatNo ? parseInt(sasiFormData.imalatNo) : null,
+          musteri: sasiFormData.isStok ? 'Stok' : sasiFormData.musteri,
+          adet: quantity,
+          sasiNo: sasiFormData.sasiNo || null,
+          tampon: sasiFormData.tampon || null,
+          dingil: sasiFormData.dingil || null,
+        });
+        setShowAddModal(false);
+        setSasiFormData({
+          imalatNo: '',
+          musteri: '',
+          adet: '1',
+          sasiNo: '',
+          tampon: '',
+          dingil: '',
+          isStok: true,
+        });
+        loadData();
+        if (quantity > 1) {
+          alert(`${quantity} adet şasi başarıyla oluşturuldu!`);
+        }
+      } catch (error) {
+        console.error('Error creating sasi:', error);
+        alert('Şasi oluşturulurken hata oluştu');
       }
     }
   };
@@ -341,19 +427,71 @@ function DashboardContent() {
       });
     }
 
-    return statusFilter || sortBy ? result : result.slice(0, 5);
+    return statusFilter || sortBy ? result : result.slice(0, 50);
   }, [dorses, statusFilter, sortBy]);
+
+  // Filter and sort sasis
+  const sortedSasis = useMemo(() => {
+    let result = statusFilter
+      ? sasis.filter(s => getSasiStatus(s) === statusFilter)
+      : [...sasis];
+
+    if (sasiFilter) {
+      result = result.filter(s => {
+        if (sasiFilter === 'Kırma-BPW') return s.tampon === 'Kırma Tampon' && s.dingil === 'BPW';
+        if (sasiFilter === 'Kırma-TRAX') return s.tampon === 'Kırma Tampon' && s.dingil === 'TRAX';
+        if (sasiFilter === 'Sabit-TRAX') return s.tampon === 'Sabit Tampon' && s.dingil === 'TRAX';
+        if (sasiFilter === 'Sabit-BPW') return s.tampon === 'Sabit Tampon' && s.dingil === 'BPW';
+        return true;
+      });
+    }
+
+    if (sortBy) {
+      result.sort((a, b) => {
+        switch (sortBy) {
+          case 'progress-asc':
+            return calculateSasiProgress(a) - calculateSasiProgress(b);
+          case 'progress-desc':
+            return calculateSasiProgress(b) - calculateSasiProgress(a);
+          case 'name-asc':
+            return a.musteri.localeCompare(b.musteri, 'tr');
+          case 'name-desc':
+            return b.musteri.localeCompare(a.musteri, 'tr');
+          case 'date-asc':
+            return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+          case 'date-desc':
+            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return statusFilter || sortBy || sasiFilter ? result : result.slice(0, 50);
+  }, [sasis, statusFilter, sortBy, sasiFilter]);
 
   const currentStats = useMemo(() => {
     if (productType === 'DAMPER') return stats;
 
-    // Calculate Dorse stats client-side
-    return {
-      total: dorses.length,
-      tamamlanan: dorses.filter(d => getDorseStatus(d) === 'tamamlanan').length,
-      devamEden: dorses.filter(d => getDorseStatus(d) === 'devamEden').length,
-      baslamayan: dorses.filter(d => getDorseStatus(d) === 'baslamayan').length
-    };
+    if (productType === 'DORSE') {
+      return {
+        total: dorses.length,
+        tamamlanan: dorses.filter(d => getDorseStatus(d) === 'tamamlanan').length,
+        devamEden: dorses.filter(d => getDorseStatus(d) === 'devamEden').length,
+        baslamayan: dorses.filter(d => getDorseStatus(d) === 'baslamayan').length
+      };
+    }
+
+    if (productType === 'SASI') {
+      return {
+        total: sasis.length,
+        tamamlanan: sasis.filter(s => getSasiStatus(s) === 'tamamlanan').length,
+        devamEden: sasis.filter(s => getSasiStatus(s) === 'devamEden').length,
+        baslamayan: sasis.filter(s => getSasiStatus(s) === 'baslamayan').length
+      };
+    }
+
+    return null;
   }, [productType, stats, dorses]);
 
   if (loading) {
@@ -374,10 +512,10 @@ function DashboardContent() {
           <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h1 className="header-title">Dashboard</h1>
-              <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : 'Dorse'} imalat süreçlerine genel bakış</p>
+              <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerine genel bakış</p>
             </div>
             <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-              ➕ Yeni {productType === 'DAMPER' ? 'Damper' : 'Dorse'} Ekle
+              ➕ Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
             </button>
           </div>
 
@@ -415,6 +553,22 @@ function DashboardContent() {
             >
               Dorseler
             </button>
+            <button
+              type="button"
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                background: productType === 'SASI' ? 'var(--primary)' : 'transparent',
+                color: productType === 'SASI' ? 'white' : 'var(--muted)',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onClick={() => setProductType('SASI')}
+            >
+              Şasiler
+            </button>
           </div>
         </header>
 
@@ -428,7 +582,7 @@ function DashboardContent() {
             <div className="stat-icon blue">📦</div>
             <div>
               <div className="stat-value">{currentStats?.total || 0}</div>
-              <div className="stat-label">Toplam {productType === 'DAMPER' ? 'Damper' : 'Dorse'}</div>
+              <div className="stat-label">Toplam {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'}</div>
             </div>
           </div>
           <div
@@ -470,10 +624,10 @@ function DashboardContent() {
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 600 }}>
-              {statusFilter === 'tamamlanan' && `✅ Tamamlanan ${productType === 'DAMPER' ? 'Damperler' : 'Dorseler'}`}
-              {statusFilter === 'devamEden' && `🔄 Devam Eden ${productType === 'DAMPER' ? 'Damperler' : 'Dorseler'}`}
-              {statusFilter === 'baslamayan' && `⏸️ Başlamayan ${productType === 'DAMPER' ? 'Damperler' : 'Dorseler'}`}
-              {!statusFilter && `Son Eklenen ${productType === 'DAMPER' ? 'Damperler' : 'Dorseler'}`}
+              {statusFilter === 'tamamlanan' && `✅ Tamamlanan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
+              {statusFilter === 'devamEden' && `🔄 Devam Eden ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
+              {statusFilter === 'baslamayan' && `⏸️ Başlamayan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
+              {!statusFilter && `Son Eklenen ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
             </h2>
             {statusFilter && (
               <button className="btn btn-secondary" onClick={() => setStatusFilter(null)}>
@@ -486,6 +640,69 @@ function DashboardContent() {
               </Link>
             )}
           </div>
+
+          {/* Sasi Filters */}
+          {productType === 'SASI' && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <button
+                className={`btn btn-secondary`}
+                style={{
+                  fontSize: '12px',
+                  padding: '6px 12px',
+                  background: sasiFilter === 'Kırma-BPW' ? 'var(--primary)' : undefined,
+                  color: sasiFilter === 'Kırma-BPW' ? 'white' : undefined,
+                  border: sasiFilter === 'Kırma-BPW' ? 'none' : undefined
+                }}
+                onClick={() => setSasiFilter(sasiFilter === 'Kırma-BPW' ? null : 'Kırma-BPW')}
+              >
+                Kırma-BPW
+              </button>
+              <button
+                className={`btn btn-secondary`}
+                style={{
+                  fontSize: '12px',
+                  padding: '6px 12px',
+                  background: sasiFilter === 'Kırma-TRAX' ? 'var(--primary)' : undefined,
+                  color: sasiFilter === 'Kırma-TRAX' ? 'white' : undefined,
+                  border: sasiFilter === 'Kırma-TRAX' ? 'none' : undefined
+                }}
+                onClick={() => setSasiFilter(sasiFilter === 'Kırma-TRAX' ? null : 'Kırma-TRAX')}
+              >
+                Kırma-TRAX
+              </button>
+              <button
+                className={`btn btn-secondary`}
+                style={{
+                  fontSize: '12px',
+                  padding: '6px 12px',
+                  background: sasiFilter === 'Sabit-TRAX' ? 'var(--primary)' : undefined,
+                  color: sasiFilter === 'Sabit-TRAX' ? 'white' : undefined,
+                  border: sasiFilter === 'Sabit-TRAX' ? 'none' : undefined
+                }}
+                onClick={() => setSasiFilter(sasiFilter === 'Sabit-TRAX' ? null : 'Sabit-TRAX')}
+              >
+                Sabit-TRAX
+              </button>
+              <button
+                className={`btn btn-secondary`}
+                style={{
+                  fontSize: '12px',
+                  padding: '6px 12px',
+                  background: sasiFilter === 'Sabit-BPW' ? 'var(--primary)' : undefined,
+                  color: sasiFilter === 'Sabit-BPW' ? 'white' : undefined,
+                  border: sasiFilter === 'Sabit-BPW' ? 'none' : undefined
+                }}
+                onClick={() => setSasiFilter(sasiFilter === 'Sabit-BPW' ? null : 'Sabit-BPW')}
+              >
+                Sabit-BPW
+              </button>
+              {sasiFilter && (
+                <button className="btn btn-secondary" onClick={() => setSasiFilter(null)} style={{ color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  ✕ Filtreyi Kaldır
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Sıralama Butonları */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px', marginBottom: '20px' }}>
@@ -924,7 +1141,7 @@ function DashboardContent() {
                 );
               })
             )
-          ) : (
+          ) : productType === 'DORSE' ? (
             sortedDorses.length === 0 ? (
               <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
                 Bu kategoride dorse bulunamadı
@@ -1337,6 +1554,216 @@ function DashboardContent() {
                 );
               })
             )
+          ) : (
+            sortedSasis.length === 0 ? (
+              <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
+                Bu kategoride şasi bulunamadı
+              </div>
+            ) : (
+              sortedSasis.map((sasi) => {
+                const progress = calculateSasiProgress(sasi);
+                const overallStatus = getSasiStatus(sasi).toUpperCase();
+                const isExpanded = expandedId === sasi.id;
+
+                return (
+                  <div key={sasi.id} className="damper-card">
+                    <div
+                      className="damper-card-header"
+                      onClick={() => setExpandedId(isExpanded ? null : sasi.id)}
+                    >
+                      <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{sasi.imalatNo}</div>
+                      <div style={{ fontWeight: 500 }}>{sasi.musteri}</div>
+                      <div>
+                        <span style={{
+                          background: 'rgba(99, 102, 241, 0.1)',
+                          color: 'var(--primary)',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '12px'
+                        }}>
+                          ŞASİ
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                        {sasi.tampon} | {sasi.dingil}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
+                          <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                      </div>
+                      <div>{getStatusBadge(overallStatus === 'TAMAMLANAN' ? 'TAMAMLANDI' : overallStatus === 'BASLAMAYAN' ? 'BAŞLAMADI' : 'DEVAM EDİYOR')}</div>
+                      <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="damper-card-body">
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                          gap: '12px',
+                          marginBottom: '20px',
+                          paddingBottom: '20px',
+                          borderBottom: '1px solid var(--border)'
+                        }}>
+                          {/* İmalat No */}
+                          <div style={{
+                            background: 'var(--card-bg-secondary)',
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            border: !sasi.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px'
+                          }}>
+                            <div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                              <div style={{ fontSize: '14px', fontWeight: 500, color: !sasi.imalatNo ? 'var(--warning)' : 'var(--foreground)' }}>
+                                {sasi.imalatNo ?? 'Girilmedi'}
+                              </div>
+                            </div>
+                            <input
+                              type="number"
+                              className="input"
+                              style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                              placeholder="No"
+                              value={sasi.imalatNo ?? ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={async (e) => {
+                                const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                const updated = await updateSasi(sasi.id, { imalatNo: newImalatNo });
+                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                              }}
+                            />
+                          </div>
+
+
+                          {/* Dingil & Tampon */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{
+                              background: 'var(--card-bg-secondary)',
+                              padding: '12px 16px',
+                              borderRadius: '10px',
+                              border: '1px solid var(--border)',
+                            }}>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
+                              <select
+                                className="select"
+                                style={{
+                                  width: '100%',
+                                  padding: '4px',
+                                  fontSize: '13px',
+                                  background: 'var(--card-bg-secondary)',
+                                  border: 'none',
+                                  color: 'var(--foreground)'
+                                }}
+                                value={sasi.dingil || ''}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={async (e) => {
+                                  const updated = await updateSasi(sasi.id, { dingil: e.target.value });
+                                  setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                }}
+                              >
+                                <option style={{ color: 'black' }} value="">Seçiniz</option>
+                                <option style={{ color: 'black' }} value="TRAX">TRAX</option>
+                                <option style={{ color: 'black' }} value="BPW">BPW</option>
+                              </select>
+                            </div>
+                            <div style={{
+                              background: 'var(--card-bg-secondary)',
+                              padding: '12px 16px',
+                              borderRadius: '10px',
+                              border: '1px solid var(--border)',
+                            }}>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
+                              <select
+                                className="select"
+                                style={{
+                                  width: '100%',
+                                  padding: '4px',
+                                  fontSize: '13px',
+                                  background: 'var(--card-bg-secondary)',
+                                  border: 'none',
+                                  color: 'var(--foreground)'
+                                }}
+                                value={sasi.tampon || ''}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={async (e) => {
+                                  const updated = await updateSasi(sasi.id, { tampon: e.target.value });
+                                  setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                }}
+                              >
+                                <option style={{ color: 'black' }} value="">Seçiniz</option>
+                                <option style={{ color: 'black' }} value="Kırma Tampon">KIRMA</option>
+                                <option style={{ color: 'black' }} value="Sabit Tampon">SABİT</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Sasi Steps */}
+                        {SASI_STEP_GROUPS.map((group) => {
+                          return (
+                            <div key={group.key} className="step-group">
+                              <div className="step-group-title">
+                                {group.name}
+                              </div>
+                              <div className="step-items">
+                                {group.subSteps.map((step) => {
+                                  // Handle boolean steps (Toggles)
+                                  const isCompleted = sasi[step.key as keyof Sasi] as boolean;
+                                  return (
+                                    <div key={step.key} className="step-item">
+                                      <span className="step-item-label">{step.label}</span>
+                                      <div
+                                        className={`step-toggle ${isCompleted ? 'active' : ''}`}
+                                        onClick={() => handleStepToggle(sasi.id, step.key, isCompleted, 'SASI')}
+                                      ></div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Delete Button */}
+                        <div style={{
+                          marginTop: '20px',
+                          paddingTop: '16px',
+                          borderTop: '1px solid var(--border)',
+                          display: 'flex',
+                          justifyContent: 'flex-end'
+                        }}>
+                          <button
+                            className="btn"
+                            style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`"${sasi.musteri}" - İmalat No: ${sasi.imalatNo}\n\nBu şasiyi silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+                                try {
+                                  await deleteSasi(sasi.id);
+                                  setSasis(prev => prev.filter(s => s.id !== sasi.id));
+                                  setExpandedId(null);
+                                  loadData();
+                                } catch (error) {
+                                  console.error('Error deleting sasi:', error);
+                                  alert('Şasi silinirken hata oluştu');
+                                }
+                              }
+                            }}
+                          >
+                            🗑️ Şasiyi Sil
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )
           )}
         </div>
 
@@ -1345,7 +1772,7 @@ function DashboardContent() {
           <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Yeni Damper Ekle</h2>
+                <h2 className="modal-title">Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle</h2>
                 <button className="modal-close" onClick={() => setShowAddModal(false)}>✕</button>
               </div>
               <form onSubmit={handleCreate}>
@@ -1458,7 +1885,7 @@ function DashboardContent() {
                         )}
                       </div>
                     </div>
-                  ) : (
+                  ) : productType === 'DORSE' ? (
                     // DORSE FORM fields
                     <div className="form-grid">
                       <div className="form-group">
@@ -1587,6 +2014,81 @@ function DashboardContent() {
                         />
                       </div>
                     </div>
+                  ) : (
+                    // SASI FORM fields
+                    <div className="form-grid">
+                      <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                        <label className="form-label">Kayıt Tipi *</label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            className={`btn ${sasiFormData.isStok ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{ flex: 1 }}
+                            onClick={() => setSasiFormData(prev => ({ ...prev, isStok: true }))}
+                          >
+                            📦 Stok Kaydı
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn ${!sasiFormData.isStok ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{ flex: 1 }}
+                            onClick={() => setSasiFormData(prev => ({ ...prev, isStok: false }))}
+                          >
+                            👤 Müşteri Kaydı
+                          </button>
+                        </div>
+                      </div>
+
+                      {!sasiFormData.isStok && (
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                          <label className="form-label">Müşteri Adı *</label>
+                          <input
+                            type="text"
+                            className="input"
+                            required
+                            placeholder="Müşteri adını giriniz..."
+                            value={sasiFormData.musteri}
+                            onChange={(e) => setSasiFormData(prev => ({ ...prev, musteri: e.target.value }))}
+                          />
+                        </div>
+                      )}
+
+                      <div className="form-group">
+                        <label className="form-label">Dingil</label>
+                        <select
+                          className="select"
+                          value={sasiFormData.dingil}
+                          onChange={(e) => setSasiFormData(prev => ({ ...prev, dingil: e.target.value }))}
+                        >
+                          <option value="">Seçiniz</option>
+                          <option value="TRAX">TRAX</option>
+                          <option value="BPW">BPW</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Tampon</label>
+                        <select
+                          className="select"
+                          value={sasiFormData.tampon}
+                          onChange={(e) => setSasiFormData(prev => ({ ...prev, tampon: e.target.value }))}
+                        >
+                          <option value="">Seçiniz</option>
+                          <option value="Kırma Tampon">KIRMA</option>
+                          <option value="Sabit Tampon">SABİT</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Adet *</label>
+                        <input
+                          type="number"
+                          className="input"
+                          required
+                          min="1"
+                          value={sasiFormData.adet}
+                          onChange={(e) => setSasiFormData(prev => ({ ...prev, adet: e.target.value }))}
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
                 <div className="modal-footer">
@@ -1594,7 +2096,7 @@ function DashboardContent() {
                     İptal
                   </button>
                   <button type="submit" className="btn btn-primary">
-                    {productType === 'DAMPER' ? 'Damper Ekle' : 'Dorse Ekle'}
+                    {productType === 'DAMPER' ? 'Damper Ekle' : productType === 'DORSE' ? 'Dorse Ekle' : 'Şasi Ekle'}
                   </button>
                 </div>
               </form>

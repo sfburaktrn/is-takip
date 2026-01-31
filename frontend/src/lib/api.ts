@@ -448,6 +448,43 @@ export interface Dorse {
     updatedAt?: string;
 }
 
+
+export interface Sasi {
+    id: number;
+    imalatNo: number | null;
+    musteri: string;
+    sasiNo: string | null;
+    tampon: string | null;
+    dingil: string | null;
+    adet: number;
+
+    // Sub-steps
+    plazmaProgrami: boolean;
+    sacMalzemeKontrolu: boolean;
+    plazmaKesim: boolean;
+    presBukum: boolean;
+
+    lenjorenMontaji: boolean;
+    robotKaynagi: boolean;
+
+    saseFiksturCatim: boolean;
+    kaynak: boolean;
+    dingilMontaji: boolean;
+    genelKaynak: boolean;
+    tesisatCubugu: boolean;
+    mekanikAyak: boolean;
+    korukMontaji: boolean;
+    lastikMontaji: boolean;
+
+    // Calculated statuses
+    kesimBukumStatus?: string;
+    onHazirlikStatus?: string;
+    montajStatus?: string;
+
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 export async function getDorses(): Promise<Dorse[]> {
     const res = await fetch(`${API_URL}/dorses`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Dorse[]>(res);
@@ -479,6 +516,44 @@ export async function deleteDorse(id: number): Promise<void> {
         credentials: 'include',
     });
     if (!res.ok) throw new Error('Failed to delete dorse');
+}
+
+export async function getSasis(): Promise<Sasi[]> {
+    const res = await fetch(`${API_URL}/sasis`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<Sasi[]>(res);
+}
+
+export async function getSasi(id: number): Promise<Sasi> {
+    const res = await fetch(`${API_URL}/sasis/${id}`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<Sasi>(res);
+}
+
+export async function createSasi(data: Partial<Sasi>): Promise<Sasi> {
+    const res = await fetch(`${API_URL}/sasis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data),
+    });
+    return handleResponse<Sasi>(res);
+}
+
+export async function updateSasi(id: number, data: Partial<Sasi>): Promise<Sasi> {
+    const res = await fetch(`${API_URL}/sasis/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data),
+    });
+    return handleResponse<Sasi>(res);
+}
+
+export async function deleteSasi(id: number): Promise<void> {
+    const res = await fetch(`${API_URL}/sasis/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete sasi');
 }
 
 export const DORSE_STEP_GROUPS = [
@@ -553,6 +628,44 @@ export const DORSE_STEP_GROUPS = [
             { key: 'dmoMuayenesi', label: 'Dmo Muayenesi' },
             { key: 'tahsilat', label: 'Tahsilat' },
             { key: 'teslimat', label: 'Teslimat' },
+        ],
+    },
+];
+
+export const SASI_STEP_GROUPS = [
+    {
+        key: 'kesimBukum',
+        name: 'KESİM - BÜKÜM',
+        statusKey: 'kesimBukumStatus',
+        subSteps: [
+            { key: 'plazmaProgrami', label: 'Plazma Programı' },
+            { key: 'sacMalzemeKontrolu', label: 'Sac Malzeme Kontrolü' },
+            { key: 'plazmaKesim', label: 'Plazma Kesim' },
+            { key: 'presBukum', label: 'Pres Büküm' },
+        ],
+    },
+    {
+        key: 'onHazirlik',
+        name: 'ÖN HAZIRLIK',
+        statusKey: 'onHazirlikStatus',
+        subSteps: [
+            { key: 'lenjorenMontaji', label: 'Lenjorenlerin Montajı' },
+            { key: 'robotKaynagi', label: 'Robot Kaynağı' },
+        ],
+    },
+    {
+        key: 'montaj',
+        name: 'MONTAJ',
+        statusKey: 'montajStatus',
+        subSteps: [
+            { key: 'saseFiksturCatim', label: 'Şase fikstüründe çatım' },
+            { key: 'kaynak', label: 'Kaynak' },
+            { key: 'dingilMontaji', label: 'Dingil Montajı' },
+            { key: 'genelKaynak', label: 'Genel Kaynakların Yapılması' },
+            { key: 'tesisatCubugu', label: 'Tesisat çubuğu' },
+            { key: 'mekanikAyak', label: 'Mekanik ayak' },
+            { key: 'korukMontaji', label: 'Körüklerin Montajı' },
+            { key: 'lastikMontaji', label: 'Lastik montajı' },
         ],
     },
 ];

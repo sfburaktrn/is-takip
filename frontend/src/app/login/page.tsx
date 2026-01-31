@@ -85,7 +85,7 @@ export default function LoginPage() {
                         color: '#fff',
                         margin: 0
                     }}>
-                        Damper Takip Sistemi
+                        İmalat Takip Sistemi
                     </h1>
                     <p style={{
                         color: 'rgba(255, 255, 255, 0.5)',

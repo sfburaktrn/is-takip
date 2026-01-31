@@ -132,3 +132,36 @@ model LoginLog {
   loginAt   DateTime @default(now())
   ipAddress String?
 }
+
+model Sasi {
+  id                    Int      @id @default(autoincrement())
+  imalatNo              Int?
+  musteri               String?
+  sasiNo                String?
+  tampon                String?
+  dingil                String?
+  
+  // KESIM - BUKUM
+  plazmaProgrami        Boolean  @default(false)
+  sacMalzemeKontrolu    Boolean  @default(false)
+  plazmaKesim           Boolean  @default(false)
+  presBukum             Boolean  @default(false)
+
+  // ON HAZIRLIK
+  lenjorenMontaji       Boolean  @default(false)
+  robotKaynagi          Boolean  @default(false)
+
+  // MONTAJ
+  saseFiksturCatim      Boolean  @default(false)
+  kaynak                Boolean  @default(false)
+  dingilMontaji         Boolean  @default(false)
+  genelKaynak           Boolean  @default(false)
+  tesisatCubugu         Boolean  @default(false)
+  mekanikAyak           Boolean  @default(false)
+  korukMontaji          Boolean  @default(false)
+  lastikMontaji         Boolean  @default(false)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  adet                  Int      @default(1)
+}

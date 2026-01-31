@@ -148,9 +148,44 @@ function calculateMainDorseStepStatus(dorse, groupKey) {
     const completedCount = group.subSteps.filter(step => dorse[step] === true).length;
     const totalCount = group.subSteps.length;
 
+    if (completedCount === totalCount) return 'TAMAMLANDI';
+    return 'DEVAM EDİYOR';
+}
+
+const SASI_STEP_GROUPS = {
+    kesimBukum: {
+        name: 'KESİM - BÜKÜM',
+        subSteps: ['plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum']
+    },
+    onHazirlik: {
+        name: 'ÖN HAZIRLIK',
+        subSteps: ['lenjorenMontaji', 'robotKaynagi']
+    },
+    montaj: {
+        name: 'MONTAJ',
+        subSteps: ['saseFiksturCatim', 'kaynak', 'dingilMontaji', 'genelKaynak', 'tesisatCubugu', 'mekanikAyak', 'korukMontaji', 'lastikMontaji']
+    }
+};
+
+function calculateMainSasiStepStatus(sasi, groupKey) {
+    const group = SASI_STEP_GROUPS[groupKey];
+    if (!group) return 'BAŞLAMADI';
+
+    const completedCount = group.subSteps.filter(step => sasi[step] === true).length;
+    const totalCount = group.subSteps.length;
+
     if (completedCount === 0) return 'BAŞLAMADI';
     if (completedCount === totalCount) return 'TAMAMLANDI';
     return 'DEVAM EDİYOR';
+}
+
+function addCalculatedSasiSteps(sasi) {
+    return {
+        ...sasi,
+        kesimBukumStatus: calculateMainSasiStepStatus(sasi, 'kesimBukum'),
+        onHazirlikStatus: calculateMainSasiStepStatus(sasi, 'onHazirlik'),
+        montajStatus: calculateMainSasiStepStatus(sasi, 'montaj'),
+    };
 }
 
 // Add calculated main steps to damper object
@@ -510,6 +545,88 @@ app.delete('/api/dampers/:id', async (req, res) => {
     } catch (error) {
         console.error('Error deleting damper:', error);
         res.status(500).json({ error: 'Failed to delete damper' });
+    }
+});
+
+// ==================== SASI ROUTES ====================
+
+// Get all sasis
+app.get('/api/sasis', async (req, res) => {
+    try {
+        const sasis = await prisma.sasi.findMany({
+            orderBy: { imalatNo: 'desc' }
+        });
+
+        const sasisWithStatus = sasis.map(addCalculatedSasiSteps);
+        res.json(sasisWithStatus);
+    } catch (error) {
+        console.error('Error fetching sasis:', error);
+        res.status(500).json({ error: 'Failed to fetch sasis' });
+    }
+});
+
+// Create sasi
+app.post('/api/sasis', async (req, res) => {
+    try {
+        const { adet, musteri, ...restData } = req.body;
+        const quantity = adet || 1;
+
+        if (quantity === 1) {
+            const sasi = await prisma.sasi.create({
+                data: {
+                    ...restData,
+                    musteri,
+                    adet: 1
+                }
+            });
+            return res.status(201).json(addCalculatedSasiSteps(sasi));
+        }
+
+        const createdSasis = [];
+        for (let i = 1; i <= quantity; i++) {
+            const sasi = await prisma.sasi.create({
+                data: {
+                    ...restData,
+                    musteri: `${musteri} ${i}`,
+                    adet: 1
+                }
+            });
+            createdSasis.push(addCalculatedSasiSteps(sasi));
+        }
+
+        res.status(201).json(createdSasis);
+    } catch (error) {
+        console.error('Error creating sasi:', error);
+        res.status(500).json({ error: 'Failed to create sasi' });
+    }
+});
+
+// Update sasi
+app.put('/api/sasis/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sasi = await prisma.sasi.update({
+            where: { id: parseInt(id) },
+            data: req.body
+        });
+        res.json(addCalculatedSasiSteps(sasi));
+    } catch (error) {
+        console.error('Error updating sasi:', error);
+        res.status(500).json({ error: 'Failed to update sasi' });
+    }
+});
+
+// Delete sasi
+app.delete('/api/sasis/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.sasi.delete({
+            where: { id: parseInt(id) }
+        });
+        res.json({ message: 'Sasi deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting sasi:', error);
+        res.status(500).json({ error: 'Failed to delete sasi' });
     }
 });
 
@@ -887,11 +1004,15 @@ app.get('/api/stats', async (req, res) => {
     try {
         const { type } = req.query;
         const isDorse = type === 'DORSE';
+        const isSasi = type === 'SASI';
 
         let total, items;
         if (isDorse) {
             total = await prisma.dorse.count();
             items = await prisma.dorse.findMany();
+        } else if (isSasi) {
+            total = await prisma.sasi.count();
+            items = await prisma.sasi.findMany();
         } else {
             total = await prisma.damper.count();
             items = await prisma.damper.findMany();
@@ -920,7 +1041,13 @@ app.get('/api/stats', async (req, res) => {
             'sonKontrol', 'tipOnay', 'fatura', 'akmTseMuayenesi', 'dmoMuayenesi', 'tahsilat', 'teslimat'
         ];
 
-        const allSteps = isDorse ? dorseSteps : damperSteps;
+        const sasiSteps = [
+            'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum',
+            'lenjorenMontaji', 'robotKaynagi',
+            'saseFiksturCatim', 'kaynak', 'dingilMontaji', 'genelKaynak', 'tesisatCubugu', 'mekanikAyak', 'korukMontaji', 'lastikMontaji'
+        ];
+
+        const allSteps = isDorse ? dorseSteps : (isSasi ? sasiSteps : damperSteps);
 
         items.forEach(item => {
             // Count completed steps
@@ -1397,6 +1524,147 @@ app.delete('/api/dorses/:id', async (req, res) => {
     } catch (error) {
         console.error('Error deleting dorse:', error);
         res.status(500).json({ error: 'Failed to delete dorse' });
+    }
+});
+
+// ==================== SASI ROUTES ====================
+
+// Get all sasis
+app.get('/api/sasis', async (req, res) => {
+    try {
+        const sasis = await prisma.sasi.findMany({
+            orderBy: { imalatNo: 'desc' }
+        });
+        const sasisWithStatus = sasis.map(addCalculatedSasiSteps);
+        res.json(sasisWithStatus);
+    } catch (error) {
+        console.error('Error fetching sasis:', error);
+        res.status(500).json({ error: 'Failed to fetch sasis' });
+    }
+});
+
+// Get single sasi
+app.get('/api/sasis/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sasi = await prisma.sasi.findUnique({
+            where: { id: parseInt(id) }
+        });
+
+        if (!sasi) {
+            return res.status(404).json({ error: 'Sasi not found' });
+        }
+
+        res.json(addCalculatedSasiSteps(sasi));
+    } catch (error) {
+        console.error('Error fetching sasi:', error);
+        res.status(500).json({ error: 'Failed to fetch sasi' });
+    }
+});
+
+// Create new sasi
+app.post('/api/sasis', async (req, res) => {
+    try {
+        const { adet, musteri, ...restData } = req.body;
+        const quantity = adet || 1; // "adet" is string from frontend? usually parsed, but safe to assume
+
+        let lastStokNumber = 0;
+        if (musteri === 'Stok') {
+            // Fetch all sasis that start with "Stok" (including just "Stok" and "Stok X")
+            const allStokSasis = await prisma.sasi.findMany({
+                where: {
+                    musteri: {
+                        startsWith: 'Stok'
+                    }
+                },
+                select: { musteri: true }
+            });
+
+            // Extract numbers and find max
+            let maxNum = 0;
+            allStokSasis.forEach(s => {
+                const name = s.musteri;
+                if (name === 'Stok') {
+                    // Treat strict 'Stok' as 0, so next is 1
+                } else if (name.startsWith('Stok ')) {
+                    const numPart = name.substring(5); // "Stok ".length is 5
+                    const num = parseInt(numPart);
+                    if (!isNaN(num) && num > maxNum) {
+                        maxNum = num;
+                    }
+                }
+            });
+            lastStokNumber = maxNum;
+        }
+
+        if (quantity === 1) {
+            let finalMusteri = musteri;
+            if (musteri === 'Stok') {
+                finalMusteri = `Stok ${lastStokNumber + 1}`;
+            }
+
+            const sasi = await prisma.sasi.create({
+                data: {
+                    ...restData,
+                    musteri: finalMusteri,
+                    adet: 1
+                }
+            });
+            return res.status(201).json(addCalculatedSasiSteps(sasi));
+        }
+
+        const createdSasis = [];
+        for (let i = 1; i <= quantity; i++) {
+            let finalMusteri = musteri;
+            if (musteri === 'Stok') {
+                finalMusteri = `Stok ${lastStokNumber + i}`;
+            } else {
+                finalMusteri = `${musteri} ${i}`;
+            }
+
+            const sasi = await prisma.sasi.create({
+                data: {
+                    ...restData,
+                    musteri: finalMusteri,
+                    adet: 1
+                }
+            });
+            createdSasis.push(addCalculatedSasiSteps(sasi));
+        }
+
+        res.status(201).json(createdSasis);
+    } catch (error) {
+        console.error('Error creating sasi:', error);
+        res.status(500).json({ error: 'Failed to create sasi' });
+    }
+});
+
+// Update sasi
+app.put('/api/sasis/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sasi = await prisma.sasi.update({
+            where: { id: parseInt(id) },
+            data: req.body
+        });
+        res.json(addCalculatedSasiSteps(sasi));
+    } catch (error) {
+        console.error('Error updating sasi:', error);
+        res.status(500).json({ error: 'Failed to update sasi' });
+    }
+});
+
+// Delete sasi
+app.delete('/api/sasis/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.sasi.delete({
+            where: { id: parseInt(id) }
+        });
+        res.json({ message: 'Sasi deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting sasi:', error);
+        res.status(500).json({ error: 'Failed to delete sasi' });
     }
 });
 

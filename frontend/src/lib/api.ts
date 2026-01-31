@@ -130,6 +130,10 @@ export interface Stats {
     baslamayan: number;
     stokSasiCount?: number;
     musteriSasiCount?: number;
+    tamamlananStok?: number;
+    devamEdenStok?: number;
+    tamamlananMusteri?: number;
+    devamEdenMusteri?: number;
 }
 
 export interface Dropdowns {

@@ -1141,6 +1141,27 @@ app.get('/api/stats', async (req, res) => {
         });
 
         if (isSasi) {
+            let tamamlananStok = 0;
+            let devamEdenStok = 0;
+            let tamamlananMusteri = 0;
+            let devamEdenMusteri = 0;
+
+            items.forEach(item => {
+                const isStok = (item.musteri || '').trim().toLowerCase().startsWith('stok');
+
+                const completedCount = allSteps.filter(step => item[step] === true).length;
+                const isCompleted = completedCount === allSteps.length;
+                const isStarted = completedCount > 0;
+
+                if (isCompleted) {
+                    if (isStok) tamamlananStok++;
+                    else tamamlananMusteri++;
+                } else if (isStarted) {
+                    if (isStok) devamEdenStok++;
+                    else devamEdenMusteri++;
+                }
+            });
+
             const allUnlinkedSasis = await prisma.sasi.findMany({
                 where: { dorse: null },
                 select: { musteri: true }
@@ -1155,7 +1176,11 @@ app.get('/api/stats', async (req, res) => {
                 devamEden,
                 baslamayan,
                 stokSasiCount: stokCount,
-                musteriSasiCount: musteriCount
+                musteriSasiCount: musteriCount,
+                tamamlananStok,
+                devamEdenStok,
+                tamamlananMusteri,
+                devamEdenMusteri
             });
         }
 

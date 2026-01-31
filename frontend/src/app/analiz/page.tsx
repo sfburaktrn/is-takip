@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import { getStats, type Stats, type StepStats, API_URL } from '@/lib/api';
+import { getStats, type Stats, type StepStats, API_URL, getSasis } from '@/lib/api';
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
@@ -25,7 +25,7 @@ interface RecentActivity {
     completedSubSteps: string[];
 }
 
-type ProductType = 'DAMPER' | 'DORSE';
+type ProductType = 'DAMPER' | 'DORSE' | 'SASI';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#f97316', '#eab308'];
 
@@ -36,6 +36,7 @@ export default function Analiz() {
     const [m3StepStats, setM3StepStats] = useState<Record<string, StepStats>>({});
     const [companyDist, setCompanyDist] = useState<CompanyDist[]>([]);
     const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+    const [sasiBarData, setSasiBarData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
     const [isMounted, setIsMounted] = useState(false);
@@ -60,6 +61,40 @@ export default function Analiz() {
                 fetch(`${API_URL}/analytics/company-distribution${query}`, fetchOptions).then(r => r.json()),
                 fetch(`${API_URL}/analytics/recent-activity${query}`, fetchOptions).then(r => r.json())
             ]);
+
+            if (productType === 'SASI') {
+                const sasis = await getSasis();
+                const sasiSteps = [
+                    // Kesim
+                    'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum',
+                    // On Hazirlik
+                    'lenjorenMontaji', 'robotKaynagi',
+                    // Montaj
+                    'saseFiksturCatim', 'kaynak', 'dingilMontaji', 'genelKaynak', 'tesisatCubugu', 'mekanikAyak', 'korukMontaji', 'lastikMontaji'
+                ];
+
+                const customerStats = { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 };
+                const stockStats = { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 };
+
+                sasis.forEach((s: any) => {
+                    const completedCount = sasiSteps.filter(step => s[step] === true).length;
+                    let status = 'devamEdiyor';
+                    if (completedCount === 0) status = 'baslamadi';
+                    else if (completedCount === sasiSteps.length) status = 'tamamlandi';
+
+                    const isStock = s.musteri && s.musteri.toLowerCase().startsWith('stok');
+                    const target = isStock ? stockStats : customerStats;
+
+                    // @ts-ignore
+                    target[status]++;
+                    target.total++;
+                });
+
+                setSasiBarData([
+                    { name: 'Müşteri Şasileri', ...customerStats },
+                    { name: 'Stok Şasileri', ...stockStats }
+                ]);
+            }
 
             console.log('Activity refreshed:', activityRes);
             setStats(statsData);
@@ -100,6 +135,14 @@ export default function Analiz() {
             ];
         }
 
+        if (productType === 'SASI') {
+            return [
+                { name: 'Kesim-Büküm', ...getStat(s.kesimBukum) },
+                { name: 'Ön Hazırlık', ...getStat(s.onHazirlik) },
+                { name: 'Montaj', ...getStat(s.montaj) },
+            ];
+        }
+
         // DAMPER
         return [
             { name: 'Kesim-Büküm', ...getStat(s.kesimBukum) },
@@ -116,13 +159,19 @@ export default function Analiz() {
         ];
     };
 
-    const barChartData = getChartData(stepStats);
+    const barChartData = productType === 'SASI' ? sasiBarData : getChartData(stepStats);
 
     // Pie chart data for status distribution
     const pieChartData = stats ? [
         { name: 'Tamamlanan', value: stats.tamamlanan, color: '#10b981' },
         { name: 'Devam Eden', value: stats.devamEden, color: '#f59e0b' },
         { name: 'Başlamayan', value: stats.baslamayan, color: '#ef4444' },
+    ] : [];
+
+    // Stock vs Customer data for SASI
+    const stockChartData = stats && productType === 'SASI' ? [
+        { name: 'Müşteri', value: stats.musteriSasiCount || 0, color: '#4f46e5' },
+        { name: 'Stok', value: stats.stokSasiCount || 0, color: '#f59e0b' },
     ] : [];
 
     return (
@@ -133,7 +182,7 @@ export default function Analiz() {
                     <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <h1 className="header-title">📈 Analiz</h1>
-                            <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : 'Dorse'} üretim verileri ve istatistikler</p>
+                            <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} üretim verileri ve istatistikler</p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
@@ -183,6 +232,22 @@ export default function Analiz() {
                         >
                             Dorseler
                         </button>
+                        <button
+                            type="button"
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: productType === 'SASI' ? 'var(--primary)' : 'transparent',
+                                color: productType === 'SASI' ? 'white' : 'var(--muted)',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onClick={() => setProductType('SASI')}
+                        >
+                            Şasiler
+                        </button>
                     </div>
                 </header>
 
@@ -201,7 +266,7 @@ export default function Analiz() {
                                 <div className="stat-icon blue">📦</div>
                                 <div>
                                     <div className="stat-value">{stats?.total || 0}</div>
-                                    <div className="stat-label">Toplam {productType === 'DAMPER' ? 'Damper' : 'Dorse'}</div>
+                                    <div className="stat-label">Toplam {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'}</div>
                                 </div>
                             </div>
                             <div className="stat-card">
@@ -253,6 +318,33 @@ export default function Analiz() {
                                 </ResponsiveContainer>
                             </div>
 
+                            {/* Stock vs Customer Chart - SASI Only */}
+                            {productType === 'SASI' && (
+                                <div className="card" style={{ padding: '20px' }}>
+                                    <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Stok / Müşteri Dağılımı</h3>
+                                    <ResponsiveContainer width="100%" height={280}>
+                                        <PieChart>
+                                            <Pie
+                                                data={stockChartData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={100}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                                label={({ name, value }) => `${name}: ${value}`}
+                                            >
+                                                {stockChartData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
                             {/* Pie Chart - Company Distribution */}
                             <div className="card" style={{ padding: '20px' }}>
                                 <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Firma Dağılımı (Top 8)</h3>
@@ -278,7 +370,9 @@ export default function Analiz() {
 
                         {/* Bar Chart - Step Completion */}
                         <div className="card" style={{ padding: '20px', marginTop: '20px' }}>
-                            <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Aşama Bazlı Tamamlanma Durumu</h3>
+                            <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>
+                                {productType === 'SASI' ? 'Stok ve Müşteri Şasileri Tamamlanma Durumu' : 'Aşama Bazlı Tamamlanma Durumu'}
+                            </h3>
                             <ResponsiveContainer width="100%" height={350}>
                                 <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -306,7 +400,7 @@ export default function Analiz() {
                         </div>
 
                         {/* M3 Based Charts */}
-                        {Object.keys(m3StepStats).length > 0 && (
+                        {productType !== 'SASI' && Object.keys(m3StepStats).length > 0 && (
                             <div style={{ marginTop: '32px' }}>
                                 <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: 'var(--foreground)' }}>📦 M³ Bazlı İlerleme Durumları</h2>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '20px' }}>
@@ -386,7 +480,7 @@ export default function Analiz() {
                         </div>
 
                         {/* M3 Based Stats Table */}
-                        {Object.keys(m3StepStats).length > 0 && (
+                        {productType !== 'SASI' && Object.keys(m3StepStats).length > 0 && (
                             <div style={{ marginTop: '32px' }}>
                                 <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: 'var(--foreground)' }}>📋 M³ Bazlı Aşama Detayları</h2>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '20px' }}>
@@ -477,7 +571,7 @@ export default function Analiz() {
                         </div>
                     </>
                 )}
-            </main>
+            </main >
         </>
     );
 }

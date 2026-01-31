@@ -17,9 +17,9 @@ CMD ["npm", "run", "dev"]
 FROM base AS production
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --omit=dev
 COPY prisma ./prisma
 RUN npx prisma generate
 COPY . .
 EXPOSE 3001
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npx prisma db push && npm start"]

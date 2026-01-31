@@ -638,14 +638,14 @@ function DashboardContent() {
 
           {productType === 'SASI' && (
             <>
-              <div className="stat-card" style={{ border: '1px solid rgba(99, 102, 241, 0.2)', background: 'linear-gradient(135deg, #fff 0%, #f5f7ff 100%)' }}>
+              <div className="stat-card" style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}>
                 <div className="stat-icon blue" style={{ background: 'rgba(99, 102, 241, 0.1)' }}>🏢</div>
                 <div>
                   <div className="stat-value" style={{ color: 'var(--primary)' }}>{stats?.stokSasiCount || 0}</div>
                   <div className="stat-label">Stok Şasi Stoğu</div>
                 </div>
               </div>
-              <div className="stat-card" style={{ border: '1px solid rgba(16, 185, 129, 0.2)', background: 'linear-gradient(135deg, #fff 0%, #f0faf7 100%)' }}>
+              <div className="stat-card" style={{ border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                 <div className="stat-icon green" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>👤</div>
                 <div>
                   <div className="stat-value" style={{ color: 'var(--success)' }}>{stats?.musteriSasiCount || 0}</div>

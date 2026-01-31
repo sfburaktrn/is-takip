@@ -472,9 +472,29 @@ function UrunListesiContent() {
 
     // Filter and sort sasis
     const sortedSasis = useMemo(() => {
-        let result = statusFilter
-            ? sasis.filter(s => getSasiStatus(s) === statusFilter)
-            : [...sasis];
+        let result = [...sasis];
+
+        if (statusFilter) {
+            if (statusFilter === 'tamamlanan') {
+                result = result.filter(s => getSasiStatus(s) === 'tamamlanan');
+            } else if (statusFilter === 'devamEden') {
+                result = result.filter(s => getSasiStatus(s) === 'devamEden');
+            } else if (statusFilter === 'baslamayan') {
+                result = result.filter(s => getSasiStatus(s) === 'baslamayan');
+            } else if (statusFilter === 'bosStok') {
+                result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && !(s as any).isLinked);
+            } else if (statusFilter === 'tamamlananStok') {
+                result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'tamamlanan');
+            } else if (statusFilter === 'devamEdenStok') {
+                result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'devamEden');
+            } else if (statusFilter === 'bosMusteri') {
+                result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && !(s as any).isLinked);
+            } else if (statusFilter === 'tamamlananMusteri') {
+                result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'tamamlanan');
+            } else if (statusFilter === 'devamEdenMusteri') {
+                result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'devamEden');
+            }
+        }
 
         if (sasiFilter) {
             result = result.filter(s => {
@@ -546,7 +566,7 @@ function UrunListesiContent() {
             <Sidebar />
             <main className="main-content">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div className="dashboard-header-row">
+                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <h1 className="header-title">Ürün Listesi</h1>
                             <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerini görüntüleyin ve yönetin</p>
@@ -610,74 +630,194 @@ function UrunListesiContent() {
                 </header>
 
                 {/* Stats Grid */}
-                <div className="stats-grid" style={{
-                    gridTemplateColumns: productType === 'SASI' ? 'repeat(auto-fit, minmax(200px, 1fr))' : 'repeat(4, 1fr)'
-                }}>
-                    <div
-                        className="stat-card"
-                        style={{ cursor: 'pointer', border: statusFilter === null ? '2px solid var(--primary)' : undefined }}
-                        onClick={() => setStatusFilter(null)}
-                    >
-                        <div className="stat-icon blue">📦</div>
-                        <div>
-                            <div className="stat-value">{currentStats?.total || 0}</div>
-                            <div className="stat-label">Toplam {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'}</div>
-                        </div>
-                    </div>
+                {/* Stats Grid */}
+                {productType === 'SASI' ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'stretch', marginBottom: '24px' }}>
 
-                    {productType === 'SASI' && (
-                        <>
-                            <div className="stat-card" style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}>
-                                <div className="stat-icon blue" style={{ background: 'rgba(99, 102, 241, 0.1)' }}>🏢</div>
+                        {/* 1. GENEL DURUM (Sol) - 2 Kart */}
+                        <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div
+                                className="stat-card"
+                                style={{ cursor: 'pointer', border: statusFilter === null ? '2px solid var(--primary)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
+                                onClick={() => setStatusFilter(null)}
+                            >
+                                <div className="stat-icon blue" style={{ width: '48px', height: '48px', fontSize: '24px' }}>📦</div>
                                 <div>
-                                    <div className="stat-value" style={{ color: 'var(--primary)' }}>{stats?.stokSasiCount || 0}</div>
-                                    <div className="stat-label">Stok Şasi Stoğu</div>
+                                    <div className="stat-value">{currentStats?.total || 0}</div>
+                                    <div className="stat-label">Toplam Şasi</div>
                                 </div>
                             </div>
-                            <div className="stat-card" style={{ border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                                <div className="stat-icon green" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>👤</div>
+                            <div
+                                className="stat-card"
+                                style={{ cursor: 'pointer', border: statusFilter === 'tamamlanan' ? '2px solid var(--success)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
+                                onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
+                            >
+                                <div className="stat-icon green" style={{ width: '48px', height: '48px', fontSize: '24px' }}>✅</div>
                                 <div>
-                                    <div className="stat-value" style={{ color: 'var(--success)' }}>{stats?.musteriSasiCount || 0}</div>
-                                    <div className="stat-label">Müşteri Şasi Bekleyen</div>
+                                    <div className="stat-value">{currentStats?.tamamlanan || 0}</div>
+                                    <div className="stat-label">Tamamlanan</div>
                                 </div>
                             </div>
-                        </>
-                    )}
+                        </div>
 
-                    <div
-                        className="stat-card"
-                        style={{ cursor: 'pointer', border: statusFilter === 'tamamlanan' ? '2px solid var(--success)' : undefined }}
-                        onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
-                    >
-                        <div className="stat-icon green">✅</div>
-                        <div>
-                            <div className="stat-value">{currentStats?.tamamlanan || 0}</div>
-                            <div className="stat-label">Tamamlanan</div>
+                        {/* 2. GENEL DURUM (Sağ) - 2 Kart */}
+                        <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div
+                                className="stat-card"
+                                style={{ cursor: 'pointer', border: statusFilter === 'devamEden' ? '2px solid var(--warning)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
+                                onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
+                            >
+                                <div className="stat-icon yellow" style={{ width: '48px', height: '48px', fontSize: '24px' }}>🔄</div>
+                                <div>
+                                    <div className="stat-value">{currentStats?.devamEden || 0}</div>
+                                    <div className="stat-label">Devam Eden</div>
+                                </div>
+                            </div>
+                            <div
+                                className="stat-card"
+                                style={{ cursor: 'pointer', border: statusFilter === 'baslamayan' ? '2px solid var(--danger)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
+                                onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
+                            >
+                                <div className="stat-icon red" style={{ width: '48px', height: '48px', fontSize: '24px' }}>⏸️</div>
+                                <div>
+                                    <div className="stat-value">{currentStats?.baslamayan || 0}</div>
+                                    <div className="stat-label">Başlamayan</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. STOK ŞASİLER GRUBU - 3 Kart */}
+                        <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '1px solid var(--border)', paddingLeft: '16px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>STOK ŞASİLER</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                                <div
+                                    className="stat-card"
+                                    style={{ border: statusFilter === 'bosStok' ? '2px solid var(--primary)' : '1px solid rgba(99, 102, 241, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                                    onClick={() => setStatusFilter(statusFilter === 'bosStok' ? null : 'bosStok')}
+                                >
+                                    <div className="stat-icon blue" style={{ background: 'rgba(99, 102, 241, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>📦</div>
+                                    <div>
+                                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--primary)' }}>{stats?.stokSasiCount || 0}</div>
+                                        <div className="stat-label" style={{ fontSize: '11px' }}>Boş Stok</div>
+                                    </div>
+                                </div>
+                                <div
+                                    className="stat-card"
+                                    style={{ border: statusFilter === 'tamamlananStok' ? '2px solid var(--success)' : '1px solid rgba(16, 185, 129, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                                    onClick={() => setStatusFilter(statusFilter === 'tamamlananStok' ? null : 'tamamlananStok')}
+                                >
+                                    <div className="stat-icon green" style={{ background: 'rgba(16, 185, 129, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>✅</div>
+                                    <div>
+                                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--success)' }}>{stats?.tamamlananStok || 0}</div>
+                                        <div className="stat-label" style={{ fontSize: '11px' }}>Bitmiş Stok</div>
+                                    </div>
+                                </div>
+                                <div
+                                    className="stat-card"
+                                    style={{ border: statusFilter === 'devamEdenStok' ? '2px solid var(--warning)' : '1px solid rgba(245, 158, 11, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                                    onClick={() => setStatusFilter(statusFilter === 'devamEdenStok' ? null : 'devamEdenStok')}
+                                >
+                                    <div className="stat-icon yellow" style={{ background: 'rgba(245, 158, 11, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>🔄</div>
+                                    <div>
+                                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--warning)' }}>{stats?.devamEdenStok || 0}</div>
+                                        <div className="stat-label" style={{ fontSize: '11px' }}>Devam Eden</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4. MÜŞTERİ ŞASİLER GRUBU - 3 Kart */}
+                        <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '1px solid var(--border)', paddingLeft: '16px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>MÜŞTERİ ŞASİLER</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                                <div
+                                    className="stat-card"
+                                    style={{ border: statusFilter === 'bosMusteri' ? '2px solid var(--primary)' : '1px solid rgba(99, 102, 241, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                                    onClick={() => setStatusFilter(statusFilter === 'bosMusteri' ? null : 'bosMusteri')}
+                                >
+                                    <div className="stat-icon blue" style={{ background: 'rgba(99, 102, 241, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>👤</div>
+                                    <div>
+                                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--primary)' }}>{stats?.musteriSasiCount || 0}</div>
+                                        <div className="stat-label" style={{ fontSize: '11px' }}>Boş Müşteri</div>
+                                    </div>
+                                </div>
+                                <div
+                                    className="stat-card"
+                                    style={{ border: statusFilter === 'tamamlananMusteri' ? '2px solid var(--success)' : '1px solid rgba(16, 185, 129, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                                    onClick={() => setStatusFilter(statusFilter === 'tamamlananMusteri' ? null : 'tamamlananMusteri')}
+                                >
+                                    <div className="stat-icon green" style={{ background: 'rgba(16, 185, 129, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>✅</div>
+                                    <div>
+                                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--success)' }}>{stats?.tamamlananMusteri || 0}</div>
+                                        <div className="stat-label" style={{ fontSize: '11px' }}>Bitmiş Müşteri</div>
+                                    </div>
+                                </div>
+                                <div
+                                    className="stat-card"
+                                    style={{ border: statusFilter === 'devamEdenMusteri' ? '2px solid var(--warning)' : '1px solid rgba(245, 158, 11, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                                    onClick={() => setStatusFilter(statusFilter === 'devamEdenMusteri' ? null : 'devamEdenMusteri')}
+                                >
+                                    <div className="stat-icon yellow" style={{ background: 'rgba(245, 158, 11, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>🔄</div>
+                                    <div>
+                                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--warning)' }}>{stats?.devamEdenMusteri || 0}</div>
+                                        <div className="stat-label" style={{ fontSize: '11px' }}>Devam Eden</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                ) : (
+                    <div className="stats-grid" style={{
+                        gridTemplateColumns: 'repeat(4, 1fr)'
+                    }}>
+                        <div
+                            className="stat-card"
+                            style={{ cursor: 'pointer', border: statusFilter === null ? '2px solid var(--primary)' : '1px solid transparent' }}
+                            onClick={() => setStatusFilter(null)}
+                        >
+                            <div className="stat-icon blue">📦</div>
+                            <div>
+                                <div className="stat-value">{currentStats?.total || 0}</div>
+                                <div className="stat-label">Toplam {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'}</div>
+                            </div>
+                        </div>
+
+                        <div
+                            className="stat-card"
+                            style={{ cursor: 'pointer', border: statusFilter === 'tamamlanan' ? '2px solid var(--success)' : '1px solid transparent' }}
+                            onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
+                        >
+                            <div className="stat-icon green">✅</div>
+                            <div>
+                                <div className="stat-value">{currentStats?.tamamlanan || 0}</div>
+                                <div className="stat-label">Tamamlanan</div>
+                            </div>
+                        </div>
+                        <div
+                            className="stat-card"
+                            style={{ cursor: 'pointer', border: statusFilter === 'devamEden' ? '2px solid var(--warning)' : '1px solid transparent' }}
+                            onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
+                        >
+                            <div className="stat-icon yellow">🔄</div>
+                            <div>
+                                <div className="stat-value">{currentStats?.devamEden || 0}</div>
+                                <div className="stat-label">Devam Eden</div>
+                            </div>
+                        </div>
+                        <div
+                            className="stat-card"
+                            style={{ cursor: 'pointer', border: statusFilter === 'baslamayan' ? '2px solid var(--danger)' : '1px solid transparent' }}
+                            onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
+                        >
+                            <div className="stat-icon red">⏸️</div>
+                            <div>
+                                <div className="stat-value">{currentStats?.baslamayan || 0}</div>
+                                <div className="stat-label">Başlamayan</div>
+                            </div>
                         </div>
                     </div>
-                    <div
-                        className="stat-card"
-                        style={{ cursor: 'pointer', border: statusFilter === 'devamEden' ? '2px solid var(--warning)' : undefined }}
-                        onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
-                    >
-                        <div className="stat-icon yellow">🔄</div>
-                        <div>
-                            <div className="stat-value">{currentStats?.devamEden || 0}</div>
-                            <div className="stat-label">Devam Eden</div>
-                        </div>
-                    </div>
-                    <div
-                        className="stat-card"
-                        style={{ cursor: 'pointer', border: statusFilter === 'baslamayan' ? '2px solid var(--danger)' : undefined }}
-                        onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
-                    >
-                        <div className="stat-icon red">⏸️</div>
-                        <div>
-                            <div className="stat-value">{currentStats?.baslamayan || 0}</div>
-                            <div className="stat-label">Başlamayan</div>
-                        </div>
-                    </div>
-                </div>
+                )}
 
                 {/* Dampers List */}
                 <div style={{ marginBottom: '24px' }}>

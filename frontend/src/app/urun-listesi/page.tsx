@@ -47,6 +47,8 @@ function UrunListesiContent() {
     // Sasi Link Modal State
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [activeDorseForLink, setActiveDorseForLink] = useState<Dorse | null>(null);
+    const [linkFilter, setLinkFilter] = useState<'hepsi' | 'stok' | 'musteri'>('hepsi');
+    const [linkSearchTerm, setLinkSearchTerm] = useState('');
     const [availableSasis, setAvailableSasis] = useState<Sasi[]>([]);
     const [linkLoading, setLinkLoading] = useState(false);
 
@@ -75,7 +77,7 @@ function UrunListesiContent() {
         kalinlik: '',
         m3: '',
         adet: '1',
-        sasiNo: '',
+        sasiId: '',
     });
 
     // Sasi Form State
@@ -222,23 +224,27 @@ function UrunListesiContent() {
     };
 
     const calculateSasiProgress = (sasi: Sasi): number => {
-        const steps = [
-            sasi.plazmaProgrami, sasi.sacMalzemeKontrolu, sasi.plazmaKesim, sasi.presBukum,
-            sasi.lenjorenMontaji, sasi.robotKaynagi,
-            sasi.saseFiksturCatim, sasi.kaynak, sasi.dingilMontaji, sasi.genelKaynak,
-            sasi.tesisatCubugu, sasi.mekanikAyak, sasi.korukMontaji, sasi.lastikMontaji
-        ];
-        const completed = steps.filter(Boolean).length;
-        return Math.round((completed / steps.length) * 100);
+        const allSteps: boolean[] = [];
+        SASI_STEP_GROUPS.forEach(group => {
+            group.subSteps.forEach(step => {
+                // @ts-ignore
+                allSteps.push(sasi[step.key]);
+            });
+        });
+
+        const completed = allSteps.filter(Boolean).length;
+        const total = allSteps.length;
+        return total === 0 ? 0 : Math.round((completed / total) * 100);
     };
 
     const getSasiStatus = (sasi: Sasi): string => {
-        const allSteps = [
-            sasi.plazmaProgrami, sasi.sacMalzemeKontrolu, sasi.plazmaKesim, sasi.presBukum,
-            sasi.lenjorenMontaji, sasi.robotKaynagi,
-            sasi.saseFiksturCatim, sasi.kaynak, sasi.dingilMontaji, sasi.genelKaynak,
-            sasi.tesisatCubugu, sasi.mekanikAyak, sasi.korukMontaji, sasi.lastikMontaji
-        ];
+        const allSteps: boolean[] = [];
+        SASI_STEP_GROUPS.forEach(group => {
+            group.subSteps.forEach(step => {
+                // @ts-ignore
+                allSteps.push(sasi[step.key]);
+            });
+        });
 
         const completedSteps = allSteps.filter(Boolean).length;
         const totalSteps = allSteps.length;
@@ -378,7 +384,7 @@ function UrunListesiContent() {
                     kalinlik: dorseFormData.kalinlik,
                     m3: dorseFormData.m3 ? parseFloat(dorseFormData.m3) : null,
                     adet: quantity,
-                    sasiNo: dorseFormData.sasiNo || null,
+                    sasiId: dorseFormData.sasiId ? parseInt(dorseFormData.sasiId) : null,
                 });
                 setShowAddModal(false);
                 setDorseFormData({
@@ -391,7 +397,7 @@ function UrunListesiContent() {
                     kalinlik: '',
                     m3: '',
                     adet: '1',
-                    sasiNo: '',
+                    sasiId: '',
                 });
                 loadData();
                 if (quantity > 1) {
@@ -1875,14 +1881,26 @@ function UrunListesiContent() {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label className="form-label">Şasi No</label>
-                                                <input
-                                                    type="text"
-                                                    className="input"
-                                                    placeholder="Şasi No giriniz..."
-                                                    value={dorseFormData.sasiNo}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, sasiNo: e.target.value }))}
-                                                />
+                                                <label className="form-label">Şasi Bağla <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>(Opsiyonel)</span></label>
+                                                <select
+                                                    className="select"
+                                                    value={dorseFormData.sasiId}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, sasiId: e.target.value }))}
+                                                    disabled={parseInt(dorseFormData.adet) > 1}
+                                                    style={parseInt(dorseFormData.adet) > 1 ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                                                >
+                                                    <option value="">Şasi Seçiniz...</option>
+                                                    {availableSasis.map(s => (
+                                                        <option key={s.id} value={s.id}>
+                                                            #{s.imalatNo} - {s.musteri} ({s.sasiNo})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {parseInt(dorseFormData.adet) > 1 && (
+                                                    <div style={{ fontSize: '10px', color: 'var(--warning)', marginTop: '4px' }}>
+                                                        ⚠️ Çoklu eklemede şasi otomatik bağlanamaz.
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="form-group">
                                                 <label className="form-label">Müşteri *</label>
@@ -2066,33 +2084,42 @@ function UrunListesiContent() {
                             onClick={(e) => e.stopPropagation()}
                             style={{ maxWidth: '600px', width: '90%', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
                         >
-                            <div className="modal-header">
-                                <h3 className="modal-title">📦 Şasi Bağla: {activeDorseForLink.musteri}</h3>
-                                <button className="btn-close" onClick={() => setShowLinkModal(false)}>✕</button>
+                            <div className="modal-header" style={{ background: 'linear-gradient(to right, var(--card), var(--secondary))' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '24px' }}>⛓️</span>
+                                    <div>
+                                        <h3 className="modal-title" style={{ margin: 0 }}>Şasi Bağlantısı</h3>
+                                        <p style={{ fontSize: '12px', color: 'var(--muted)', margin: 0 }}>{activeDorseForLink.musteri} için şasi seçin</p>
+                                    </div>
+                                </div>
+                                <button className="modal-close" onClick={() => setShowLinkModal(false)}>✕</button>
                             </div>
 
                             <div style={{ padding: '16px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-                                <div style={{ position: 'relative' }}>
+                                <div style={{ position: 'relative', marginBottom: '16px' }}>
                                     <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>🔍</span>
                                     <input
                                         type="text"
                                         className="input"
-                                        placeholder="Şasi ara (Müşteri, No...)"
+                                        placeholder="Şasi ara (Müşteri adı veya Stok no...)"
                                         style={{ paddingLeft: '36px' }}
-                                        onChange={(e) => {
-                                            // Local filter can be added here
-                                        }}
+                                        value={linkSearchTerm}
+                                        onChange={(e) => setLinkSearchTerm(e.target.value)}
                                     />
                                 </div>
-                                <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--muted)', display: 'flex', gap: '16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></span>
-                                        Müşteriye Uygun
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)' }}></span>
-                                        Genel Stok
-                                    </div>
+                                <div className="stats-tabs" style={{ marginBottom: '0' }}>
+                                    <button
+                                        className={`tab-btn ${linkFilter === 'hepsi' ? 'active' : ''}`}
+                                        onClick={() => setLinkFilter('hepsi')}
+                                    >Hepsi</button>
+                                    <button
+                                        className={`tab-btn ${linkFilter === 'stok' ? 'active' : ''}`}
+                                        onClick={() => setLinkFilter('stok')}
+                                    >Stok</button>
+                                    <button
+                                        className={`tab-btn ${linkFilter === 'musteri' ? 'active' : ''}`}
+                                        onClick={() => setLinkFilter('musteri')}
+                                    >Müşteri</button>
                                 </div>
                             </div>
 
@@ -2107,44 +2134,68 @@ function UrunListesiContent() {
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        {[...availableSasis].sort((a, b) => {
-                                            const aMatches = a.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase());
-                                            const bMatches = b.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase());
-                                            if (aMatches && !bMatches) return -1;
-                                            if (!aMatches && bMatches) return 1;
-                                            return 0;
-                                        }).map(sasi => {
-                                            const isMatch = sasi.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase()) && !sasi.musteri.toLowerCase().includes('stok');
-                                            return (
-                                                <div
-                                                    key={sasi.id}
-                                                    onClick={() => handleLinkSasi(activeDorseForLink.id, sasi.id)}
-                                                    style={{
-                                                        padding: '16px',
-                                                        borderBottom: '1px solid var(--border)',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.2s',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        background: isMatch ? 'rgba(99, 102, 241, 0.05)' : 'transparent',
-                                                        borderLeft: isMatch ? '4px solid var(--primary)' : '4px solid transparent'
-                                                    }}
-                                                    className="sasi-list-item"
-                                                >
-                                                    <div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <span style={{ fontWeight: 600 }}>#{sasi.imalatNo || '0'} - {sasi.musteri}</span>
-                                                            {isMatch && <span style={{ fontSize: '10px', background: 'var(--primary)', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>UYGUN</span>}
+                                        {[...availableSasis]
+                                            .filter(s => {
+                                                // First apply tab filter
+                                                if (linkFilter === 'stok' && !s.musteri.toLowerCase().includes('stok')) return false;
+                                                if (linkFilter === 'musteri' && s.musteri.toLowerCase().includes('stok')) return false;
+
+                                                // Then apply search filter
+                                                if (linkSearchTerm.trim()) {
+                                                    const search = linkSearchTerm.toLowerCase().trim();
+                                                    const matchesMusteri = s.musteri.toLowerCase().includes(search);
+                                                    const matchesSasiNo = (s.sasiNo || '').toLowerCase().includes(search);
+                                                    const matchesImalatNo = String(s.imalatNo || '').includes(search);
+                                                    return matchesMusteri || matchesSasiNo || matchesImalatNo;
+                                                }
+                                                return true;
+                                            })
+                                            .sort((a, b) => {
+                                                const aMatches = a.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase());
+                                                const bMatches = b.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase());
+                                                if (aMatches && !bMatches) return -1;
+                                                if (!aMatches && bMatches) return 1;
+                                                return 0;
+                                            }).map(sasi => {
+                                                const isMatch = sasi.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase()) && !sasi.musteri.toLowerCase().includes('stok');
+                                                const progress = calculateSasiProgress(sasi);
+                                                return (
+                                                    <div
+                                                        key={sasi.id}
+                                                        onClick={() => handleLinkSasi(activeDorseForLink.id, sasi.id)}
+                                                        style={{
+                                                            padding: '16px',
+                                                            borderBottom: '1px solid var(--border)',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            background: isMatch ? 'rgba(99, 102, 241, 0.05)' : 'transparent',
+                                                            borderLeft: isMatch ? '4px solid var(--primary)' : '4px solid transparent'
+                                                        }}
+                                                        className="sasi-list-item"
+                                                    >
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span style={{ fontWeight: 600 }}>#{sasi.imalatNo || '0'} - {sasi.musteri}</span>
+                                                                {isMatch && <span style={{ fontSize: '10px', background: 'var(--primary)', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>UYGUN</span>}
+                                                                {progress === 100 && <span style={{ fontSize: '10px', background: 'var(--success)', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>✅ ŞASİ HAZIR</span>}
+                                                            </div>
+                                                            <div style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                <span>{sasi.sasiNo || 'No yok'} | {sasi.dingil} | {sasi.tampon}</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <div className="progress-bar" style={{ width: '40px', height: '4px' }}>
+                                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                                                    </div>
+                                                                    <span style={{ fontSize: '11px' }}>%{progress}</span>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '4px' }}>
-                                                            {sasi.sasiNo || 'No yok'} | {sasi.dingil} | {sasi.tampon}
-                                                        </div>
+                                                        <div style={{ fontSize: '18px', color: 'var(--muted)', marginLeft: '12px' }}>🔗</div>
                                                     </div>
-                                                    <div style={{ fontSize: '18px', color: 'var(--muted)' }}>🔗</div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
                                     </div>
                                 )}
                             </div>

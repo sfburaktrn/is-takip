@@ -759,3 +759,35 @@ tr:hover td {
     max-height: 85vh;
   }
 }
+
+/* Stats Tabs (Used in modal and filters) */
+.stats-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: var(--foreground);
+  background: var(--card-hover);
+  border-color: var(--primary);
+}
+
+.tab-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}

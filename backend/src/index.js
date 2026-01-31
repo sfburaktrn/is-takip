@@ -1549,7 +1549,8 @@ app.delete('/api/company-m3', async (req, res) => {
 app.get('/api/dorses', async (req, res) => {
     try {
         const dorses = await prisma.dorse.findMany({
-            orderBy: { imalatNo: 'desc' }
+            orderBy: { imalatNo: 'desc' },
+            include: { sasi: true }
         });
         res.json(dorses);
     } catch (error) {
@@ -1561,7 +1562,7 @@ app.get('/api/dorses', async (req, res) => {
 // Create new dorse
 app.post('/api/dorses', async (req, res) => {
     try {
-        const { adet, musteri, ...restData } = req.body;
+        const { adet, musteri, sasiId, ...restData } = req.body;
         const quantity = adet || 1;
 
         if (quantity === 1) {
@@ -1569,8 +1570,10 @@ app.post('/api/dorses', async (req, res) => {
                 data: {
                     ...restData,
                     musteri,
-                    adet: 1
-                }
+                    adet: 1,
+                    sasiId: sasiId ? parseInt(sasiId) : null
+                },
+                include: { sasi: true }
             });
             return res.status(201).json(dorse);
         }
@@ -1581,7 +1584,9 @@ app.post('/api/dorses', async (req, res) => {
                 data: {
                     ...restData,
                     musteri: `${musteri} ${i}`,
-                    adet: 1
+                    adet: 1,
+                    // If quantity > 1, we don't link the sasiId to all of them 
+                    // unless specifically requested. Usually one sasi per dorse.
                 }
             });
             createdDorses.push(dorse);
@@ -1630,7 +1635,13 @@ app.put('/api/dorses/:id/link-sasi', async (req, res) => {
         const { sasiId } = req.body;
 
         if (!sasiId) {
-            return res.status(400).json({ error: 'Sasi ID is required' });
+            // Unlink if sasiId is null/undefined?
+            const dorse = await prisma.dorse.update({
+                where: { id: parseInt(id) },
+                data: { sasiId: null },
+                include: { sasi: true }
+            });
+            return res.json(dorse);
         }
 
         // Check if sasi is already linked

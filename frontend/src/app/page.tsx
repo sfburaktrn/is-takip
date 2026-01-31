@@ -624,7 +624,7 @@ function DashboardContent() {
           </div>
 
           {/* Product Toggle */}
-          <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', flexWrap: 'wrap' }}>
             <button
               type="button"
               style={{
@@ -699,10 +699,10 @@ function DashboardContent() {
           }}>
             {/* SASI VIEW CUSTOM LAYOUT */}
             {productType === 'SASI' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'stretch' }}>
 
                 {/* 1. GENEL DURUM (Sol) - 2 Kart */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div
                     className="stat-card"
                     style={{ cursor: 'pointer', border: statusFilter === null ? '2px solid var(--primary)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
@@ -728,7 +728,7 @@ function DashboardContent() {
                 </div>
 
                 {/* 2. GENEL DURUM (Sağ) - 2 Kart */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div
                     className="stat-card"
                     style={{ cursor: 'pointer', border: statusFilter === 'devamEden' ? '2px solid var(--warning)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
@@ -754,7 +754,7 @@ function DashboardContent() {
                 </div>
 
                 {/* 3. STOK ŞASİLER GRUBU - 3 Kart */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '1px solid var(--border)', paddingLeft: '16px' }}>
+                <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '1px solid var(--border)', paddingLeft: '16px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>STOK ŞASİLER</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div
@@ -794,7 +794,7 @@ function DashboardContent() {
                 </div>
 
                 {/* 4. MÜŞTERİ ŞASİLER GRUBU - 3 Kart */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '1px solid var(--border)', paddingLeft: '16px' }}>
+                <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '1px solid var(--border)', paddingLeft: '16px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>MÜŞTERİ ŞASİLER</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div

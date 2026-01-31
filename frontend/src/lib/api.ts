@@ -128,6 +128,8 @@ export interface Stats {
     tamamlanan: number;
     devamEden: number;
     baslamayan: number;
+    stokSasiCount?: number;
+    musteriSasiCount?: number;
 }
 
 export interface Dropdowns {
@@ -281,7 +283,7 @@ export async function getDorsesSummary(): Promise<DorseSummary[]> {
     return handleResponse<DorseSummary[]>(res);
 }
 
-export async function getStats(type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<Stats> {
+export async function getStats(type: 'DAMPER' | 'DORSE' | 'SASI' = 'DAMPER'): Promise<Stats> {
     const res = await fetch(`${API_URL}/stats?type=${type}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Stats>(res);
 }
@@ -291,7 +293,7 @@ export async function getDropdowns(): Promise<Dropdowns> {
     return handleResponse<Dropdowns>(res);
 }
 
-export async function getCompanySummary(type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<CompanySummary[]> {
+export async function getCompanySummary(type: 'DAMPER' | 'DORSE' | 'SASI' = 'DAMPER'): Promise<CompanySummary[]> {
     const res = await fetch(`${API_URL}/company-summary?type=${type}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<CompanySummary[]>(res);
 }
@@ -446,6 +448,10 @@ export interface Dorse {
 
     createdAt?: string;
     updatedAt?: string;
+
+    // RELATIONSHIP
+    sasiId?: number | null;
+    sasi?: Sasi | null;
 }
 
 
@@ -483,6 +489,11 @@ export interface Sasi {
 
     createdAt?: string;
     updatedAt?: string;
+
+    // RELATIONSHIP
+    isLinked?: boolean;
+    linkedDorseId?: number;
+    linkedDorseMusteri?: string;
 }
 
 export async function getDorses(): Promise<Dorse[]> {
@@ -518,8 +529,9 @@ export async function deleteDorse(id: number): Promise<void> {
     if (!res.ok) throw new Error('Failed to delete dorse');
 }
 
-export async function getSasis(): Promise<Sasi[]> {
-    const res = await fetch(`${API_URL}/sasis`, { cache: 'no-store', credentials: 'include' });
+export async function getSasis(unlinkedOnly = false): Promise<Sasi[]> {
+    const url = unlinkedOnly ? `${API_URL}/sasis?unlinkedOnly=true` : `${API_URL}/sasis`;
+    const res = await fetch(url, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Sasi[]>(res);
 }
 
@@ -554,6 +566,21 @@ export async function deleteSasi(id: number): Promise<void> {
         credentials: 'include',
     });
     if (!res.ok) throw new Error('Failed to delete sasi');
+}
+
+export async function getDorse(id: number): Promise<Dorse> {
+    const res = await fetch(`${API_URL}/dorses/${id}`, { cache: 'no-store', credentials: 'include' });
+    return handleResponse<Dorse>(res);
+}
+
+export async function linkSasi(dorseId: number, sasiId: number): Promise<Dorse> {
+    const res = await fetch(`${API_URL}/dorses/${dorseId}/link-sasi`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ sasiId }),
+    });
+    return handleResponse<Dorse>(res);
 }
 
 export const DORSE_STEP_GROUPS = [

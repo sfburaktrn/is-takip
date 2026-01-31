@@ -45,6 +45,12 @@ function DashboardContent() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'progress-asc' | 'progress-desc' | 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc' | null>(null);
 
+  // Sasi Link Modal State
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [activeDorseForLink, setActiveDorseForLink] = useState<Dorse | null>(null);
+  const [availableSasis, setAvailableSasis] = useState<Sasi[]>([]);
+  const [linkLoading, setLinkLoading] = useState(false);
+
   // Damper Form State
   const [formData, setFormData] = useState({
     imalatNo: '',
@@ -92,14 +98,19 @@ function DashboardContent() {
 
   async function loadData() {
     try {
-      const [statsData, dampersData, dorsesData, sasisData, dropdownsData] = await Promise.all([
-        getStats(),
+      const [statsData, damperStats, dorseStats, sasiStats, dampersData, dorsesData, sasisData, dropdownsData] = await Promise.all([
+        getStats('DAMPER'),
+        getStats('DAMPER'),
+        getStats('DORSE'),
+        getStats('SASI'),
         getDampers(),
         getDorses(),
         getSasis(),
         getDropdowns()
       ]);
-      setStats(statsData);
+      setStats(sasiStats); // Default to current or just store all
+      // Actually, let's just use the active productType's stats in currentStats useMemo
+      setStats(damperStats); // Initial
       setDampers(dampersData);
       setDorses(dorsesData);
       setSasis(sasisData);
@@ -110,6 +121,15 @@ function DashboardContent() {
       setLoading(false);
     }
   }
+
+  // Need to force refresh stats when product type changes or use memo properly
+  useEffect(() => {
+    async function updateStats() {
+      const s = await getStats(productType);
+      setStats(s);
+    }
+    updateStats();
+  }, [productType]);
 
   const getStatusBadge = (status: string | undefined) => {
     if (!status) return <span className="badge badge-muted">-</span>;
@@ -237,6 +257,34 @@ function DashboardContent() {
     if (completedSteps === totalSteps) return 'tamamlanan';
     if (completedSteps === 0) return 'baslamayan';
     return 'devamEden';
+  };
+
+  const handleLinkSasi = async (dorseId: number, sasiId: number) => {
+    try {
+      setLinkLoading(true);
+      const { linkSasi } = await import('@/lib/api');
+      const updatedDorse = await linkSasi(dorseId, sasiId);
+      setDorses(prev => prev.map(d => d.id === dorseId ? updatedDorse : d));
+      setShowLinkModal(false);
+      loadData(); // Refresh stats and list
+    } catch (error) {
+      console.error('Error linking sasi:', error);
+      alert('Şasi bağlanırken hata oluştu');
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
+  const openLinkModal = async (dorse: Dorse) => {
+    try {
+      setActiveDorseForLink(dorse);
+      const { getSasis } = await import('@/lib/api');
+      const unlinkedSasis = await getSasis(true);
+      setAvailableSasis(unlinkedSasis);
+      setShowLinkModal(true);
+    } catch (error) {
+      console.error('Error fetching unlinked sasis:', error);
+    }
   };
 
   const handleStepToggle = async (id: number, stepKey: string, currentValue: boolean, type: ProductType) => {
@@ -573,7 +621,9 @@ function DashboardContent() {
         </header>
 
         {/* Stats Grid */}
-        <div className="stats-grid">
+        <div className="stats-grid" style={{
+          gridTemplateColumns: productType === 'SASI' ? 'repeat(auto-fit, minmax(200px, 1fr))' : 'repeat(4, 1fr)'
+        }}>
           <div
             className="stat-card"
             style={{ cursor: 'pointer', border: statusFilter === null ? '2px solid var(--primary)' : undefined }}
@@ -585,6 +635,26 @@ function DashboardContent() {
               <div className="stat-label">Toplam {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'}</div>
             </div>
           </div>
+
+          {productType === 'SASI' && (
+            <>
+              <div className="stat-card" style={{ border: '1px solid rgba(99, 102, 241, 0.2)', background: 'linear-gradient(135deg, #fff 0%, #f5f7ff 100%)' }}>
+                <div className="stat-icon blue" style={{ background: 'rgba(99, 102, 241, 0.1)' }}>🏢</div>
+                <div>
+                  <div className="stat-value" style={{ color: 'var(--primary)' }}>{stats?.stokSasiCount || 0}</div>
+                  <div className="stat-label">Stok Şasi Stoğu</div>
+                </div>
+              </div>
+              <div className="stat-card" style={{ border: '1px solid rgba(16, 185, 129, 0.2)', background: 'linear-gradient(135deg, #fff 0%, #f0faf7 100%)' }}>
+                <div className="stat-icon green" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>👤</div>
+                <div>
+                  <div className="stat-value" style={{ color: 'var(--success)' }}>{stats?.musteriSasiCount || 0}</div>
+                  <div className="stat-label">Müşteri Şasi Bekleyen</div>
+                </div>
+              </div>
+            </>
+          )}
+
           <div
             className="stat-card"
             style={{ cursor: 'pointer', border: statusFilter === 'tamamlanan' ? '2px solid var(--success)' : undefined }}
@@ -1364,6 +1434,40 @@ function DashboardContent() {
                             />
                           </div>
 
+                          {/* Şasi Bağlantısı */}
+                          <div style={{
+                            gridColumn: '1 / -1',
+                            background: 'var(--card-bg-secondary)',
+                            padding: '16px',
+                            borderRadius: '12px',
+                            border: '1px dashed var(--primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '12px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ fontSize: '24px' }}>🚛</div>
+                              <div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>ŞASİ BAĞLANTISI</div>
+                                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--primary)' }}>
+                                  {dorse.sasi ? (
+                                    <span>#{dorse.sasi.imalatNo} - {dorse.sasi.musteri} ({dorse.sasi.sasiNo})</span>
+                                  ) : (
+                                    <span style={{ color: 'var(--muted)' }}>Şasi bağlı değil</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-primary"
+                              onClick={(e) => { e.stopPropagation(); openLinkModal(dorse); }}
+                              style={{ fontSize: '13px', padding: '8px 16px' }}
+                            >
+                              {dorse.sasi ? '⛓️ Şasiyi Değiştir' : '🔗 Şasi Bağla'}
+                            </button>
+                          </div>
+
                           {/* Dorse Durumu -> Çekici Durumu */}
                           <div style={{
                             background: 'var(--card-bg-secondary)',
@@ -2100,6 +2204,106 @@ function DashboardContent() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Şasi Bağlama Modalı */}
+        {showLinkModal && activeDorseForLink && (
+          <div className="modal-overlay" onClick={() => setShowLinkModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '600px', width: '90%', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            >
+              <div className="modal-header">
+                <h3 className="modal-title">📦 Şasi Bağla: {activeDorseForLink.musteri}</h3>
+                <button className="btn-close" onClick={() => setShowLinkModal(false)}>✕</button>
+              </div>
+
+              <div style={{ padding: '16px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>🔍</span>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Şasi ara (Müşteri, No...)"
+                    style={{ paddingLeft: '36px' }}
+                    onChange={(e) => {
+                      const search = e.target.value.toLowerCase();
+                      // We can use a local state for filtering if needed, but for simplicity let's just use CSS or inline filter
+                    }}
+                  />
+                </div>
+                <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--muted)', display: 'flex', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></span>
+                    Müşteriye Uygun
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)' }}></span>
+                    Genel Stok
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-body" style={{ overflowY: 'auto', padding: '0' }}>
+                {availableSasis.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
+                    Bağlanabilir boş şasi bulunamadı.
+                    <br />
+                    <button className="btn btn-secondary" style={{ marginTop: '12px' }} onClick={() => { setShowLinkModal(false); setShowAddModal(true); setProductType('SASI'); }}>
+                      Yeni Şasi Oluştur
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {/* Sort available sasis: matched customer first, then stock, then others */}
+                    {[...availableSasis].sort((a, b) => {
+                      const aMatches = a.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase());
+                      const bMatches = b.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase());
+                      if (aMatches && !bMatches) return -1;
+                      if (!aMatches && bMatches) return 1;
+                      return 0;
+                    }).map(sasi => {
+                      const isMatch = sasi.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase()) && !sasi.musteri.toLowerCase().includes('stok');
+                      return (
+                        <div
+                          key={sasi.id}
+                          onClick={() => handleLinkSasi(activeDorseForLink.id, sasi.id)}
+                          style={{
+                            padding: '16px',
+                            borderBottom: '1px solid var(--border)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: isMatch ? 'rgba(99, 102, 241, 0.05)' : 'transparent',
+                            borderLeft: isMatch ? '4px solid var(--primary)' : '4px solid transparent'
+                          }}
+                          className="sasi-list-item"
+                        >
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontWeight: 600 }}>#{sasi.imalatNo || '0'} - {sasi.musteri}</span>
+                              {isMatch && <span style={{ fontSize: '10px', background: 'var(--primary)', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>UYGUN</span>}
+                            </div>
+                            <div style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '4px' }}>
+                              {sasi.sasiNo || 'No yok'} | {sasi.dingil} | {sasi.tampon}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '18px', color: 'var(--muted)' }}>🔗</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowLinkModal(false)}>Kapat</button>
+              </div>
             </div>
           </div>
         )}

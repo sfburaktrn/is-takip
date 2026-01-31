@@ -112,6 +112,10 @@ model Dorse {
   sasiNo                String?
   silindir              String?
   malzemeCinsi          String?
+
+  // RELATIONSHIP
+  sasiId                Int?     @unique
+  sasi                  Sasi?    @relation(fields: [sasiId], references: [id])
 }
 
 model User {
@@ -164,4 +168,7 @@ model Sasi {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   adet                  Int      @default(1)
+
+  // RELATIONSHIP
+  dorse                 Dorse?
 }

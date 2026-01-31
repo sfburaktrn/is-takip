@@ -554,11 +554,27 @@ app.delete('/api/dampers/:id', async (req, res) => {
 // Get all sasis
 app.get('/api/sasis', async (req, res) => {
     try {
+        const { unlinkedOnly } = req.query;
+        let where = {};
+        if (unlinkedOnly === 'true') {
+            where.dorse = null;
+        }
+
         const sasis = await prisma.sasi.findMany({
+            where,
+            include: { dorse: true },
             orderBy: { imalatNo: 'desc' }
         });
 
-        const sasisWithStatus = sasis.map(addCalculatedSasiSteps);
+        const sasisWithStatus = sasis.map(s => {
+            const base = addCalculatedSasiSteps(s);
+            return {
+                ...base,
+                isLinked: !!s.dorse,
+                linkedDorseId: s.dorse?.id,
+                linkedDorseMusteri: s.dorse?.musteri
+            };
+        });
         res.json(sasisWithStatus);
     } catch (error) {
         console.error('Error fetching sasis:', error);
@@ -566,35 +582,77 @@ app.get('/api/sasis', async (req, res) => {
     }
 });
 
-// Create sasi
+// Get single sasi
+app.get('/api/sasis/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sasi = await prisma.sasi.findUnique({
+            where: { id: parseInt(id) },
+            include: { dorse: true }
+        });
+
+        if (!sasi) {
+            return res.status(404).json({ error: 'Sasi not found' });
+        }
+
+        const base = addCalculatedSasiSteps(sasi);
+        res.json({
+            ...base,
+            isLinked: !!sasi.dorse,
+            linkedDorseId: sasi.dorse?.id,
+            linkedDorseMusteri: sasi.dorse?.musteri
+        });
+    } catch (error) {
+        console.error('Error fetching sasi:', error);
+        res.status(500).json({ error: 'Failed to fetch sasi' });
+    }
+});
+
+// Create sasi with auto-naming
 app.post('/api/sasis', async (req, res) => {
     try {
         const { adet, musteri, ...restData } = req.body;
         const quantity = adet || 1;
 
-        if (quantity === 1) {
-            const sasi = await prisma.sasi.create({
-                data: {
-                    ...restData,
-                    musteri,
-                    adet: 1
+        let lastStokNumber = 0;
+        if (musteri === 'Stok') {
+            const allStokSasis = await prisma.sasi.findMany({
+                where: { musteri: { startsWith: 'Stok' } },
+                select: { musteri: true }
+            });
+
+            let maxNum = 0;
+            allStokSasis.forEach(s => {
+                const name = s.musteri;
+                if (name.startsWith('Stok ')) {
+                    const num = parseInt(name.substring(5));
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
                 }
+            });
+            lastStokNumber = maxNum;
+        }
+
+        if (quantity === 1) {
+            let finalMusteri = musteri;
+            if (musteri === 'Stok') finalMusteri = `Stok ${lastStokNumber + 1}`;
+
+            const sasi = await prisma.sasi.create({
+                data: { ...restData, musteri: finalMusteri, adet: 1 }
             });
             return res.status(201).json(addCalculatedSasiSteps(sasi));
         }
 
         const createdSasis = [];
         for (let i = 1; i <= quantity; i++) {
+            let finalMusteri = musteri;
+            if (musteri === 'Stok') finalMusteri = `Stok ${lastStokNumber + i}`;
+            else finalMusteri = `${musteri} ${i}`;
+
             const sasi = await prisma.sasi.create({
-                data: {
-                    ...restData,
-                    musteri: `${musteri} ${i}`,
-                    adet: 1
-                }
+                data: { ...restData, musteri: finalMusteri, adet: 1 }
             });
             createdSasis.push(addCalculatedSasiSteps(sasi));
         }
-
         res.status(201).json(createdSasis);
     } catch (error) {
         console.error('Error creating sasi:', error);
@@ -614,6 +672,20 @@ app.put('/api/sasis/:id', async (req, res) => {
     } catch (error) {
         console.error('Error updating sasi:', error);
         res.status(500).json({ error: 'Failed to update sasi' });
+    }
+});
+
+// Delete sasi
+app.delete('/api/sasis/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.sasi.delete({
+            where: { id: parseInt(id) }
+        });
+        res.json({ message: 'Sasi deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting sasi:', error);
+        res.status(500).json({ error: 'Failed to delete sasi' });
     }
 });
 
@@ -1067,6 +1139,25 @@ app.get('/api/stats', async (req, res) => {
                 devamEden++;
             }
         });
+
+        if (isSasi) {
+            const allUnlinkedSasis = await prisma.sasi.findMany({
+                where: { dorse: null },
+                select: { musteri: true }
+            });
+
+            const stokCount = allUnlinkedSasis.filter(s => (s.musteri || '').toLowerCase().startsWith('stok')).length;
+            const musteriCount = allUnlinkedSasis.length - stokCount;
+
+            return res.json({
+                total,
+                tamamlanan,
+                devamEden,
+                baslamayan,
+                stokSasiCount: stokCount,
+                musteriSasiCount: musteriCount
+            });
+        }
 
         res.json({
             total,
@@ -1532,144 +1623,55 @@ app.delete('/api/dorses/:id', async (req, res) => {
     }
 });
 
-// ==================== SASI ROUTES ====================
-
-// Get all sasis
-app.get('/api/sasis', async (req, res) => {
-    try {
-        const sasis = await prisma.sasi.findMany({
-            orderBy: { imalatNo: 'desc' }
-        });
-        const sasisWithStatus = sasis.map(addCalculatedSasiSteps);
-        res.json(sasisWithStatus);
-    } catch (error) {
-        console.error('Error fetching sasis:', error);
-        res.status(500).json({ error: 'Failed to fetch sasis' });
-    }
-});
-
-// Get single sasi
-app.get('/api/sasis/:id', async (req, res) => {
+// Link Sasi to Dorse
+app.put('/api/dorses/:id/link-sasi', async (req, res) => {
     try {
         const { id } = req.params;
-        const sasi = await prisma.sasi.findUnique({
-            where: { id: parseInt(id) }
+        const { sasiId } = req.body;
+
+        if (!sasiId) {
+            return res.status(400).json({ error: 'Sasi ID is required' });
+        }
+
+        // Check if sasi is already linked
+        const existingLink = await prisma.dorse.findUnique({
+            where: { sasiId: parseInt(sasiId) }
         });
 
-        if (!sasi) {
-            return res.status(404).json({ error: 'Sasi not found' });
+        if (existingLink && existingLink.id !== parseInt(id)) {
+            return res.status(400).json({ error: 'Bu şasi zaten başka bir dorseye bağlı' });
         }
 
-        res.json(addCalculatedSasiSteps(sasi));
-    } catch (error) {
-        console.error('Error fetching sasi:', error);
-        res.status(500).json({ error: 'Failed to fetch sasi' });
-    }
-});
-
-// Create new sasi
-app.post('/api/sasis', async (req, res) => {
-    try {
-        const { adet, musteri, ...restData } = req.body;
-        const quantity = adet || 1; // "adet" is string from frontend? usually parsed, but safe to assume
-
-        let lastStokNumber = 0;
-        if (musteri === 'Stok') {
-            // Fetch all sasis that start with "Stok" (including just "Stok" and "Stok X")
-            const allStokSasis = await prisma.sasi.findMany({
-                where: {
-                    musteri: {
-                        startsWith: 'Stok'
-                    }
-                },
-                select: { musteri: true }
-            });
-
-            // Extract numbers and find max
-            let maxNum = 0;
-            allStokSasis.forEach(s => {
-                const name = s.musteri;
-                if (name === 'Stok') {
-                    // Treat strict 'Stok' as 0, so next is 1
-                } else if (name.startsWith('Stok ')) {
-                    const numPart = name.substring(5); // "Stok ".length is 5
-                    const num = parseInt(numPart);
-                    if (!isNaN(num) && num > maxNum) {
-                        maxNum = num;
-                    }
-                }
-            });
-            lastStokNumber = maxNum;
-        }
-
-        if (quantity === 1) {
-            let finalMusteri = musteri;
-            if (musteri === 'Stok') {
-                finalMusteri = `Stok ${lastStokNumber + 1}`;
-            }
-
-            const sasi = await prisma.sasi.create({
-                data: {
-                    ...restData,
-                    musteri: finalMusteri,
-                    adet: 1
-                }
-            });
-            return res.status(201).json(addCalculatedSasiSteps(sasi));
-        }
-
-        const createdSasis = [];
-        for (let i = 1; i <= quantity; i++) {
-            let finalMusteri = musteri;
-            if (musteri === 'Stok') {
-                finalMusteri = `Stok ${lastStokNumber + i}`;
-            } else {
-                finalMusteri = `${musteri} ${i}`;
-            }
-
-            const sasi = await prisma.sasi.create({
-                data: {
-                    ...restData,
-                    musteri: finalMusteri,
-                    adet: 1
-                }
-            });
-            createdSasis.push(addCalculatedSasiSteps(sasi));
-        }
-
-        res.status(201).json(createdSasis);
-    } catch (error) {
-        console.error('Error creating sasi:', error);
-        res.status(500).json({ error: 'Failed to create sasi' });
-    }
-});
-
-// Update sasi
-app.put('/api/sasis/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const sasi = await prisma.sasi.update({
+        const dorse = await prisma.dorse.update({
             where: { id: parseInt(id) },
-            data: req.body
+            data: { sasiId: parseInt(sasiId) },
+            include: { sasi: true }
         });
-        res.json(addCalculatedSasiSteps(sasi));
+
+        res.json(dorse);
     } catch (error) {
-        console.error('Error updating sasi:', error);
-        res.status(500).json({ error: 'Failed to update sasi' });
+        console.error('Error linking sasi:', error);
+        res.status(500).json({ error: 'Şasi bağlanamadı' });
     }
 });
 
-// Delete sasi
-app.delete('/api/sasis/:id', async (req, res) => {
+// Update dorse detail to include sasi
+app.get('/api/dorses/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await prisma.sasi.delete({
-            where: { id: parseInt(id) }
+        const dorse = await prisma.dorse.findUnique({
+            where: { id: parseInt(id) },
+            include: { sasi: true }
         });
-        res.json({ message: 'Sasi deleted successfully' });
+
+        if (!dorse) {
+            return res.status(404).json({ error: 'Dorse not found' });
+        }
+
+        res.json(dorse);
     } catch (error) {
-        console.error('Error deleting sasi:', error);
-        res.status(500).json({ error: 'Failed to delete sasi' });
+        console.error('Error fetching dorse:', error);
+        res.status(500).json({ error: 'Failed to fetch dorse' });
     }
 });
 

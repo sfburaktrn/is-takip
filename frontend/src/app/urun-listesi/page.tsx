@@ -1184,7 +1184,7 @@ function UrunListesiContent() {
                                                     {/* IMALAT NO */}
                                                     <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                         <div>
-                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.imalatNo}</div>
                                                         </div>
                                                         <input type="number" className="input" style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }} value={sasi.imalatNo || ''} onChange={async (e) => {

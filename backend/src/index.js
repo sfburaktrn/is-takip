@@ -148,6 +148,7 @@ function calculateMainDorseStepStatus(dorse, groupKey) {
     const completedCount = group.subSteps.filter(step => dorse[step] === true).length;
     const totalCount = group.subSteps.length;
 
+    if (completedCount === 0) return 'BAŞLAMADI';
     if (completedCount === totalCount) return 'TAMAMLANDI';
     return 'DEVAM EDİYOR';
 }
@@ -1051,17 +1052,18 @@ app.get('/api/stats', async (req, res) => {
 
         items.forEach(item => {
             // Count completed steps
-            const completedSteps = allSteps.filter(step => item[step] === true).length;
+            const completedCount = allSteps.filter(step => {
+                if (step === 'akmTseMuayenesi') return item[step] === 'YAPILDI';
+                if (step === 'dmoMuayenesi') return item[step] === 'YAPILDI';
+                return item[step] === true;
+            }).length;
             const totalSteps = allSteps.length;
 
-            if (completedSteps === totalSteps) {
-                // All steps completed
+            if (completedCount === totalSteps) {
                 tamamlanan++;
-            } else if (completedSteps === 0) {
-                // No steps started
+            } else if (completedCount === 0) {
                 baslamayan++;
             } else {
-                // Some steps completed
                 devamEden++;
             }
         });
@@ -1088,6 +1090,7 @@ app.get('/api/health', (req, res) => {
 // Get analytics step stats (for charts) - with 3 states: başlanmadı, devam ediyor, tamamlandı
 // Get analytics step stats (for charts) - with 3 states
 app.get('/api/analytics/step-stats', async (req, res) => {
+    console.log('DEBUG: Analytics requested for:', req.query.type);
     try {
         const { type } = req.query;
         const productType = type === 'DORSE' ? 'DORSE' : 'DAMPER';
@@ -1111,7 +1114,7 @@ app.get('/api/analytics/step-stats', async (req, res) => {
                     sonKontrol: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     tipOnay: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     fatura: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
-                    akmTseMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
+                    kurumMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     dmoMuayenesi: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     tahsilat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 },
                     teslimat: { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 }
@@ -1153,6 +1156,7 @@ app.get('/api/analytics/step-stats', async (req, res) => {
         };
 
         items.forEach(item => {
+            console.log(`DEBUG: Processing ${productType} ID ${item.id}`);
             let stepStatuses;
             if (productType === 'DORSE') {
                 stepStatuses = {
@@ -1162,10 +1166,11 @@ app.get('/api/analytics/step-stats', async (req, res) => {
                     boya: calculateMainDorseStepStatus(item, 'boya'),
                     tamamlama: calculateMainDorseStepStatus(item, 'tamamlama'),
                     sonKontrol: item.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
-                    kurumMuayenesi: item.kurumMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
+                    kurumMuayenesi: item.akmTseMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
                     dmoMuayenesi: item.dmoMuayenesi === 'YAPILDI' ? 'TAMAMLANDI' : 'BAŞLAMADI',
                     teslimat: item.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
                 };
+                console.log(`DEBUG: Dorse ID ${item.id} statuses:`, JSON.stringify(stepStatuses));
             } else {
                 stepStatuses = {
                     kesimBukum: calculateMainStepStatus(item, 'kesimBukum'),

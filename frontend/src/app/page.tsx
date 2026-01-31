@@ -1619,7 +1619,7 @@ function DashboardContent() {
                             gap: '12px'
                           }}>
                             <div>
-                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
                               <div style={{ fontSize: '14px', fontWeight: 500, color: !sasi.imalatNo ? 'var(--warning)' : 'var(--foreground)' }}>
                                 {sasi.imalatNo ?? 'Girilmedi'}
                               </div>

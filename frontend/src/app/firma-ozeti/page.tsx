@@ -94,13 +94,13 @@ export default function FirmaOzeti() {
             <Sidebar />
             <main className="main-content">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="dashboard-header-row" style={{ width: '100%' }}>
                         <div>
                             <h1 className="header-title">Firma Özeti</h1>
                             <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : 'Dorse'} sipariş ve üretim durumu özeti</p>
                         </div>
 
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative', width: '100%', maxWidth: '250px' }}>
                             <input
                                 type="text"
                                 className="input"
@@ -108,7 +108,7 @@ export default function FirmaOzeti() {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 style={{
-                                    width: '250px',
+                                    width: '100%',
                                     paddingLeft: '12px',
                                     paddingRight: searchQuery ? '36px' : '12px'
                                 }}
@@ -133,7 +133,7 @@ export default function FirmaOzeti() {
                     </div>
 
                     {/* Product Toggle */}
-                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
                         <button
                             type="button"
                             style={{

@@ -546,7 +546,7 @@ function UrunListesiContent() {
             <Sidebar />
             <main className="main-content">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="dashboard-header-row">
                         <div>
                             <h1 className="header-title">Ürün Listesi</h1>
                             <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerini görüntüleyin ve yönetin</p>
@@ -557,7 +557,7 @@ function UrunListesiContent() {
                     </div>
 
                     {/* Product Toggle */}
-                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
                         <button
                             type="button"
                             style={{

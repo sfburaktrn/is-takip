@@ -604,7 +604,7 @@ function DashboardContent() {
           </div>
 
           {/* Product Toggle */}
-          <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
             <button
               type="button"
               style={{
@@ -672,10 +672,9 @@ function DashboardContent() {
           </div>
         </header>
 
-        {/* Stats Grid */}
         {productType !== 'DORSE_SASI' && (
           <div className="stats-grid" style={{
-            gridTemplateColumns: productType === 'SASI' ? 'repeat(auto-fit, minmax(200px, 1fr))' : 'repeat(4, 1fr)'
+            gridTemplateColumns: productType === 'SASI' ? 'repeat(auto-fit, minmax(200px, 1fr))' : undefined
           }}>
             <div
               className="stat-card"
@@ -747,7 +746,7 @@ function DashboardContent() {
         {/* DORSE_SASI View */}
         {productType === 'DORSE_SASI' && (
           <div style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div className="dashboard-header-row">
               <h2 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ background: 'var(--primary)', color: 'white', padding: '4px 10px', borderRadius: '6px', fontSize: '14px' }}>
                   {filteredLinkedDorseSasis.length} Çift
@@ -758,7 +757,7 @@ function DashboardContent() {
                 type="text"
                 placeholder="🔍 Dorse veya Şasi Ara..."
                 className="input"
-                style={{ width: '300px', padding: '8px 12px' }}
+                style={{ width: '100%', maxWidth: '300px' }}
                 value={dorseSasiSearchTerm}
                 onChange={(e) => setDorseSasiSearchTerm(e.target.value)}
               />
@@ -798,11 +797,7 @@ function DashboardContent() {
                       overflow: 'hidden'
                     }}
                   >
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto 1fr',
-                      alignItems: 'stretch'
-                    }}>
+                    <div className="dorse-sasi-grid">
                       {/* Dorse Section */}
                       <div style={{ padding: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -847,15 +842,7 @@ function DashboardContent() {
                       </div>
 
                       {/* Divider / Link */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '40px',
-                        background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.02) 20%, rgba(0,0,0,0.02) 80%, transparent)',
-                        borderLeft: '1px solid var(--border)',
-                        borderRight: '1px solid var(--border)'
-                      }}>
+                      <div className="dorse-sasi-divider">
                         <div style={{ color: 'var(--muted)', opacity: 0.5 }}>🔗</div>
                       </div>
 

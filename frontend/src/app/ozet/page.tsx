@@ -75,7 +75,7 @@ export default function OzetSayfasi() {
             <Sidebar />
             <main className="main-content">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="dashboard-header-row" style={{ width: '100%' }}>
                         <div>
                             <h1 className="header-title">Özet Görünüm</h1>
                             <p className="header-subtitle">Tüm {productType === 'DAMPER' ? 'damper' : 'dorse'} imalat süreçlerinin özet durumu</p>

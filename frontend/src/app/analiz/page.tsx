@@ -179,7 +179,7 @@ export default function Analiz() {
             <Sidebar />
             <main className="main-content">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="dashboard-header-row" style={{ width: '100%' }}>
                         <div>
                             <h1 className="header-title">📈 Analiz</h1>
                             <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} üretim verileri ve istatistikler</p>
@@ -199,7 +199,7 @@ export default function Analiz() {
                     </div>
 
                     {/* Product Toggle */}
-                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
                         <button
                             type="button"
                             style={{
@@ -293,7 +293,7 @@ export default function Analiz() {
                         </div>
 
                         {/* Charts Row */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px', marginTop: '24px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '24px' }}>
                             {/* Pie Chart - Status Distribution */}
                             <div className="card" style={{ padding: '20px' }}>
                                 <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Durum Dağılımı</h3>

@@ -208,7 +208,44 @@ export default function OzetSayfasi() {
                                         </td>
                                     )}
                                     {productType === 'DORSE' && (
-                                        <td style={{ fontSize: '12px' }}>{item.sasiNo || '-'}</td>
+                                        <td style={{ fontSize: '12px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                {/* 1. Dorse'nin kendi Şasi No'su (Elle girilen) */}
+                                                {item.sasiNo && (
+                                                    <div style={{ fontWeight: 500, color: 'var(--foreground)' }}>
+                                                        {item.sasiNo}
+                                                    </div>
+                                                )}
+
+                                                {/* 2. Bağlı Şasi Bilgisi */}
+                                                {item.sasi && (
+                                                    <div style={{
+                                                        fontSize: '11px',
+                                                        color: 'var(--primary)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        background: 'rgba(99, 102, 241, 0.05)',
+                                                        padding: '3px 8px',
+                                                        borderRadius: '6px',
+                                                        width: 'fit-content',
+                                                        border: '1px solid rgba(99, 102, 241, 0.1)'
+                                                    }}>
+                                                        <span style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>🔗 {item.sasi.musteri}</span>
+
+                                                        {/* Separator Line */}
+                                                        <div style={{ width: '1px', height: '12px', background: 'var(--primary)', opacity: 0.3 }}></div>
+
+                                                        <span style={{ opacity: 0.8, whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                                                            {item.sasi.sasiNo ? `#${item.sasi.sasiNo}` : (item.sasi.imalatNo ? `#${item.sasi.imalatNo}` : '')}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Hiçbiri yoksa */}
+                                                {!item.sasiNo && !item.sasi && <span style={{ color: 'var(--muted)' }}>-</span>}
+                                            </div>
+                                        </td>
                                     )}
                                     <td style={{ fontSize: '12px' }}>
                                         {productType === 'DAMPER' ? item.malzemeCinsi : item.kalinlik}

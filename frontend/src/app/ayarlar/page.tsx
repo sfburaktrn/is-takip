@@ -4,6 +4,17 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import { API_URL } from '@/lib/api';
+import {
+    Settings,
+    CheckCircle,
+    AlertTriangle,
+    Users,
+    Plus,
+    Crown,
+    User as UserIcon,
+    Edit2,
+    Trash2
+} from 'lucide-react';
 
 interface User {
     id: number;
@@ -130,30 +141,32 @@ export default function AyarlarPage() {
                 <Sidebar />
                 <main className="main-content">
                     <div className="page-header">
-                        <h1 className="page-title">⚙️ Ayarlar</h1>
+                        <h1 className="page-title"><Settings size={32} style={{ display: 'inline', marginRight: '12px' }} /> Ayarlar</h1>
                         <p style={{ color: 'var(--muted)' }}>Kullanıcı yönetimi ve sistem ayarları</p>
                     </div>
 
                     {success && (
-                        <div style={{ background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', color: '#86efac' }}>
-                            ✅ {success}
+                        <div style={{ background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', color: '#86efac', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle size={20} /> {success}
                         </div>
                     )}
                     {error && (
-                        <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', color: '#fca5a5' }}>
-                            ⚠️ {error}
+                        <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <AlertTriangle size={20} /> {error}
                         </div>
                     )}
 
                     {/* Users Section */}
                     <div className="card" style={{ padding: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ margin: 0, fontSize: '18px' }}>👥 Kullanıcılar</h2>
+                            <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Users size={20} /> Kullanıcılar
+                            </h2>
                             <button
                                 onClick={() => { setShowAddModal(true); setFormData({ username: '', password: '', fullName: '', isAdmin: false }); setError(''); }}
                                 style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
                             >
-                                ➕ Yeni Kullanıcı
+                                <Plus size={16} style={{ marginRight: '6px' }} /> Yeni Kullanıcı
                             </button>
                         </div>
 
@@ -176,13 +189,13 @@ export default function AyarlarPage() {
                                                 <td style={{ padding: '16px 12px', fontWeight: 500 }}>{user.username}</td>
                                                 <td style={{ padding: '16px 12px' }}>{user.fullName}</td>
                                                 <td style={{ padding: '16px 12px', textAlign: 'center' }}>
-                                                    <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, background: user.isAdmin ? 'rgba(245, 158, 11, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: user.isAdmin ? '#fbbf24' : '#60a5fa' }}>
-                                                        {user.isAdmin ? '👑 Admin' : '👤 Kullanıcı'}
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, background: user.isAdmin ? 'rgba(245, 158, 11, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: user.isAdmin ? '#fbbf24' : '#60a5fa' }}>
+                                                        {user.isAdmin ? <Crown size={14} /> : <UserIcon size={14} />} {user.isAdmin ? 'Admin' : 'Kullanıcı'}
                                                     </span>
                                                 </td>
                                                 <td style={{ padding: '16px 12px', textAlign: 'right' }}>
-                                                    <button onClick={() => openEditModal(user)} style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.2)', border: 'none', borderRadius: '8px', color: '#60a5fa', cursor: 'pointer', marginRight: '8px' }}>✏️</button>
-                                                    <button onClick={() => handleDeleteUser(user.id)} style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.2)', border: 'none', borderRadius: '8px', color: '#fca5a5', cursor: 'pointer' }}>🗑️</button>
+                                                    <button onClick={() => openEditModal(user)} style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.2)', border: 'none', borderRadius: '8px', color: '#60a5fa', cursor: 'pointer', marginRight: '8px' }}><Edit2 size={16} /></button>
+                                                    <button onClick={() => handleDeleteUser(user.id)} style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.2)', border: 'none', borderRadius: '8px', color: '#fca5a5', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -196,7 +209,9 @@ export default function AyarlarPage() {
                     {showAddModal && (
                         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                             <div style={{ background: 'var(--card-bg)', borderRadius: '20px', padding: '32px', width: '100%', maxWidth: '400px', border: '1px solid var(--border)' }}>
-                                <h3 style={{ margin: '0 0 24px', fontSize: '20px' }}>➕ Yeni Kullanıcı Ekle</h3>
+                                <h3 style={{ margin: '0 0 24px', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Plus size={24} /> Yeni Kullanıcı Ekle
+                                </h3>
                                 <form onSubmit={handleAddUser}>
                                     <div style={{ marginBottom: '16px' }}>
                                         <label style={{ display: 'block', marginBottom: '8px', color: 'var(--muted)', fontSize: '14px' }}>Kullanıcı Adı</label>
@@ -216,7 +231,7 @@ export default function AyarlarPage() {
                                             <span>Admin yetkisi ver</span>
                                         </label>
                                     </div>
-                                    {error && <div style={{ color: '#fca5a5', marginBottom: '16px', fontSize: '14px' }}>⚠️ {error}</div>}
+                                    {error && <div style={{ color: '#fca5a5', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={16} /> {error}</div>}
                                     <div style={{ display: 'flex', gap: '12px' }}>
                                         <button type="button" onClick={() => setShowAddModal(false)} style={{ flex: 1, padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', cursor: 'pointer' }}>İptal</button>
                                         <button type="submit" style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Ekle</button>
@@ -230,7 +245,9 @@ export default function AyarlarPage() {
                     {showEditModal && selectedUser && (
                         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                             <div style={{ background: 'var(--card-bg)', borderRadius: '20px', padding: '32px', width: '100%', maxWidth: '400px', border: '1px solid var(--border)' }}>
-                                <h3 style={{ margin: '0 0 24px', fontSize: '20px' }}>✏️ Kullanıcı Düzenle</h3>
+                                <h3 style={{ margin: '0 0 24px', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Edit2 size={24} /> Kullanıcı Düzenle
+                                </h3>
                                 <form onSubmit={handleUpdateUser}>
                                     <div style={{ marginBottom: '16px' }}>
                                         <label style={{ display: 'block', marginBottom: '8px', color: 'var(--muted)', fontSize: '14px' }}>Kullanıcı Adı</label>
@@ -250,7 +267,7 @@ export default function AyarlarPage() {
                                             <span>Admin yetkisi</span>
                                         </label>
                                     </div>
-                                    {error && <div style={{ color: '#fca5a5', marginBottom: '16px', fontSize: '14px' }}>⚠️ {error}</div>}
+                                    {error && <div style={{ color: '#fca5a5', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={16} /> {error}</div>}
                                     <div style={{ display: 'flex', gap: '12px' }}>
                                         <button type="button" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} style={{ flex: 1, padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', cursor: 'pointer' }}>İptal</button>
                                         <button type="submit" style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Kaydet</button>

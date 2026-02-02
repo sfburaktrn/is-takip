@@ -5,6 +5,19 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/AuthContext';
 
+const COLORS = {
+    primary: '#022347',
+    secondary: '#F8FAFC',
+    text: '#1E293B',
+    muted: '#64748B',
+    border: '#E2E8F0',
+    inputBg: '#FFFFFF',
+    focusRing: 'rgba(2, 35, 71, 0.2)',
+    errorBg: '#FEF2F2',
+    errorText: '#DC2626',
+    errorBorder: '#FEE2E2',
+};
+
 export default function LoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -27,12 +40,15 @@ export default function LoginPage() {
         setError('');
         setIsSubmitting(true);
 
+        // Simulate a small delay for better UX (optional, but feels more premium)
+        // await new Promise(resolve => setTimeout(resolve, 500));
+
         const result = await login(username, password);
 
         if (result.success) {
             router.push('/');
         } else {
-            setError(result.error || 'Giriş başarısız');
+            setError(result.error || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
         }
 
         setIsSubmitting(false);
@@ -44,25 +60,26 @@ export default function LoginPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-            padding: '20px'
+            background: '#F1F5F9', // Light gray background
+            backgroundImage: 'radial-gradient(circle at top right, #E2E8F0 0%, #F1F5F9 100%)',
+            padding: '20px',
+            fontFamily: 'var(--font-inter, sans-serif)'
         }}>
             <div style={{
                 width: '100%',
-                maxWidth: '400px',
-                background: 'rgba(30, 41, 59, 0.8)',
-                backdropFilter: 'blur(20px)',
+                maxWidth: '420px',
+                background: 'white',
                 borderRadius: '24px',
                 padding: '48px 40px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.5)'
             }}>
                 {/* Logo/Title */}
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                     <div style={{
-                        width: '200px',
+                        width: '180px',
                         height: 'auto',
-                        margin: '0 auto 20px',
+                        margin: '0 auto 24px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
@@ -70,45 +87,55 @@ export default function LoginPage() {
                         <Image
                             src="/logo.png"
                             alt="ÖZÜNLÜ Logo"
-                            width={200}
-                            height={80}
+                            width={180}
+                            height={72}
                             style={{
                                 width: '100%',
                                 height: 'auto',
                                 objectFit: 'contain'
                             }}
+                            priority
                         />
                     </div>
                     <h1 style={{
                         fontSize: '24px',
                         fontWeight: 700,
-                        color: '#fff',
-                        margin: 0
+                        color: COLORS.primary,
+                        margin: '0 0 8px 0',
+                        letterSpacing: '-0.025em'
                     }}>
-                        İmalat Takip Sistemi
+                        Hoş Geldiniz
                     </h1>
                     <p style={{
-                        color: 'rgba(255, 255, 255, 0.5)',
+                        color: COLORS.muted,
                         fontSize: '14px',
-                        marginTop: '8px'
+                        fontWeight: 400,
+                        margin: 0
                     }}>
-                        Giriş yaparak devam edin
+                        İmalat Takip Sistemi'ne giriş yapın
                     </p>
                 </div>
 
                 {/* Error Message */}
                 {error && (
                     <div style={{
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        background: COLORS.errorBg,
+                        border: `1px solid ${COLORS.errorBorder}`,
                         borderRadius: '12px',
-                        padding: '12px 16px',
+                        padding: '14px',
                         marginBottom: '24px',
-                        color: '#fca5a5',
+                        color: COLORS.errorText,
                         fontSize: '14px',
-                        textAlign: 'center'
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
                     }}>
-                        ⚠️ {error}
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {error}
                     </div>
                 )}
 
@@ -117,12 +144,12 @@ export default function LoginPage() {
                     <div style={{ marginBottom: '20px' }}>
                         <label style={{
                             display: 'block',
-                            color: 'rgba(255, 255, 255, 0.7)',
+                            color: COLORS.text,
                             fontSize: '14px',
                             marginBottom: '8px',
-                            fontWeight: 500
+                            fontWeight: 600
                         }}>
-                            👤 Kullanıcı Adı
+                            Kullanıcı Adı
                         </label>
                         <input
                             type="text"
@@ -133,45 +160,62 @@ export default function LoginPage() {
                             style={{
                                 width: '100%',
                                 padding: '14px 16px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                background: COLORS.inputBg,
+                                border: `1px solid ${COLORS.border}`,
                                 borderRadius: '12px',
-                                color: '#fff',
-                                fontSize: '16px',
+                                color: COLORS.text,
+                                fontSize: '15px',
                                 outline: 'none',
-                                transition: 'border-color 0.2s',
+                                transition: 'all 0.2s ease',
                                 boxSizing: 'border-box'
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = COLORS.primary;
+                                e.target.style.boxShadow = `0 0 0 4px ${COLORS.focusRing}`;
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = COLORS.border;
+                                e.target.style.boxShadow = 'none';
                             }}
                         />
                     </div>
 
                     <div style={{ marginBottom: '32px' }}>
-                        <label style={{
-                            display: 'block',
-                            color: 'rgba(255, 255, 255, 0.7)',
-                            fontSize: '14px',
-                            marginBottom: '8px',
-                            fontWeight: 500
-                        }}>
-                            🔒 Şifre
-                        </label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <label style={{
+                                display: 'block',
+                                color: COLORS.text,
+                                fontSize: '14px',
+                                fontWeight: 600
+                            }}>
+                                Şifre
+                            </label>
+                        </div>
                         <input
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Şifrenizi girin"
+                            placeholder="••••••••"
                             required
                             style={{
                                 width: '100%',
                                 padding: '14px 16px',
-                                background: 'rgba(15, 23, 42, 0.6)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                background: COLORS.inputBg,
+                                border: `1px solid ${COLORS.border}`,
                                 borderRadius: '12px',
-                                color: '#fff',
-                                fontSize: '16px',
+                                color: COLORS.text,
+                                fontSize: '15px',
                                 outline: 'none',
-                                transition: 'border-color 0.2s',
+                                transition: 'all 0.2s ease',
                                 boxSizing: 'border-box'
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = COLORS.primary;
+                                e.target.style.boxShadow = `0 0 0 4px ${COLORS.focusRing}`;
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = COLORS.border;
+                                e.target.style.boxShadow = 'none';
                             }}
                         />
                     </div>
@@ -182,22 +226,60 @@ export default function LoginPage() {
                         style={{
                             width: '100%',
                             padding: '16px',
-                            background: isSubmitting
-                                ? 'rgba(59, 130, 246, 0.5)'
-                                : 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                            background: COLORS.primary,
                             border: 'none',
                             borderRadius: '12px',
-                            color: '#fff',
+                            color: 'white',
                             fontSize: '16px',
                             fontWeight: 600,
                             cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                            transition: 'transform 0.2s, box-shadow 0.2s',
-                            boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
+                            transition: 'all 0.2s',
+                            opacity: isSubmitting ? 0.8 : 1,
+                            boxShadow: isSubmitting ? 'none' : '0 4px 6px -1px rgba(2, 35, 71, 0.2), 0 2px 4px -1px rgba(2, 35, 71, 0.1)'
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!isSubmitting) {
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(2, 35, 71, 0.2), 0 4px 6px -2px rgba(2, 35, 71, 0.1)';
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            if (!isSubmitting) {
+                                e.currentTarget.style.transform = 'none';
+                                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(2, 35, 71, 0.2), 0 2px 4px -1px rgba(2, 35, 71, 0.1)';
+                            }
                         }}
                     >
-                        {isSubmitting ? '⏳ Giriş yapılıyor...' : '🔑 Giriş Yap'}
+                        {isSubmitting ? (
+                            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <svg className="animate-spin" style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Giriş Yapılıyor...
+                            </span>
+                        ) : 'Giriş Yap'}
                     </button>
+
+                    {/* Add keyframes for spinner */}
+                    <style jsx>{`
+                        @keyframes spin {
+                            from { transform: rotate(0deg); }
+                            to { transform: rotate(360deg); }
+                        }
+                    `}</style>
                 </form>
+            </div>
+
+            {/* Footer Copyright */}
+            <div style={{
+                position: 'absolute',
+                bottom: '24px',
+                color: COLORS.muted,
+                fontSize: '12px',
+                textAlign: 'center'
+            }}>
+                &copy; {new Date().getFullYear()} Özünlü Damper. Tüm hakları saklıdır.
             </div>
         </div>
     );

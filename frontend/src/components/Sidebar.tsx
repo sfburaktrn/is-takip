@@ -5,6 +5,20 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
+import {
+    LayoutDashboard,
+    Truck,
+    ClipboardList,
+    Building2,
+    LineChart,
+    Settings,
+    FileText,
+    Menu,
+    X,
+    LogOut,
+    Crown,
+    User
+} from 'lucide-react';
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -13,17 +27,17 @@ export default function Sidebar() {
     const { user, isAdmin, logout } = useAuth();
 
     const menuItems = [
-        { href: '/', label: 'Dashboard', icon: '📊' },
-        { href: '/urun-listesi', label: 'Ürün Listesi', icon: '🚛' },
-        { href: '/ozet', label: 'Özet Görünüm', icon: '📋' },
-        { href: '/firma-ozeti', label: 'Firma Özeti', icon: '🏢' },
-        { href: '/analiz', label: 'Analiz', icon: '📈' },
+        { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/urun-listesi', label: 'Ürün Listesi', icon: Truck },
+        { href: '/ozet', label: 'Özet Görünüm', icon: ClipboardList },
+        { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
+        { href: '/analiz', label: 'Analiz', icon: LineChart },
     ];
 
     // Admin menu items
     const adminMenuItems = [
-        { href: '/ayarlar', label: 'Ayarlar', icon: '⚙️' },
-        { href: '/giris-loglari', label: 'Giriş Logları', icon: '📝' },
+        { href: '/ayarlar', label: 'Ayarlar', icon: Settings },
+        { href: '/giris-loglari', label: 'Giriş Logları', icon: FileText },
     ];
 
     const handleLogout = async () => {
@@ -39,7 +53,7 @@ export default function Sidebar() {
                 onClick={() => setIsOpen(!isOpen)}
                 aria-label="Toggle Menu"
             >
-                <span style={{ fontSize: '24px' }}>{isOpen ? '✕' : '☰'}</span>
+                {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
 
             {/* Overlay */}
@@ -63,10 +77,10 @@ export default function Sidebar() {
                     <div style={{
                         fontSize: '11px',
                         fontWeight: 700,
-                        color: 'rgba(255,255,255,0.5)',
+                        color: 'var(--muted)',
                         letterSpacing: '1px',
                         textAlign: 'center',
-                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                        borderTop: '1px solid var(--border)',
                         paddingTop: '12px',
                         width: '100%'
                     }}>
@@ -83,7 +97,7 @@ export default function Sidebar() {
                             onClick={() => setIsOpen(false)}
                             suppressHydrationWarning
                         >
-                            <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                            <item.icon size={20} />
                             <span>{item.label}</span>
                         </Link>
                     ))}
@@ -95,9 +109,9 @@ export default function Sidebar() {
                                 padding: '10px 10px 4px',
                                 fontSize: '10px',
                                 fontWeight: 700,
-                                color: 'rgba(255,255,255,0.4)',
+                                color: 'var(--muted)',
                                 letterSpacing: '1px',
-                                borderTop: '1px solid rgba(255,255,255,0.1)',
+                                borderTop: '1px solid var(--border)',
                                 marginTop: '2px'
                             }}>
                                 YÖNETİM
@@ -110,7 +124,7 @@ export default function Sidebar() {
                                     onClick={() => setIsOpen(false)}
                                     suppressHydrationWarning
                                 >
-                                    <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                                    <item.icon size={20} />
                                     <span>{item.label}</span>
                                 </Link>
                             ))}
@@ -121,18 +135,18 @@ export default function Sidebar() {
                 <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                         <div style={{
-                            width: '28px',
-                            height: '28px',
+                            width: '32px',
+                            height: '32px',
                             borderRadius: '8px',
                             background: isAdmin
-                                ? 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)'
-                                : 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
+                                ? 'rgba(239, 68, 68, 0.1)'
+                                : 'rgba(2, 35, 71, 0.1)',
+                            color: isAdmin ? 'var(--danger)' : 'var(--primary)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '14px'
                         }}>
-                            {isAdmin ? '👑' : '👤'}
+                            {isAdmin ? <Crown size={18} /> : <User size={18} />}
                         </div>
                         <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600, fontSize: '13px' }}>
@@ -148,10 +162,10 @@ export default function Sidebar() {
                         style={{
                             width: '100%',
                             padding: '8px',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            background: 'var(--secondary)',
+                            border: '1px solid var(--border)',
                             borderRadius: '8px',
-                            color: '#fca5a5',
+                            color: 'var(--muted)',
                             fontSize: '13px',
                             fontWeight: 500,
                             cursor: 'pointer',
@@ -161,8 +175,18 @@ export default function Sidebar() {
                             gap: '8px',
                             transition: 'all 0.2s'
                         }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'var(--danger)';
+                            e.currentTarget.style.color = 'white';
+                            e.currentTarget.style.borderColor = 'var(--danger)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'var(--secondary)';
+                            e.currentTarget.style.color = 'var(--muted)';
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                        }}
                     >
-                        🚪 Çıkış Yap
+                        <LogOut size={16} /> Çıkış Yap
                     </button>
                 </div>
             </aside>

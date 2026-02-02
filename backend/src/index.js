@@ -707,7 +707,8 @@ app.delete('/api/sasis/:id', async (req, res) => {
 app.get('/api/dorses-summary', async (req, res) => {
     try {
         const dorses = await prisma.dorse.findMany({
-            orderBy: { imalatNo: 'desc' }
+            orderBy: { imalatNo: 'desc' },
+            include: { sasi: true }
         });
 
         const summary = dorses.map(dorse => ({
@@ -744,7 +745,12 @@ app.get('/api/dorses-summary', async (req, res) => {
             // Specific extra fields if needed:
             kurumMuayenesi: dorse.akmTseMuayenesi || 'YOK', // Map to akmTse?
             dmoMuayenesi: dorse.dmoMuayenesi || 'YOK',
-            teslimat: dorse.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI'
+            teslimat: dorse.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI',
+            sasi: dorse.sasi ? {
+                musteri: dorse.sasi.musteri,
+                sasiNo: dorse.sasi.sasiNo,
+                imalatNo: dorse.sasi.imalatNo
+            } : null
         }));
 
         res.json(summary);

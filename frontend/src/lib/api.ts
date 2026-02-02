@@ -121,6 +121,11 @@ export interface DorseSummary {
     // In backend I mapped: kurumMuayenesi: dorse.akmTseMuayenesi
     dmoMuayenesi: string;
     teslimat: string;
+    sasi?: {
+        musteri: string;
+        sasiNo: string | null;
+        imalatNo?: number | null;
+    } | null;
 }
 
 export interface Stats {

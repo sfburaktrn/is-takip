@@ -4,6 +4,15 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import { API_URL } from '@/lib/api';
+import {
+    FileText,
+    ClipboardList,
+    Loader2,
+    Calendar,
+    User,
+    Clock,
+    Monitor
+} from 'lucide-react';
 
 interface LoginLog {
     id: number;
@@ -68,21 +77,24 @@ export default function GirisLoglariPage() {
                 <Sidebar />
                 <main className="main-content">
                     <div className="page-header">
-                        <h1 className="page-title">📝 Giriş Logları</h1>
+                        <h1 className="page-title"><FileText size={32} style={{ display: 'inline', marginRight: '12px' }} /> Giriş Logları</h1>
                         <p style={{ color: 'var(--muted)' }}>Kullanıcı giriş kayıtları</p>
                     </div>
 
                     <div className="card" style={{ padding: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ margin: 0, fontSize: '18px' }}>📋 Son Girişler</h2>
+                            <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <ClipboardList size={20} /> Son Girişler
+                            </h2>
                             <span style={{ color: 'var(--muted)', fontSize: '14px' }}>
                                 Toplam: {logs.length} kayıt
                             </span>
                         </div>
 
                         {loading ? (
-                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
-                                ⏳ Yükleniyor...
+                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                                <Loader2 size={32} className="animate-spin" />
+                                <div>Yükleniyor...</div>
                             </div>
                         ) : logs.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
@@ -99,9 +111,12 @@ export default function GirisLoglariPage() {
                                             marginBottom: '12px',
                                             fontSize: '14px',
                                             fontWeight: 600,
-                                            color: '#60a5fa'
+                                            color: '#60a5fa',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
                                         }}>
-                                            📅 {date}
+                                            <Calendar size={16} /> {date}
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {dateLogs.map(log => (
@@ -128,7 +143,7 @@ export default function GirisLoglariPage() {
                                                         fontSize: '18px',
                                                         flexShrink: 0
                                                     }}>
-                                                        👤
+                                                        <User size={20} color="#fff" />
                                                     </div>
                                                     <div style={{ flex: 1 }}>
                                                         <div style={{ fontWeight: 600, fontSize: '14px' }}>
@@ -139,12 +154,12 @@ export default function GirisLoglariPage() {
                                                         </div>
                                                     </div>
                                                     <div style={{ textAlign: 'right' }}>
-                                                        <div style={{ fontWeight: 600, fontSize: '14px', color: '#86efac' }}>
-                                                            🕐 {formatTime(log.loginAt)}
+                                                        <div style={{ fontWeight: 600, fontSize: '14px', color: '#86efac', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                                            <Clock size={14} /> {formatTime(log.loginAt)}
                                                         </div>
                                                         {log.ipAddress && (
-                                                            <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                                                                IP: {log.ipAddress}
+                                                            <div style={{ color: 'var(--muted)', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                                                <Monitor size={12} /> {log.ipAddress}
                                                             </div>
                                                         )}
                                                     </div>

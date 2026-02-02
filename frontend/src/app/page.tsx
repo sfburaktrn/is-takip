@@ -28,6 +28,24 @@ import {
   SASI_STEP_GROUPS
 } from '@/lib/api';
 import Link from 'next/link';
+import {
+  Package,
+  CheckCircle,
+  RefreshCcw,
+  PauseCircle,
+  Plus,
+  Link as LinkIcon,
+  User,
+  Search,
+  Trash2,
+  Calendar,
+  Truck,
+  Lightbulb,
+  ArrowUp,
+  ArrowDown,
+  LineChart,
+  Type
+} from 'lucide-react';
 
 type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'DORSE_SASI';
 
@@ -44,6 +62,16 @@ function DashboardContent() {
   const [sasiFilter, setSasiFilter] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'progress-asc' | 'progress-desc' | 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc' | null>(null);
+
+  const COLORS = {
+    primary: '#022347',
+    secondary: '#64748B',
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    info: '#3B82F6',
+    grid: '#E2E8F0'
+  };
 
   // Sasi Link Modal State
   const [showLinkModal, setShowLinkModal] = useState(false);
@@ -619,7 +647,7 @@ function DashboardContent() {
               <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerine genel bakış</p>
             </div>
             <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-              ➕ Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
+              <Plus size={18} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
             </button>
           </div>
 
@@ -687,7 +715,7 @@ function DashboardContent() {
               }}
               onClick={() => setProductType('DORSE_SASI')}
             >
-              ⛓️ Dorse+Şasi
+              <LinkIcon size={16} style={{ display: 'inline', marginRight: '4px' }} /> Dorse+Şasi
             </button>
           </div>
         </header>
@@ -704,25 +732,59 @@ function DashboardContent() {
                 {/* 1. GENEL DURUM (Sol) - 2 Kart */}
                 <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div
-                    className="stat-card"
-                    style={{ cursor: 'pointer', border: statusFilter === null ? '2px solid var(--primary)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
+                    style={{
+                      cursor: 'pointer',
+                      borderLeft: `4px solid ${COLORS.primary}`,
+                      borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                      borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                      borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                      flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
+                      transition: 'all 0.2s'
+                    }}
                     onClick={() => setStatusFilter(null)}
                   >
-                    <div className="stat-icon blue" style={{ width: '48px', height: '48px', fontSize: '24px' }}>📦</div>
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '12px',
+                      backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Package size={24} strokeWidth={2} />
+                    </div>
                     <div>
-                      <div className="stat-value">{currentStats?.total || 0}</div>
-                      <div className="stat-label">Toplam Şasi</div>
+                      <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
+                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam Şasi</div>
                     </div>
                   </div>
                   <div
-                    className="stat-card"
-                    style={{ cursor: 'pointer', border: statusFilter === 'tamamlanan' ? '2px solid var(--success)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
+                    style={{
+                      cursor: 'pointer',
+                      borderLeft: `4px solid ${COLORS.success}`,
+                      borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                      borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                      borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                      flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
+                      transition: 'all 0.2s'
+                    }}
                     onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
                   >
-                    <div className="stat-icon green" style={{ width: '48px', height: '48px', fontSize: '24px' }}>✅</div>
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '12px',
+                      backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <CheckCircle size={24} strokeWidth={2} />
+                    </div>
                     <div>
-                      <div className="stat-value">{currentStats?.tamamlanan || 0}</div>
-                      <div className="stat-label">Tamamlanan</div>
+                      <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
+                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Tamamlanan</div>
                     </div>
                   </div>
                 </div>
@@ -730,25 +792,59 @@ function DashboardContent() {
                 {/* 2. GENEL DURUM (Sağ) - 2 Kart */}
                 <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div
-                    className="stat-card"
-                    style={{ cursor: 'pointer', border: statusFilter === 'devamEden' ? '2px solid var(--warning)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
+                    style={{
+                      cursor: 'pointer',
+                      borderLeft: `4px solid ${COLORS.warning}`,
+                      borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                      borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                      borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                      flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
+                      transition: 'all 0.2s'
+                    }}
                     onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
                   >
-                    <div className="stat-icon yellow" style={{ width: '48px', height: '48px', fontSize: '24px' }}>🔄</div>
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '12px',
+                      backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <RefreshCcw size={24} strokeWidth={2} />
+                    </div>
                     <div>
-                      <div className="stat-value">{currentStats?.devamEden || 0}</div>
-                      <div className="stat-label">Devam Eden</div>
+                      <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
+                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Devam Eden</div>
                     </div>
                   </div>
                   <div
-                    className="stat-card"
-                    style={{ cursor: 'pointer', border: statusFilter === 'baslamayan' ? '2px solid var(--danger)' : undefined, flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}
+                    style={{
+                      cursor: 'pointer',
+                      borderLeft: `4px solid ${COLORS.danger}`,
+                      borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
+                      borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
+                      borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                      flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
+                      transition: 'all 0.2s'
+                    }}
                     onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
                   >
-                    <div className="stat-icon red" style={{ width: '48px', height: '48px', fontSize: '24px' }}>⏸️</div>
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '12px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.danger,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <PauseCircle size={24} strokeWidth={2} />
+                    </div>
                     <div>
-                      <div className="stat-value">{currentStats?.baslamayan || 0}</div>
-                      <div className="stat-label">Başlamayan</div>
+                      <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
+                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Başlamayan</div>
                     </div>
                   </div>
                 </div>
@@ -758,36 +854,87 @@ function DashboardContent() {
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>STOK ŞASİLER</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div
-                      className="stat-card"
-                      style={{ border: statusFilter === 'bosStok' ? '2px solid var(--primary)' : '1px solid rgba(99, 102, 241, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                      style={{
+                        cursor: 'pointer',
+                        borderLeft: `4px solid ${COLORS.primary}`,
+                        borderTop: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                        borderRight: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                        borderBottom: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        backgroundColor: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                        flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
+                        transition: 'all 0.2s'
+                      }}
                       onClick={() => setStatusFilter(statusFilter === 'bosStok' ? null : 'bosStok')}
                     >
-                      <div className="stat-icon blue" style={{ background: 'rgba(99, 102, 241, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>📦</div>
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '8px',
+                        backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <Package size={18} />
+                      </div>
                       <div>
-                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--primary)' }}>{stats?.stokSasiCount || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px' }}>Boş Stok</div>
+                        <div className="stat-value" style={{ fontSize: '18px', color: COLORS.primary, fontWeight: 700 }}>{stats?.stokSasiCount || 0}</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Boş Stok</div>
                       </div>
                     </div>
                     <div
-                      className="stat-card"
-                      style={{ border: statusFilter === 'tamamlananStok' ? '2px solid var(--success)' : '1px solid rgba(16, 185, 129, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                      style={{
+                        cursor: 'pointer',
+                        borderLeft: `4px solid ${COLORS.success}`,
+                        borderTop: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                        borderRight: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                        borderBottom: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        backgroundColor: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                        flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
+                        transition: 'all 0.2s'
+                      }}
                       onClick={() => setStatusFilter(statusFilter === 'tamamlananStok' ? null : 'tamamlananStok')}
                     >
-                      <div className="stat-icon green" style={{ background: 'rgba(16, 185, 129, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>✅</div>
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '8px',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <CheckCircle size={18} />
+                      </div>
                       <div>
-                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--success)' }}>{stats?.tamamlananStok || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px' }}>Bitmiş Stok</div>
+                        <div className="stat-value" style={{ fontSize: '18px', color: COLORS.success, fontWeight: 700 }}>{stats?.tamamlananStok || 0}</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Tamamlanan</div>
                       </div>
                     </div>
                     <div
-                      className="stat-card"
-                      style={{ border: statusFilter === 'devamEdenStok' ? '2px solid var(--warning)' : '1px solid rgba(245, 158, 11, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                      style={{
+                        cursor: 'pointer',
+                        borderLeft: `4px solid ${COLORS.warning}`,
+                        borderTop: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                        borderRight: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                        borderBottom: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        backgroundColor: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                        flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
+                        transition: 'all 0.2s'
+                      }}
                       onClick={() => setStatusFilter(statusFilter === 'devamEdenStok' ? null : 'devamEdenStok')}
                     >
-                      <div className="stat-icon yellow" style={{ background: 'rgba(245, 158, 11, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>🔄</div>
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '8px',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <RefreshCcw size={18} />
+                      </div>
                       <div>
-                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--warning)' }}>{stats?.devamEdenStok || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px' }}>Devam Eden</div>
+                        <div className="stat-value" style={{ fontSize: '18px', color: COLORS.warning, fontWeight: 700 }}>{stats?.devamEdenStok || 0}</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Devam Eden</div>
                       </div>
                     </div>
                   </div>
@@ -798,36 +945,87 @@ function DashboardContent() {
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>MÜŞTERİ ŞASİLER</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div
-                      className="stat-card"
-                      style={{ border: statusFilter === 'bosMusteri' ? '2px solid var(--primary)' : '1px solid rgba(99, 102, 241, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                      style={{
+                        cursor: 'pointer',
+                        borderLeft: `4px solid ${COLORS.info}`,
+                        borderTop: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                        borderRight: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                        borderBottom: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        backgroundColor: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                        flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
+                        transition: 'all 0.2s'
+                      }}
                       onClick={() => setStatusFilter(statusFilter === 'bosMusteri' ? null : 'bosMusteri')}
                     >
-                      <div className="stat-icon blue" style={{ background: 'rgba(99, 102, 241, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>👤</div>
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '8px',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.info,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <User size={18} />
+                      </div>
                       <div>
-                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--primary)' }}>{stats?.musteriSasiCount || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px' }}>Boş Müşteri</div>
+                        <div className="stat-value" style={{ fontSize: '18px', color: COLORS.info, fontWeight: 700 }}>{stats?.musteriSasiCount || 0}</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Boş Müşteri</div>
                       </div>
                     </div>
                     <div
-                      className="stat-card"
-                      style={{ border: statusFilter === 'tamamlananMusteri' ? '2px solid var(--success)' : '1px solid rgba(16, 185, 129, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                      style={{
+                        cursor: 'pointer',
+                        borderLeft: `4px solid ${COLORS.success}`,
+                        borderTop: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                        borderRight: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                        borderBottom: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        backgroundColor: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                        flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
+                        transition: 'all 0.2s'
+                      }}
                       onClick={() => setStatusFilter(statusFilter === 'tamamlananMusteri' ? null : 'tamamlananMusteri')}
                     >
-                      <div className="stat-icon green" style={{ background: 'rgba(16, 185, 129, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>✅</div>
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '8px',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <CheckCircle size={18} />
+                      </div>
                       <div>
-                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--success)' }}>{stats?.tamamlananMusteri || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px' }}>Bitmiş Müşteri</div>
+                        <div className="stat-value" style={{ fontSize: '18px', color: COLORS.success, fontWeight: 700 }}>{stats?.tamamlananMusteri || 0}</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bitmiş Müşteri</div>
                       </div>
                     </div>
                     <div
-                      className="stat-card"
-                      style={{ border: statusFilter === 'devamEdenMusteri' ? '2px solid var(--warning)' : '1px solid rgba(245, 158, 11, 0.3)', cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px' }}
+                      style={{
+                        cursor: 'pointer',
+                        borderLeft: `4px solid ${COLORS.warning}`,
+                        borderTop: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                        borderRight: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                        borderBottom: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        backgroundColor: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                        flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
+                        transition: 'all 0.2s'
+                      }}
                       onClick={() => setStatusFilter(statusFilter === 'devamEdenMusteri' ? null : 'devamEdenMusteri')}
                     >
-                      <div className="stat-icon yellow" style={{ background: 'rgba(245, 158, 11, 0.1)', width: '36px', height: '36px', fontSize: '18px' }}>🔄</div>
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '8px',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <RefreshCcw size={18} />
+                      </div>
                       <div>
-                        <div className="stat-value" style={{ fontSize: '18px', color: 'var(--warning)' }}>{stats?.devamEdenMusteri || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px' }}>Devam Eden</div>
+                        <div className="stat-value" style={{ fontSize: '18px', color: COLORS.warning, fontWeight: 700 }}>{stats?.devamEdenMusteri || 0}</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Devam Eden</div>
                       </div>
                     </div>
                   </div>
@@ -838,50 +1036,118 @@ function DashboardContent() {
               /* STANDARD VIEW (Damper/Dorse) */
               <>
                 <div
-                  className="stat-card"
-                  style={{ cursor: 'pointer', border: statusFilter === null ? '2px solid var(--primary)' : undefined }}
+                  style={{
+                    cursor: 'pointer',
+                    borderLeft: `4px solid ${COLORS.primary}`,
+                    borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                    borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                    borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    backgroundColor: 'white',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    display: 'flex', alignItems: 'center', gap: '16px',
+                    transition: 'all 0.2s'
+                  }}
                   onClick={() => setStatusFilter(null)}
                 >
-                  <div className="stat-icon blue">📦</div>
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '12px',
+                    backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Package size={24} strokeWidth={2} />
+                  </div>
                   <div>
-                    <div className="stat-value">{currentStats?.total || 0}</div>
-                    <div className="stat-label">Toplam {productType === 'DAMPER' ? 'Damper' : 'Dorse'}</div>
+                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
+                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam {productType === 'DAMPER' ? 'Damper' : 'Dorse'}</div>
                   </div>
                 </div>
 
                 <div
-                  className="stat-card"
-                  style={{ cursor: 'pointer', border: statusFilter === 'tamamlanan' ? '2px solid var(--success)' : undefined }}
+                  style={{
+                    cursor: 'pointer',
+                    borderLeft: `4px solid ${COLORS.success}`,
+                    borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                    borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                    borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    backgroundColor: 'white',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    display: 'flex', alignItems: 'center', gap: '16px',
+                    transition: 'all 0.2s'
+                  }}
                   onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
                 >
-                  <div className="stat-icon green">✅</div>
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '12px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <CheckCircle size={24} strokeWidth={2} />
+                  </div>
                   <div>
-                    <div className="stat-value">{currentStats?.tamamlanan || 0}</div>
-                    <div className="stat-label">Tamamlanan</div>
+                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
+                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Tamamlanan</div>
                   </div>
                 </div>
 
                 <div
-                  className="stat-card"
-                  style={{ cursor: 'pointer', border: statusFilter === 'devamEden' ? '2px solid var(--warning)' : undefined }}
+                  style={{
+                    cursor: 'pointer',
+                    borderLeft: `4px solid ${COLORS.warning}`,
+                    borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                    borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                    borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    backgroundColor: 'white',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    display: 'flex', alignItems: 'center', gap: '16px',
+                    transition: 'all 0.2s'
+                  }}
                   onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
                 >
-                  <div className="stat-icon yellow">🔄</div>
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '12px',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <RefreshCcw size={24} strokeWidth={2} />
+                  </div>
                   <div>
-                    <div className="stat-value">{currentStats?.devamEden || 0}</div>
-                    <div className="stat-label">Devam Eden</div>
+                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
+                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Devam Eden</div>
                   </div>
                 </div>
 
                 <div
-                  className="stat-card"
-                  style={{ cursor: 'pointer', border: statusFilter === 'baslamayan' ? '2px solid var(--danger)' : undefined }}
+                  style={{
+                    cursor: 'pointer',
+                    borderLeft: `4px solid ${COLORS.danger}`,
+                    borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
+                    borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
+                    borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    backgroundColor: 'white',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    display: 'flex', alignItems: 'center', gap: '16px',
+                    transition: 'all 0.2s'
+                  }}
                   onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
                 >
-                  <div className="stat-icon red">⏸️</div>
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '12px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.danger,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <PauseCircle size={24} strokeWidth={2} />
+                  </div>
                   <div>
-                    <div className="stat-value">{currentStats?.baslamayan || 0}</div>
-                    <div className="stat-label">Başlamayan</div>
+                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
+                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Başlamayan</div>
                   </div>
                 </div>
               </>
@@ -1146,7 +1412,7 @@ function DashboardContent() {
                   else setSortBy('progress-asc');
                 }}
               >
-                📊 Tamamlama % {sortBy === 'progress-asc' ? '↑' : sortBy === 'progress-desc' ? '↓' : ''}
+                <LineChart size={16} /> Tamamlama % {sortBy === 'progress-asc' ? <ArrowUp size={14} /> : sortBy === 'progress-desc' ? <ArrowDown size={14} /> : ''}
               </button>
 
               {/* İsim */}
@@ -1164,7 +1430,7 @@ function DashboardContent() {
                   else setSortBy('name-asc');
                 }}
               >
-                🔤 İsim {sortBy === 'name-asc' ? 'A→Z' : sortBy === 'name-desc' ? 'Z→A' : ''}
+                <Type size={16} /> İsim {sortBy === 'name-asc' ? 'A→Z' : sortBy === 'name-desc' ? 'Z→A' : ''}
               </button>
 
               {/* Tarih */}
@@ -1182,7 +1448,7 @@ function DashboardContent() {
                   else setSortBy('date-desc');
                 }}
               >
-                📅 Tarih {sortBy === 'date-desc' ? 'Yeni→Eski' : sortBy === 'date-asc' ? 'Eski→Yeni' : ''}
+                <Calendar size={16} /> Tarih {sortBy === 'date-desc' ? 'Yeni→Eski' : sortBy === 'date-asc' ? 'Eski→Yeni' : ''}
               </button>
 
               {sortBy && (
@@ -1449,7 +1715,9 @@ function DashboardContent() {
                                   }
                                 }}
                               />
-                              <div style={{ fontSize: '20px', cursor: 'pointer' }}>📅</div>
+                              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                <Calendar size={20} />
+                              </div>
                             </div>
                           </div>
 
@@ -1555,7 +1823,7 @@ function DashboardContent() {
                                 }
                               }}
                             >
-                              🗑️ Damperi Sil
+                              <Trash2 size={16} /> Damperi Sil
                             </button>
                           </div>
                         </div>
@@ -1770,7 +2038,9 @@ function DashboardContent() {
                               marginBottom: '12px'
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ fontSize: '24px' }}>🚛</div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Truck size={24} />
+                                </div>
                                 <div>
                                   <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>ŞASİ BAĞLANTISI</div>
                                   <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--primary)' }}>
@@ -1787,7 +2057,7 @@ function DashboardContent() {
                                 onClick={(e) => { e.stopPropagation(); openLinkModal(dorse); }}
                                 style={{ fontSize: '13px', padding: '8px 16px' }}
                               >
-                                {dorse.sasi ? '⛓️ Şasiyi Değiştir' : '🔗 Şasi Bağla'}
+                                {dorse.sasi ? <><LinkIcon size={14} /> Şasiyi Değiştir</> : <><LinkIcon size={14} /> Şasi Bağla</>}
                               </button>
                             </div>
 
@@ -1889,7 +2159,9 @@ function DashboardContent() {
                                   }
                                 }}
                               />
-                              <div style={{ fontSize: '20px', cursor: 'pointer' }}>📅</div>
+                              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                <Calendar size={20} />
+                              </div>
                             </div>
                           </div>
 
@@ -1972,7 +2244,7 @@ function DashboardContent() {
                                 }
                               }}
                             >
-                              🗑️ Dorseyi Sil
+                              <Trash2 size={16} /> Dorseyi Sil
                             </button>
                           </div>
                         </div>
@@ -2182,7 +2454,7 @@ function DashboardContent() {
                                 }
                               }}
                             >
-                              🗑️ Şasiyi Sil
+                              <Trash2 size={16} /> Şasiyi Sil
                             </button>
                           </div>
                         </div>
@@ -2308,7 +2580,9 @@ function DashboardContent() {
                         />
                         {parseInt(formData.adet) > 1 && (
                           <div style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px' }}>
-                            💡 {formData.adet} ayrı damper oluşturulacak: {formData.musteri || 'Firma'} 1, {formData.musteri || 'Firma'} 2, ... {formData.musteri || 'Firma'} {formData.adet}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Lightbulb size={18} /> {formData.adet} ayrı damper oluşturulacak: {formData.musteri || 'Firma'} 1, {formData.musteri || 'Firma'} 2, ... {formData.musteri || 'Firma'} {formData.adet}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2466,7 +2740,7 @@ function DashboardContent() {
                             style={{ flex: 1 }}
                             onClick={() => setSasiFormData(prev => ({ ...prev, isStok: true }))}
                           >
-                            📦 Stok Kaydı
+                            <Package size={16} /> Stok Kaydı
                           </button>
                           <button
                             type="button"
@@ -2474,7 +2748,7 @@ function DashboardContent() {
                             style={{ flex: 1 }}
                             onClick={() => setSasiFormData(prev => ({ ...prev, isStok: false }))}
                           >
-                            👤 Müşteri Kaydı
+                            <User size={16} /> Müşteri Kaydı
                           </button>
                         </div>
                       </div>
@@ -2546,64 +2820,98 @@ function DashboardContent() {
 
         {/* Şasi Bağlama Modalı */}
         {showLinkModal && activeDorseForLink && (
-          <div className="modal-overlay" onClick={() => setShowLinkModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-overlay" onClick={() => setShowLinkModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)' }}>
             <div
               className="modal-content"
               onClick={(e) => e.stopPropagation()}
-              style={{ maxWidth: '600px', width: '90%', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+              style={{
+                maxWidth: '600px',
+                width: '90%',
+                maxHeight: '85vh',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: '16px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                background: 'var(--card-bg)'
+              }}
             >
-              <div className="modal-header" style={{ background: 'linear-gradient(to right, var(--card), var(--secondary))' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '24px' }}>⛓️</span>
+              <div className="modal-header" style={{
+                background: 'linear-gradient(to right, #022347, #0f172a)',
+                padding: '20px 24px',
+                borderBottom: '1px solid var(--border)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff'
+                  }}>
+                    <LinkIcon size={20} />
+                  </div>
                   <div>
-                    <h3 className="modal-title" style={{ margin: 0 }}>Şasi Bağlantısı</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--muted)', margin: 0 }}>{activeDorseForLink.musteri} için şasi seçin</p>
+                    <h3 className="modal-title" style={{ margin: 0, color: '#fff', fontSize: '18px' }}>Şasi Bağlantısı</h3>
+                    <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', margin: '4px 0 0 0' }}>{activeDorseForLink.musteri} için şasi seçin</p>
                   </div>
                 </div>
-                <button className="modal-close" onClick={() => setShowLinkModal(false)}>✕</button>
+                <button
+                  className="modal-close"
+                  onClick={() => setShowLinkModal(false)}
+                  style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '24px', fontWeight: 300, background: 'none', border: 'none', cursor: 'pointer' }}
+                >✕</button>
               </div>
 
-              <div style={{ padding: '16px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '20px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>🔍</span>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', display: 'flex' }}>
+                    <Search size={18} />
+                  </span>
                   <input
                     type="text"
                     className="input"
                     placeholder="Şasi ara (Müşteri adı veya Stok no...)"
-                    style={{ paddingLeft: '36px' }}
+                    style={{ paddingLeft: '40px', height: '42px', borderRadius: '10px' }}
                     value={linkSearchTerm}
                     onChange={(e) => setLinkSearchTerm(e.target.value)}
                   />
                 </div>
-
-                <div className="stats-tabs" style={{ marginBottom: '0' }}>
+                <div className="stats-tabs" style={{ marginBottom: '0', background: 'var(--card-bg)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                   <button
                     className={`tab-btn ${linkFilter === 'hepsi' ? 'active' : ''}`}
                     onClick={() => setLinkFilter('hepsi')}
+                    style={{ flex: 1, borderRadius: '8px', fontSize: '13px' }}
                   >Hepsi</button>
                   <button
                     className={`tab-btn ${linkFilter === 'stok' ? 'active' : ''}`}
                     onClick={() => setLinkFilter('stok')}
+                    style={{ flex: 1, borderRadius: '8px', fontSize: '13px' }}
                   >Stok</button>
                   <button
                     className={`tab-btn ${linkFilter === 'musteri' ? 'active' : ''}`}
                     onClick={() => setLinkFilter('musteri')}
+                    style={{ flex: 1, borderRadius: '8px', fontSize: '13px' }}
                   >Müşteri</button>
                 </div>
               </div>
 
-              <div className="modal-body" style={{ overflowY: 'auto', padding: '0' }}>
+              <div className="modal-body" style={{ overflowY: 'auto', padding: '0', flex: 1, background: 'var(--card-bg)' }}>
                 {availableSasis.length === 0 ? (
                   <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
-                    Bağlanabilir boş şasi bulunamadı.
-                    <br />
-                    <button className="btn btn-secondary" style={{ marginTop: '12px' }} onClick={() => { setShowLinkModal(false); setShowAddModal(true); setProductType('SASI'); }}>
-                      Yeni Şasi Oluştur
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+                      <Package size={48} strokeWidth={1} style={{ opacity: 0.5 }} />
+                    </div>
+                    <p style={{ margin: '0 0 16px 0', fontSize: '14px' }}>Bağlanabilir boş şasi bulunamadı.</p>
+                    <button className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }} onClick={() => { setShowLinkModal(false); setShowAddModal(true); setProductType('SASI'); }}>
+                      <Plus size={16} style={{ marginRight: '6px' }} /> Yeni Şasi Oluştur
                     </button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {/* Sort and filter sasis */}
                     {[...availableSasis]
                       .filter(s => {
                         // First apply tab filter
@@ -2634,35 +2942,38 @@ function DashboardContent() {
                             key={sasi.id}
                             onClick={() => handleLinkSasi(activeDorseForLink.id, sasi.id)}
                             style={{
-                              padding: '16px',
+                              padding: '16px 20px',
                               borderBottom: '1px solid var(--border)',
                               cursor: 'pointer',
                               transition: 'all 0.2s',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
-                              background: isMatch ? 'rgba(99, 102, 241, 0.05)' : 'transparent',
+                              background: isMatch ? 'rgba(99, 102, 241, 0.04)' : 'transparent',
                               borderLeft: isMatch ? '4px solid var(--primary)' : '4px solid transparent'
                             }}
                             className="sasi-list-item"
                           >
                             <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontWeight: 600 }}>#{sasi.imalatNo || '0'} - {sasi.musteri}</span>
-                                {isMatch && <span style={{ fontSize: '10px', background: 'var(--primary)', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>UYGUN</span>}
-                                {progress === 100 && <span style={{ fontSize: '10px', background: 'var(--success)', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>✅ ŞASİ HAZIR</span>}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--foreground)' }}>#{sasi.imalatNo || '0'} - {sasi.musteri}</span>
+                                {isMatch && <span style={{ fontSize: '10px', background: 'var(--primary)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>UYGUN</span>}
+                                {progress === 100 && <span style={{ fontSize: '10px', background: 'var(--success)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={10} /> HAZIR</span>}
                               </div>
-                              <div style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ fontSize: '13px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <span>{sasi.sasiNo || 'No yok'} | {sasi.dingil} | {sasi.tampon}</span>
+                                <div style={{ width: '1px', height: '12px', background: 'var(--border)' }}></div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <div className="progress-bar" style={{ width: '40px', height: '4px' }}>
-                                    <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                  <div className="progress-bar" style={{ width: '60px', height: '6px', borderRadius: '3px', background: 'var(--bg-secondary)' }}>
+                                    <div className="progress-bar-fill" style={{ width: `${progress}%`, background: progress === 100 ? 'var(--success)' : 'var(--primary)', borderRadius: '3px' }}></div>
                                   </div>
-                                  <span style={{ fontSize: '11px' }}>%{progress}</span>
+                                  <span style={{ fontSize: '12px', fontWeight: 500, color: progress === 100 ? 'var(--success)' : 'var(--primary)' }}>%{progress}</span>
                                 </div>
                               </div>
                             </div>
-                            <div style={{ fontSize: '18px', color: 'var(--muted)', marginLeft: '12px' }}>🔗</div>
+                            <div style={{ color: 'var(--muted)', marginLeft: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                              <LinkIcon size={16} />
+                            </div>
                           </div>
                         );
                       })}
@@ -2670,8 +2981,8 @@ function DashboardContent() {
                 )}
               </div>
 
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setShowLinkModal(false)}>Kapat</button>
+              <div className="modal-footer" style={{ padding: '16px 24px', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)' }}>
+                <button className="btn btn-secondary" onClick={() => setShowLinkModal(false)} style={{ width: '100%', justifyContent: 'center' }}>İptal</button>
               </div>
             </div>
           </div>

@@ -81,7 +81,7 @@ function DashboardContent() {
   const [linkSearchTerm, setLinkSearchTerm] = useState('');
   const [availableSasis, setAvailableSasis] = useState<Sasi[]>([]);
   const [linkLoading, setLinkLoading] = useState(false);
-  const [dorseSasiSearchTerm, setDorseSasiSearchTerm] = useState('');
+
 
   // Damper Form State
   const [formData, setFormData] = useState({
@@ -647,8 +647,8 @@ function DashboardContent() {
   }, [dorses]);
 
   const filteredLinkedDorseSasis = useMemo(() => {
-    if (!dorseSasiSearchTerm.trim()) return linkedDorseSasis;
-    const term = dorseSasiSearchTerm.toLowerCase().trim();
+    if (!searchTerm.trim()) return linkedDorseSasis;
+    const term = searchTerm.toLowerCase().trim();
     return linkedDorseSasis.filter(({ dorse, sasi }) =>
       dorse.musteri.toLowerCase().includes(term) ||
       String(dorse.imalatNo).includes(term) ||
@@ -656,7 +656,7 @@ function DashboardContent() {
       (sasi.sasiNo || '').toLowerCase().includes(term) ||
       String(sasi.imalatNo).includes(term)
     );
-  }, [linkedDorseSasis, dorseSasiSearchTerm]);
+  }, [linkedDorseSasis, searchTerm]);
 
   if (loading) {
     return (
@@ -755,7 +755,7 @@ function DashboardContent() {
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
             <input
               type="text"
-              placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} ara...`}
+              placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Dorse veya Şasi'} ara...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -1219,14 +1219,6 @@ function DashboardContent() {
                 </span>
                 Bağlı Dorse-Şasi Listesi
               </h2>
-              <input
-                type="text"
-                placeholder="🔍 Dorse veya Şasi Ara..."
-                className="input"
-                style={{ width: '100%', maxWidth: '300px' }}
-                value={dorseSasiSearchTerm}
-                onChange={(e) => setDorseSasiSearchTerm(e.target.value)}
-              />
             </div>
 
             {filteredLinkedDorseSasis.length === 0 ? (

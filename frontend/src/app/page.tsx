@@ -60,6 +60,7 @@ function DashboardContent() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [sasiFilter, setSasiFilter] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'progress-asc' | 'progress-desc' | 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc' | null>(null);
 
@@ -459,9 +460,21 @@ function DashboardContent() {
 
   // Filter and sort dampers
   const sortedDampers = useMemo(() => {
-    const result = statusFilter
-      ? dampers.filter(d => getDamperStatus(d) === statusFilter)
-      : [...dampers];
+    let result = [...dampers];
+
+    if (searchTerm) {
+      const lowerTerm = searchTerm.toLowerCase();
+      result = result.filter(d =>
+        (d.musteri || '').toLowerCase().includes(lowerTerm) ||
+        (d.aracMarka || '').toLowerCase().includes(lowerTerm) ||
+        (d.model || '').toLowerCase().includes(lowerTerm) ||
+        (d.imalatNo || '').toString().includes(lowerTerm)
+      );
+    }
+
+    if (statusFilter) {
+      result = result.filter(d => getDamperStatus(d) === statusFilter);
+    }
 
     if (sortBy) {
       result.sort((a, b) => {
@@ -484,14 +497,24 @@ function DashboardContent() {
       });
     }
 
-    return statusFilter || sortBy ? result : result.slice(0, 5);
-  }, [dampers, statusFilter, sortBy]);
+    return statusFilter || sortBy || searchTerm ? result : result.slice(0, 5);
+  }, [dampers, statusFilter, sortBy, searchTerm]);
 
   // Filter and sort dorses
   const sortedDorses = useMemo(() => {
-    const result = statusFilter
-      ? dorses.filter(d => getDorseStatus(d) === statusFilter)
-      : [...dorses];
+    let result = [...dorses];
+
+    if (searchTerm) {
+      const lowerTerm = searchTerm.toLowerCase();
+      result = result.filter(d =>
+        (d.musteri || '').toLowerCase().includes(lowerTerm) ||
+        (d.imalatNo || '').toString().includes(lowerTerm)
+      );
+    }
+
+    if (statusFilter) {
+      result = result.filter(d => getDorseStatus(d) === statusFilter);
+    }
 
     if (sortBy) {
       result.sort((a, b) => {
@@ -514,12 +537,21 @@ function DashboardContent() {
       });
     }
 
-    return statusFilter || sortBy ? result : result.slice(0, 50);
-  }, [dorses, statusFilter, sortBy]);
+    return statusFilter || sortBy || searchTerm ? result : result.slice(0, 50);
+  }, [dorses, statusFilter, sortBy, searchTerm]);
 
   // Filter and sort sasis
   const sortedSasis = useMemo(() => {
     let result = [...sasis];
+
+    if (searchTerm) {
+      const lowerTerm = searchTerm.toLowerCase();
+      result = result.filter(s =>
+        (s.musteri || '').toLowerCase().includes(lowerTerm) ||
+        (s.sasiNo || '').toLowerCase().includes(lowerTerm) ||
+        (s.imalatNo || '').toString().includes(lowerTerm)
+      );
+    }
 
     if (statusFilter) {
       if (statusFilter === 'tamamlanan') {
@@ -574,8 +606,8 @@ function DashboardContent() {
       });
     }
 
-    return statusFilter || sortBy || sasiFilter ? result : result.slice(0, 50);
-  }, [sasis, statusFilter, sortBy, sasiFilter]);
+    return statusFilter || sortBy || sasiFilter || searchTerm ? result : result.slice(0, 50);
+  }, [sasis, statusFilter, sortBy, sasiFilter, searchTerm]);
 
   const currentStats = useMemo(() => {
     if (productType === 'DAMPER') return stats;
@@ -717,6 +749,28 @@ function DashboardContent() {
             >
               <LinkIcon size={16} style={{ display: 'inline', marginRight: '4px' }} /> Dorse+Şasi
             </button>
+          </div>
+
+          <div style={{ position: 'relative', width: '300px' }}>
+            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
+            <input
+              type="text"
+              placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} ara...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 10px 10px 40px',
+                borderRadius: '8px',
+                border: `1px solid ${COLORS.grid}`,
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                backgroundColor: 'white'
+              }}
+              onFocus={(e) => e.target.style.borderColor = COLORS.primary}
+              onBlur={(e) => e.target.style.borderColor = COLORS.grid}
+            />
           </div>
         </header>
 
@@ -2987,7 +3041,7 @@ function DashboardContent() {
             </div>
           </div>
         )}
-      </main>
+      </main >
     </>
   );
 }

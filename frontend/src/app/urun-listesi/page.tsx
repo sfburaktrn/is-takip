@@ -70,6 +70,7 @@ function UrunListesiContent() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [sasiFilter, setSasiFilter] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
     const [expandedId, setExpandedId] = useState<number | null>(null);
     const [sortBy, setSortBy] = useState<'progress-asc' | 'progress-desc' | 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc' | null>(null);
 
@@ -441,9 +442,21 @@ function UrunListesiContent() {
 
     // Filter and sort dampers
     const sortedDampers = useMemo(() => {
-        const result = statusFilter
-            ? dampers.filter(d => getDamperStatus(d) === statusFilter)
-            : [...dampers];
+        let result = [...dampers];
+
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            result = result.filter(d =>
+                (d.musteri || '').toLowerCase().includes(lowerTerm) ||
+                (d.aracMarka || '').toLowerCase().includes(lowerTerm) ||
+                (d.model || '').toLowerCase().includes(lowerTerm) ||
+                (d.imalatNo || '').toString().includes(lowerTerm)
+            );
+        }
+
+        if (statusFilter) {
+            result = result.filter(d => getDamperStatus(d) === statusFilter);
+        }
 
         if (sortBy) {
             result.sort((a, b) => {
@@ -466,14 +479,24 @@ function UrunListesiContent() {
             });
         }
 
-        return statusFilter || sortBy ? result : result.slice(0, 50); // Increased limit as this is the main list
-    }, [dampers, statusFilter, sortBy]);
+        return statusFilter || sortBy || searchTerm ? result : result.slice(0, 50); // Increased limit as this is the main list
+    }, [dampers, statusFilter, sortBy, searchTerm]);
 
     // Filter and sort dorses
     const sortedDorses = useMemo(() => {
-        const result = statusFilter
-            ? dorses.filter(d => getDorseStatus(d) === statusFilter)
-            : [...dorses];
+        let result = [...dorses];
+
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            result = result.filter(d =>
+                (d.musteri || '').toLowerCase().includes(lowerTerm) ||
+                (d.imalatNo || '').toString().includes(lowerTerm)
+            );
+        }
+
+        if (statusFilter) {
+            result = result.filter(d => getDorseStatus(d) === statusFilter);
+        }
 
         if (sortBy) {
             result.sort((a, b) => {
@@ -496,12 +519,21 @@ function UrunListesiContent() {
             });
         }
 
-        return statusFilter || sortBy ? result : result.slice(0, 50); // Increased limit
-    }, [dorses, statusFilter, sortBy]);
+        return statusFilter || sortBy || searchTerm ? result : result.slice(0, 50); // Increased limit
+    }, [dorses, statusFilter, sortBy, searchTerm]);
 
     // Filter and sort sasis
     const sortedSasis = useMemo(() => {
         let result = [...sasis];
+
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            result = result.filter(s =>
+                (s.musteri || '').toLowerCase().includes(lowerTerm) ||
+                (s.sasiNo || '').toLowerCase().includes(lowerTerm) ||
+                (s.imalatNo || '').toString().includes(lowerTerm)
+            );
+        }
 
         if (statusFilter) {
             if (statusFilter === 'tamamlanan') {
@@ -556,8 +588,8 @@ function UrunListesiContent() {
             });
         }
 
-        return statusFilter || sortBy || sasiFilter ? result : result.slice(0, 50);
-    }, [sasis, statusFilter, sortBy, sasiFilter]);
+        return statusFilter || sortBy || sasiFilter || searchTerm ? result : result.slice(0, 50);
+    }, [sasis, statusFilter, sortBy, sasiFilter, searchTerm]);
 
     const currentStats = useMemo(() => {
         if (productType === 'DAMPER') return stats;
@@ -605,56 +637,81 @@ function UrunListesiContent() {
                         </button>
                     </div>
 
-                    {/* Product Toggle */}
-                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
-                        <button
-                            type="button"
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: productType === 'DAMPER' ? 'var(--primary)' : 'transparent',
-                                color: productType === 'DAMPER' ? 'white' : 'var(--muted)',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                            onClick={() => setProductType('DAMPER')}
-                        >
-                            Damperler
-                        </button>
-                        <button
-                            type="button"
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: productType === 'DORSE' ? 'var(--primary)' : 'transparent',
-                                color: productType === 'DORSE' ? 'white' : 'var(--muted)',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                            onClick={() => setProductType('DORSE')}
-                        >
-                            Dorseler
-                        </button>
-                        <button
-                            type="button"
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: productType === 'SASI' ? 'var(--primary)' : 'transparent',
-                                color: productType === 'SASI' ? 'white' : 'var(--muted)',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                            onClick={() => setProductType('SASI')}
-                        >
-                            Şasiler
-                        </button>
+                    {/* Product Toggle & Search */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
+                        <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
+                            <button
+                                type="button"
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: productType === 'DAMPER' ? 'var(--primary)' : 'transparent',
+                                    color: productType === 'DAMPER' ? 'white' : 'var(--muted)',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => setProductType('DAMPER')}
+                            >
+                                Damperler
+                            </button>
+                            <button
+                                type="button"
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: productType === 'DORSE' ? 'var(--primary)' : 'transparent',
+                                    color: productType === 'DORSE' ? 'white' : 'var(--muted)',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => setProductType('DORSE')}
+                            >
+                                Dorseler
+                            </button>
+                            <button
+                                type="button"
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: productType === 'SASI' ? 'var(--primary)' : 'transparent',
+                                    color: productType === 'SASI' ? 'white' : 'var(--muted)',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => setProductType('SASI')}
+                            >
+                                Şasiler
+                            </button>
+                        </div>
+
+                        <div style={{ position: 'relative', flex: '1 1 300px', minWidth: '250px', maxWidth: '400px' }}>
+                            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
+                            <input
+                                type="text"
+                                placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ara...`}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 10px 10px 40px',
+                                    borderRadius: '8px',
+                                    border: `1px solid ${COLORS.grid}`,
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    transition: 'all 0.2s',
+                                    backgroundColor: 'white',
+                                    color: 'var(--foreground)'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = COLORS.primary}
+                                onBlur={(e) => e.target.style.borderColor = COLORS.grid}
+                            />
+                        </div>
                     </div>
                 </header>
 

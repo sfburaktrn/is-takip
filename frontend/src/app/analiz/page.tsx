@@ -226,7 +226,7 @@ export default function Analiz() {
             <Sidebar />
             <main className="main-content">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div className="dashboard-header-row" style={{ width: '100%' }}>
+                    <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
                         <div>
                             <h1 className="header-title"><LineChartIcon size={32} style={{ display: 'inline', marginRight: '12px' }} /> Analiz</h1>
                             <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} üretim verileri ve istatistikler</p>
@@ -520,7 +520,7 @@ export default function Analiz() {
                                 <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Package size={20} /> M³ Bazlı İlerleme Durumları
                                 </h2>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '20px' }}>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                                     {Object.entries(m3StepStats)
                                         .sort((a, b) => Number(b[0]) - Number(a[0]))
                                         .map(([m3, stats]) => (
@@ -604,7 +604,7 @@ export default function Analiz() {
                                     <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Package size={20} /> M³ Bazlı Aşama Detayları
                                     </h2>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '20px' }}>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                                         {Object.entries(m3StepStats)
                                             .sort((a, b) => Number(b[0]) - Number(a[0]))
                                             .map(([m3, stats]) => (

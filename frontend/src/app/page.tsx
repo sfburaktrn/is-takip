@@ -673,7 +673,7 @@ function DashboardContent() {
       <Sidebar />
       <main className="main-content">
         <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-          <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
             <div>
               <h1 className="header-title">Dashboard</h1>
               <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerine genel bakış</p>
@@ -751,7 +751,7 @@ function DashboardContent() {
             </button>
           </div>
 
-          <div style={{ position: 'relative', width: '300px' }}>
+          <div className="w-full sm:w-[300px]" style={{ position: 'relative' }}>
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
             <input
               type="text"

@@ -627,7 +627,7 @@ function UrunListesiContent() {
             <Sidebar />
             <main className="main-content">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
                         <div>
                             <h1 className="header-title">Ürün Listesi</h1>
                             <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerini görüntüleyin ve yönetin</p>
@@ -718,7 +718,7 @@ function UrunListesiContent() {
                 {/* Stats Grid */}
                 {/* Stats Grid */}
                 {productType === 'SASI' ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'stretch', marginBottom: '24px' }}>
+                    <div className="flex flex-col md:flex-row flex-wrap gap-4 items-stretch mb-6">
 
                         {/* 1. GENEL DURUM (Sol) - 2 Kart */}
                         <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1024,9 +1024,7 @@ function UrunListesiContent() {
 
                     </div>
                 ) : (
-                    <div className="stats-grid" style={{
-                        gridTemplateColumns: 'repeat(4, 1fr)'
-                    }}>
+                    <div className="stats-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div
                             style={{
                                 cursor: 'pointer',

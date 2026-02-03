@@ -372,7 +372,7 @@ export default function Analiz() {
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Genel üretim durumu özeti</p>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                                    <ResponsiveContainer width="100%" height={200}>
+                                    <ResponsiveContainer width="99%" height={200} debounce={50}>
                                         <PieChart>
                                             <Pie
                                                 data={pieChartData}
@@ -415,7 +415,7 @@ export default function Analiz() {
                             {productType === 'SASI' && (
                                 <div className="card" style={{ padding: '20px' }}>
                                     <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Stok / Müşteri Dağılımı</h3>
-                                    <ResponsiveContainer width="100%" height={280}>
+                                    <ResponsiveContainer width="99%" height={280} debounce={50}>
                                         <PieChart>
                                             <Pie
                                                 data={stockChartData}
@@ -445,7 +445,7 @@ export default function Analiz() {
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>En yüksek hacimli 8 firma</p>
                                 </div>
                                 <div style={{ height: '280px' }}>
-                                    <ResponsiveContainer width="100%" height={280}>
+                                    <ResponsiveContainer width="99%" height={280} debounce={50}>
                                         <PieChart>
                                             <Pie
                                                 data={companyDist}
@@ -488,7 +488,7 @@ export default function Analiz() {
                                 </div>
                             </div>
                             <div style={{ width: '100%', height: '400px', minHeight: '300px' }}>
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="99%" height="100%" debounce={50}>
                                     <BarChart
                                         layout="vertical"
                                         data={barChartData}
@@ -532,9 +532,9 @@ export default function Analiz() {
                                     {Object.entries(m3StepStats)
                                         .sort((a, b) => Number(b[0]) - Number(a[0]))
                                         .map(([m3, stats]) => (
-                                            <div key={m3} className="card" style={{ padding: '24px' }}>
+                                            <div key={m3} className="card" style={{ padding: '24px', minWidth: 0 }}>
                                                 <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>{m3} M³ İlerleme</h3>
-                                                <ResponsiveContainer width="100%" height={300}>
+                                                <ResponsiveContainer width="99%" height={300} debounce={50}>
                                                     <BarChart
                                                         layout="vertical"
                                                         data={getChartData(stats)}

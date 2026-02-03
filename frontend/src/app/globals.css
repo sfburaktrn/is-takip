@@ -1213,20 +1213,6 @@ tr:hover td {
 
 /* Analiz Page Charts */
 @media (max-width: 640px) {
-  canvas {
-    max-height: 250px !important;
-  }
-
-  /* Recharts containers on mobile */
-  .recharts-responsive-container {
-    min-height: 200px !important;
-  }
-
-  /* Chart cards - reduce padding on mobile */
-  .card canvas,
-  .card .recharts-wrapper {
-    max-width: 100% !important;
-  }
 
   /* Bar chart text smaller on mobile */
   .recharts-cartesian-axis-tick-value {
@@ -1237,12 +1223,6 @@ tr:hover td {
   .recharts-legend-item-text {
     font-size: 11px !important;
   }
-
-  /* Pie chart legend vertical on mobile */
-  .recharts-legend-wrapper {
-    position: relative !important;
-    width: 100% !important;
-  }
 }
 
 /* Charts grid responsive */
@@ -1251,11 +1231,6 @@ tr:hover td {
   /* Make chart grid single column */
   [style*="gridTemplateColumns: 'repeat(auto-fit"] {
     grid-template-columns: 1fr !important;
-  }
-
-  /* Reduce chart height on tablets */
-  .recharts-responsive-container {
-    max-height: 280px !important;
   }
 }
 
@@ -1299,5 +1274,27 @@ tr:hover td {
   .main-content {
     margin-left: 0 !important;
     padding: 20px !important;
+  }
+}
+
+/* Fix CSS Grid/Flex Overflow Issues for Charts */
+.card,
+.stats-grid>div,
+[class*="grid-cols-"]>div {
+  min-width: 0 !important;
+  overflow: visible;
+  /* Changed to visible to let tooltips float */
+}
+
+/* Ensure Recharts container shrinks properly */
+.recharts-responsive-container {
+  min-width: 0 !important;
+  flex: 1;
+}
+
+/* Force chart heights on mobile if inline styles fail */
+@media (max-width: 640px) {
+  .recharts-wrapper {
+    max-width: 100% !important;
   }
 }

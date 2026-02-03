@@ -137,6 +137,44 @@ body {
   box-shadow: 0 4px 12px -2px rgba(2, 35, 71, 0.3);
 }
 
+/* Premium Button for Main Actions */
+.btn-premium {
+  background: linear-gradient(135deg, #022347 0%, #03346E 100%);
+  color: white;
+  padding: 12px 28px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(2, 35, 71, 0.2), 0 2px 4px -1px rgba(2, 35, 71, 0.1);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(2, 35, 71, 0.3), 0 4px 6px -2px rgba(2, 35, 71, 0.1);
+  border-color: rgba(255,255,255,0.25);
+  background: linear-gradient(135deg, #03346E 0%, #022347 100%);
+}
+
+.btn-premium:active {
+  transform: translateY(0);
+}
+
+.btn-premium svg {
+  transition: transform 0.3s ease;
+}
+
+.btn-premium:hover svg {
+  transform: rotate(90deg);
+}
+
 .btn-secondary {
   background: var(--secondary);
   color: var(--foreground);

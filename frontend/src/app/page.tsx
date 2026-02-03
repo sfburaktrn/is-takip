@@ -678,8 +678,8 @@ function DashboardContent() {
               <h1 className="header-title">Dashboard</h1>
               <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerine genel bakış</p>
             </div>
-            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-              <Plus size={18} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
+            <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
+              <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
             </button>
           </div>
 

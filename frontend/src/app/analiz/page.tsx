@@ -371,8 +371,8 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Durum Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Genel üretim durumu özeti</p>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%', height: '260px' }}>
-                                    <ResponsiveContainer width="100%" height={220} debounce={50}>
+                                <div style={{ width: '100%', height: '220px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
                                                 data={pieChartData}
@@ -415,26 +415,28 @@ export default function Analiz() {
                             {productType === 'SASI' && (
                                 <div className="card" style={{ padding: '20px' }}>
                                     <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Stok / Müşteri Dağılımı</h3>
-                                    <ResponsiveContainer width="99%" height={280} debounce={50}>
-                                        <PieChart>
-                                            <Pie
-                                                data={stockChartData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={100}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                                label={({ name, value }) => `${name}: ${value}`}
-                                            >
-                                                {stockChartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
+                                    <div style={{ width: '100%', height: '280px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={stockChartData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={60}
+                                                    outerRadius={100}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                    label={({ name, value }) => `${name}: ${value}`}
+                                                >
+                                                    {stockChartData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
                                 </div>
                             )}
 
@@ -444,8 +446,8 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Firma Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>En yüksek hacimli 8 firma</p>
                                 </div>
-                                <div style={{ width: '100%', height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <ResponsiveContainer width="100%" height={220} debounce={50}>
+                                <div style={{ width: '100%', height: '220px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
                                                 data={companyDist}
@@ -489,7 +491,7 @@ export default function Analiz() {
                             </div>
                             <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px', minHeight: '300px' }}>
                                 <div style={{ width: '100%', height: '400px' }}>
-                                    <ResponsiveContainer width="100%" height={400} debounce={50}>
+                                    <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
                                             layout="vertical"
                                             data={barChartData}
@@ -538,7 +540,7 @@ export default function Analiz() {
                                                 <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>{m3} M³ İlerleme</h3>
                                                 <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px', minHeight: '400px' }}>
                                                     <div style={{ width: '100%', height: '300px' }}>
-                                                        <ResponsiveContainer width="100%" height={300} debounce={50}>
+                                                        <ResponsiveContainer width="100%" height="100%">
                                                             <BarChart
                                                                 layout="vertical"
                                                                 data={getChartData(stats)}

@@ -487,38 +487,40 @@ export default function Analiz() {
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Üretim aşamalarındaki yoğunluk analizi</p>
                                 </div>
                             </div>
-                            <div style={{ width: '100%', height: '400px', minHeight: '300px' }}>
-                                <ResponsiveContainer width="99%" height="100%" debounce={50}>
-                                    <BarChart
-                                        layout="vertical"
-                                        data={barChartData}
-                                        margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
-                                        barSize={24}
-                                        barGap={4}
-                                    >
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
-                                        <XAxis type="number" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                                        <YAxis
-                                            dataKey="name"
-                                            type="category"
-                                            tick={{ fontSize: 12, fill: '#475569', fontWeight: 500 }}
-                                            width={70}
-                                            axisLine={false}
-                                            tickLine={false}
-                                        />
-                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
-                                        <Legend
-                                            verticalAlign="top"
-                                            align="right"
-                                            iconType="circle"
-                                            iconSize={8}
-                                            wrapperStyle={{ paddingBottom: '20px' }}
-                                        />
-                                        <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
-                                        <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
-                                        <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                            <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px' }}>
+                                <div style={{ width: '100%', height: '400px', minHeight: '300px', minWidth: '600px' }}>
+                                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                                        <BarChart
+                                            layout="vertical"
+                                            data={barChartData}
+                                            margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
+                                            barSize={24}
+                                            barGap={4}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
+                                            <XAxis type="number" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                                            <YAxis
+                                                dataKey="name"
+                                                type="category"
+                                                tick={{ fontSize: 12, fill: '#475569', fontWeight: 500 }}
+                                                width={70}
+                                                axisLine={false}
+                                                tickLine={false}
+                                            />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
+                                            <Legend
+                                                verticalAlign="top"
+                                                align="right"
+                                                iconType="circle"
+                                                iconSize={8}
+                                                wrapperStyle={{ paddingBottom: '20px' }}
+                                            />
+                                            <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
+                                            <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
+                                            <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
                         </div>
 
@@ -534,31 +536,35 @@ export default function Analiz() {
                                         .map(([m3, stats]) => (
                                             <div key={m3} className="card" style={{ padding: '24px', minWidth: 0 }}>
                                                 <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>{m3} M³ İlerleme</h3>
-                                                <ResponsiveContainer width="99%" height={300} debounce={50}>
-                                                    <BarChart
-                                                        layout="vertical"
-                                                        data={getChartData(stats)}
-                                                        margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
-                                                        barSize={20}
-                                                        barGap={2}
-                                                    >
-                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
-                                                        <XAxis type="number" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                                                        <YAxis
-                                                            dataKey="name"
-                                                            type="category"
-                                                            tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
-                                                            width={65}
-                                                            axisLine={false}
-                                                            tickLine={false}
-                                                        />
-                                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
-                                                        <Legend verticalAlign="top" align="right" iconType="circle" iconSize={6} />
-                                                        <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
-                                                        <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
-                                                        <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
-                                                    </BarChart>
-                                                </ResponsiveContainer>
+                                                <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px' }}>
+                                                    <div style={{ width: '100%', height: '300px', minWidth: '500px' }}>
+                                                        <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                                                            <BarChart
+                                                                layout="vertical"
+                                                                data={getChartData(stats)}
+                                                                margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
+                                                                barSize={20}
+                                                                barGap={2}
+                                                            >
+                                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
+                                                                <XAxis type="number" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                                                                <YAxis
+                                                                    dataKey="name"
+                                                                    type="category"
+                                                                    tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
+                                                                    width={65}
+                                                                    axisLine={false}
+                                                                    tickLine={false}
+                                                                />
+                                                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
+                                                                <Legend verticalAlign="top" align="right" iconType="circle" iconSize={6} />
+                                                                <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
+                                                                <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
+                                                                <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
+                                                            </BarChart>
+                                                        </ResponsiveContainer>
+                                                    </div>
+                                                </div>
                                             </div>
                                         ))}
                                 </div>

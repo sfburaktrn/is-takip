@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { getStats, type Stats, type StepStats, API_URL, getSasis } from '@/lib/api';
 import {
-    PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+    PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
 } from 'recharts';
 import {
     LineChart as LineChartIcon,
@@ -371,26 +371,24 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Durum Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Genel üretim durumu özeti</p>
                                 </div>
-                                <div style={{ width: '100%', height: '220px' }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={pieChartData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={80}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                                stroke="none"
-                                            >
-                                                {pieChartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
+                                <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                    <PieChart width={200} height={200}>
+                                        <Pie
+                                            data={pieChartData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={75}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            stroke="none"
+                                        >
+                                            {pieChartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
+                                    </PieChart>
                                 </div>
                                 <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
                                     {pieChartData.map((entry, index) => (
@@ -415,27 +413,25 @@ export default function Analiz() {
                             {productType === 'SASI' && (
                                 <div className="card" style={{ padding: '20px' }}>
                                     <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Stok / Müşteri Dağılımı</h3>
-                                    <div style={{ width: '100%', height: '280px' }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie
-                                                    data={stockChartData}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={100}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                    label={({ name, value }) => `${name}: ${value}`}
-                                                >
-                                                    {stockChartData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip />
-                                                <Legend />
-                                            </PieChart>
-                                        </ResponsiveContainer>
+                                    <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                        <PieChart width={250} height={250}>
+                                            <Pie
+                                                data={stockChartData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={50}
+                                                outerRadius={90}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                                label={({ name, value }) => `${name}: ${value}`}
+                                            >
+                                                {stockChartData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend />
+                                        </PieChart>
                                     </div>
                                 </div>
                             )}
@@ -446,34 +442,24 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Firma Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>En yüksek hacimli 8 firma</p>
                                 </div>
-                                <div style={{ width: '100%', height: '220px' }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={companyDist}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={80}
-                                                paddingAngle={2}
-                                                dataKey="count"
-                                                stroke="none"
-                                            >
-                                                {(productType === 'SASI' ? stockChartData : companyDist).map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={(entry.color as string) || COLORS.charts[index % COLORS.charts.length]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Legend
-                                                layout="horizontal"
-                                                verticalAlign="bottom"
-                                                align="center"
-                                                iconType="circle"
-                                                iconSize={8}
-                                                wrapperStyle={{ fontSize: '11px', color: '#475569', paddingTop: '10px' }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
+                                <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                    <PieChart width={200} height={200}>
+                                        <Pie
+                                            data={companyDist}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={75}
+                                            paddingAngle={2}
+                                            dataKey="count"
+                                            stroke="none"
+                                        >
+                                            {(productType === 'SASI' ? stockChartData : companyDist).map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={(entry.color as string) || COLORS.charts[index % COLORS.charts.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<CustomTooltip />} />
+                                    </PieChart>
                                 </div>
                             </div>
                         </div>
@@ -489,40 +475,38 @@ export default function Analiz() {
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Üretim aşamalarındaki yoğunluk analizi</p>
                                 </div>
                             </div>
-                            <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px', minHeight: '300px' }}>
-                                <div style={{ width: '100%', height: '400px' }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart
-                                            layout="vertical"
-                                            data={barChartData}
-                                            margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
-                                            barSize={24}
-                                            barGap={4}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
-                                            <XAxis type="number" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                                            <YAxis
-                                                dataKey="name"
-                                                type="category"
-                                                tick={{ fontSize: 12, fill: '#475569', fontWeight: 500 }}
-                                                width={110}
-                                                axisLine={false}
-                                                tickLine={false}
-                                            />
-                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
-                                            <Legend
-                                                verticalAlign="top"
-                                                align="right"
-                                                iconType="circle"
-                                                iconSize={8}
-                                                wrapperStyle={{ paddingBottom: '20px' }}
-                                            />
-                                            <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
-                                            <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
-                                            <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
+                            <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px' }}>
+                                <BarChart
+                                    layout="vertical"
+                                    width={350}
+                                    height={300}
+                                    data={barChartData}
+                                    margin={{ top: 20, right: 20, left: 0, bottom: 0 }}
+                                    barSize={20}
+                                    barGap={4}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
+                                    <XAxis type="number" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                                    <YAxis
+                                        dataKey="name"
+                                        type="category"
+                                        tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
+                                        width={100}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
+                                    <Legend
+                                        verticalAlign="top"
+                                        align="right"
+                                        iconType="circle"
+                                        iconSize={8}
+                                        wrapperStyle={{ paddingBottom: '10px' }}
+                                    />
+                                    <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
+                                    <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
+                                    <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
+                                </BarChart>
                             </div>
                         </div>
 
@@ -538,34 +522,32 @@ export default function Analiz() {
                                         .map(([m3, stats]) => (
                                             <div key={m3} className="card" style={{ padding: '24px', minWidth: 0 }}>
                                                 <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>{m3} M³ İlerleme</h3>
-                                                <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px', minHeight: '400px' }}>
-                                                    <div style={{ width: '100%', height: '300px' }}>
-                                                        <ResponsiveContainer width="100%" height="100%">
-                                                            <BarChart
-                                                                layout="vertical"
-                                                                data={getChartData(stats)}
-                                                                margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
-                                                                barSize={20}
-                                                                barGap={2}
-                                                            >
-                                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
-                                                                <XAxis type="number" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                                                                <YAxis
-                                                                    dataKey="name"
-                                                                    type="category"
-                                                                    tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
-                                                                    width={110}
-                                                                    axisLine={false}
-                                                                    tickLine={false}
-                                                                />
-                                                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
-                                                                <Legend verticalAlign="top" align="right" iconType="circle" iconSize={6} />
-                                                                <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
-                                                                <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
-                                                                <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
-                                                            </BarChart>
-                                                        </ResponsiveContainer>
-                                                    </div>
+                                                <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px' }}>
+                                                    <BarChart
+                                                        layout="vertical"
+                                                        width={320}
+                                                        height={280}
+                                                        data={getChartData(stats)}
+                                                        margin={{ top: 20, right: 20, left: 0, bottom: 0 }}
+                                                        barSize={18}
+                                                        barGap={2}
+                                                    >
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
+                                                        <XAxis type="number" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                                                        <YAxis
+                                                            dataKey="name"
+                                                            type="category"
+                                                            tick={{ fontSize: 10, fill: '#475569', fontWeight: 500 }}
+                                                            width={90}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
+                                                        <Legend verticalAlign="top" align="right" iconType="circle" iconSize={6} />
+                                                        <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
+                                                        <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
+                                                        <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
+                                                    </BarChart>
                                                 </div>
                                             </div>
                                         ))}

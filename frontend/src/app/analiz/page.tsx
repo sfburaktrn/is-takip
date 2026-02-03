@@ -492,7 +492,7 @@ export default function Analiz() {
                                     <BarChart
                                         layout="vertical"
                                         data={barChartData}
-                                        margin={{ top: 0, right: 30, left: 40, bottom: 0 }}
+                                        margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
                                         barSize={24}
                                         barGap={4}
                                     >
@@ -502,7 +502,7 @@ export default function Analiz() {
                                             dataKey="name"
                                             type="category"
                                             tick={{ fontSize: 12, fill: '#475569', fontWeight: 500 }}
-                                            width={100}
+                                            width={70}
                                             axisLine={false}
                                             tickLine={false}
                                         />
@@ -538,7 +538,7 @@ export default function Analiz() {
                                                     <BarChart
                                                         layout="vertical"
                                                         data={getChartData(stats)}
-                                                        margin={{ top: 0, right: 30, left: 40, bottom: 0 }}
+                                                        margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
                                                         barSize={20}
                                                         barGap={2}
                                                     >
@@ -548,7 +548,7 @@ export default function Analiz() {
                                                             dataKey="name"
                                                             type="category"
                                                             tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
-                                                            width={90}
+                                                            width={65}
                                                             axisLine={false}
                                                             tickLine={false}
                                                         />

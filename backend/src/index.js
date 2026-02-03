@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -39,11 +40,18 @@ app.use(express.json());
 
 // Session middleware
 const isProduction = process.env.NODE_ENV === 'production';
+
+// Session secret validation - production ortamda zorunlu
+if (isProduction && !process.env.SESSION_SECRET) {
+    console.error('HATA: SESSION_SECRET ortam değişkeni tanımlanmalı!');
+    process.exit(1);
+}
+
 if (isProduction) {
     app.set('trust proxy', 1); // Trust first proxy for secure cookies
 }
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'damper-takip-secret-key-2024',
+    secret: process.env.SESSION_SECRET || 'dev-secret-key-change-in-production',
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -53,6 +61,15 @@ app.use(session({
         sameSite: isProduction ? 'none' : 'lax' // Cross-domain cookies in production
     }
 }));
+
+// Rate Limiter - Login brute force koruması
+const loginLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 saat
+    max: 10, // IP başına 10 deneme
+    message: { error: 'Çok fazla giriş denemesi. Lütfen 1 saat sonra tekrar deneyin.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // Auth Middleware - Giriş kontrolü
 const requireAuth = (req, res, next) => {
@@ -207,8 +224,8 @@ function addCalculatedSteps(damper) {
 
 // ==================== AUTH ROUTES ====================
 
-// Login
-app.post('/api/auth/login', async (req, res) => {
+// Login - Rate limited to prevent brute force
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
 
@@ -433,8 +450,8 @@ app.get('/api/login-logs', requireAdmin, async (req, res) => {
 
 // ==================== DAMPER ROUTES ====================
 
-// Get all dampers with optional filters
-app.get('/api/dampers', async (req, res) => {
+// Get all dampers with optional filters - Requires authentication
+app.get('/api/dampers', requireAuth, async (req, res) => {
     try {
         const { search, tip, malzemeCinsi, status } = req.query;
 
@@ -463,8 +480,8 @@ app.get('/api/dampers', async (req, res) => {
     }
 });
 
-// Get single damper
-app.get('/api/dampers/:id', async (req, res) => {
+// Get single damper - Requires authentication
+app.get('/api/dampers/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const damper = await prisma.damper.findUnique({
@@ -482,8 +499,8 @@ app.get('/api/dampers/:id', async (req, res) => {
     }
 });
 
-// Create new damper(s) - creates multiple if adet > 1
-app.post('/api/dampers', async (req, res) => {
+// Create new damper(s) - creates multiple if adet > 1 - Requires authentication
+app.post('/api/dampers', requireAuth, async (req, res) => {
     try {
         const { adet, musteri, ...restData } = req.body;
         const quantity = adet || 1;
@@ -520,8 +537,8 @@ app.post('/api/dampers', async (req, res) => {
     }
 });
 
-// Update damper
-app.put('/api/dampers/:id', async (req, res) => {
+// Update damper - Requires authentication
+app.put('/api/dampers/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const damper = await prisma.damper.update({
@@ -535,8 +552,8 @@ app.put('/api/dampers/:id', async (req, res) => {
     }
 });
 
-// Delete damper
-app.delete('/api/dampers/:id', async (req, res) => {
+// Delete damper - Requires authentication
+app.delete('/api/dampers/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         await prisma.damper.delete({
@@ -551,8 +568,8 @@ app.delete('/api/dampers/:id', async (req, res) => {
 
 // ==================== SASI ROUTES ====================
 
-// Get all sasis
-app.get('/api/sasis', async (req, res) => {
+// Get all sasis - Requires authentication
+app.get('/api/sasis', requireAuth, async (req, res) => {
     try {
         const { unlinkedOnly } = req.query;
         let where = {};
@@ -582,8 +599,8 @@ app.get('/api/sasis', async (req, res) => {
     }
 });
 
-// Get single sasi
-app.get('/api/sasis/:id', async (req, res) => {
+// Get single sasi - Requires authentication
+app.get('/api/sasis/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const sasi = await prisma.sasi.findUnique({
@@ -608,8 +625,8 @@ app.get('/api/sasis/:id', async (req, res) => {
     }
 });
 
-// Create sasi with auto-naming
-app.post('/api/sasis', async (req, res) => {
+// Create sasi with auto-naming - Requires authentication
+app.post('/api/sasis', requireAuth, async (req, res) => {
     try {
         const { adet, musteri, ...restData } = req.body;
         const quantity = adet || 1;
@@ -660,8 +677,8 @@ app.post('/api/sasis', async (req, res) => {
     }
 });
 
-// Update sasi
-app.put('/api/sasis/:id', async (req, res) => {
+// Update sasi - Requires authentication
+app.put('/api/sasis/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const sasi = await prisma.sasi.update({
@@ -675,8 +692,8 @@ app.put('/api/sasis/:id', async (req, res) => {
     }
 });
 
-// Delete sasi
-app.delete('/api/sasis/:id', async (req, res) => {
+// Delete sasi - Requires authentication
+app.delete('/api/sasis/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         await prisma.sasi.delete({
@@ -689,22 +706,8 @@ app.delete('/api/sasis/:id', async (req, res) => {
     }
 });
 
-// Delete sasi
-app.delete('/api/sasis/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        await prisma.sasi.delete({
-            where: { id: parseInt(id) }
-        });
-        res.json({ message: 'Sasi deleted successfully' });
-    } catch (error) {
-        console.error('Error deleting sasi:', error);
-        res.status(500).json({ error: 'Failed to delete sasi' });
-    }
-});
-
-// Get dorse summary view
-app.get('/api/dorses-summary', async (req, res) => {
+// Get dorse summary view - Requires authentication
+app.get('/api/dorses-summary', requireAuth, async (req, res) => {
     try {
         const dorses = await prisma.dorse.findMany({
             orderBy: { imalatNo: 'desc' },
@@ -760,8 +763,8 @@ app.get('/api/dorses-summary', async (req, res) => {
     }
 });
 
-// Get summary view (only main steps)
-app.get('/api/dampers-summary', async (req, res) => {
+// Get summary view (only main steps) - Requires authentication
+app.get('/api/dampers-summary', requireAuth, async (req, res) => {
     try {
         const dampers = await prisma.damper.findMany({
             orderBy: { imalatNo: 'desc' }
@@ -808,8 +811,8 @@ function getBaseCompany(name) {
     return baseName.trim();
 }
 
-// Get company summary with step completion stats
-app.get('/api/company-summary', async (req, res) => {
+// Get company summary with step completion stats - Requires authentication
+app.get('/api/company-summary', requireAuth, async (req, res) => {
     try {
         const { type } = req.query; // 'DAMPER' or 'DORSE'
         const productType = type === 'DORSE' ? 'DORSE' : 'DAMPER';
@@ -1078,8 +1081,8 @@ app.get('/api/dropdowns', async (req, res) => {
     }
 });
 
-// Get statistics
-app.get('/api/stats', async (req, res) => {
+// Get statistics - Requires authentication
+app.get('/api/stats', requireAuth, async (req, res) => {
     try {
         const { type } = req.query;
         const isDorse = type === 'DORSE';
@@ -1211,8 +1214,7 @@ app.get('/api/health', (req, res) => {
 
 // Get analytics step stats (for charts) - with 3 states: başlanmadı, devam ediyor, tamamlandı
 // Get analytics step stats (for charts) - with 3 states
-app.get('/api/analytics/step-stats', async (req, res) => {
-    console.log('DEBUG: Analytics requested for:', req.query.type);
+app.get('/api/analytics/step-stats', requireAuth, async (req, res) => {
     try {
         const { type } = req.query;
         const productType = type === 'DORSE' ? 'DORSE' : 'DAMPER';
@@ -1333,8 +1335,8 @@ app.get('/api/analytics/step-stats', async (req, res) => {
 });
 
 // Get company distribution for pie chart
-// Get company distribution for pie chart
-app.get('/api/analytics/company-distribution', async (req, res) => {
+// Get company distribution for pie chart - Requires authentication
+app.get('/api/analytics/company-distribution', requireAuth, async (req, res) => {
     try {
         const { type } = req.query;
         const isDorse = type === 'DORSE';
@@ -1367,8 +1369,8 @@ app.get('/api/analytics/company-distribution', async (req, res) => {
 });
 
 // Get recent activity (today's updated dampers that have actual work done)
-// Get recent activity (today's updated items that have actual work done)
-app.get('/api/analytics/recent-activity', async (req, res) => {
+// Get recent activity (today's updated items that have actual work done) - Requires authentication
+app.get('/api/analytics/recent-activity', requireAuth, async (req, res) => {
     try {
         const { type } = req.query;
         const productType = type === 'DORSE' ? 'DORSE' : 'DAMPER';
@@ -1528,8 +1530,8 @@ app.get('/api/analytics/recent-activity', async (req, res) => {
     }
 });
 
-// Delete dampers/dorses by Company and M3
-app.delete('/api/company-m3', async (req, res) => {
+// Delete dampers/dorses by Company and M3 - Requires authentication
+app.delete('/api/company-m3', requireAuth, async (req, res) => {
     try {
         const { companyName, m3, type = 'DAMPER' } = req.body;
 
@@ -1576,8 +1578,8 @@ app.delete('/api/company-m3', async (req, res) => {
 
 // ==================== DORSE ROUTES ====================
 
-// Get all dorses
-app.get('/api/dorses', async (req, res) => {
+// Get all dorses - Requires authentication
+app.get('/api/dorses', requireAuth, async (req, res) => {
     try {
         const dorses = await prisma.dorse.findMany({
             orderBy: { imalatNo: 'desc' },
@@ -1590,8 +1592,8 @@ app.get('/api/dorses', async (req, res) => {
     }
 });
 
-// Create new dorse
-app.post('/api/dorses', async (req, res) => {
+// Create new dorse - Requires authentication
+app.post('/api/dorses', requireAuth, async (req, res) => {
     try {
         const { adet, musteri, sasiId, ...restData } = req.body;
         const quantity = adet || 1;
@@ -1630,8 +1632,8 @@ app.post('/api/dorses', async (req, res) => {
     }
 });
 
-// Update dorse
-app.put('/api/dorses/:id', async (req, res) => {
+// Update dorse - Requires authentication
+app.put('/api/dorses/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const dorse = await prisma.dorse.update({
@@ -1645,8 +1647,8 @@ app.put('/api/dorses/:id', async (req, res) => {
     }
 });
 
-// Delete dorse
-app.delete('/api/dorses/:id', async (req, res) => {
+// Delete dorse - Requires authentication
+app.delete('/api/dorses/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         await prisma.dorse.delete({
@@ -1659,8 +1661,8 @@ app.delete('/api/dorses/:id', async (req, res) => {
     }
 });
 
-// Link Sasi to Dorse
-app.put('/api/dorses/:id/link-sasi', async (req, res) => {
+// Link Sasi to Dorse - Requires authentication
+app.put('/api/dorses/:id/link-sasi', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { sasiId } = req.body;
@@ -1697,8 +1699,8 @@ app.put('/api/dorses/:id/link-sasi', async (req, res) => {
     }
 });
 
-// Update dorse detail to include sasi
-app.get('/api/dorses/:id', async (req, res) => {
+// Update dorse detail to include sasi - Requires authentication
+app.get('/api/dorses/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const dorse = await prisma.dorse.findUnique({

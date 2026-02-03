@@ -439,13 +439,13 @@ export default function Analiz() {
                             )}
 
                             {/* Pie Chart - Company Distribution */}
-                            <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
+                            <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%' }}>
                                 <div style={{ marginBottom: '20px' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Firma Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>En yüksek hacimli 8 firma</p>
                                 </div>
-                                <div style={{ height: '280px', width: '100%' }}>
-                                    <ResponsiveContainer width="99%" height={280} debounce={50}>
+                                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <ResponsiveContainer width="99%" height={220} debounce={50}>
                                         <PieChart>
                                             <Pie
                                                 data={companyDist}
@@ -457,18 +457,18 @@ export default function Analiz() {
                                                 dataKey="count"
                                                 stroke="none"
                                             >
-                                                {companyDist.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={COLORS.charts[index % COLORS.charts.length]} />
+                                                {(productType === 'SASI' ? stockChartData : companyDist).map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={(entry.color as string) || COLORS.charts[index % COLORS.charts.length]} />
                                                 ))}
                                             </Pie>
                                             <Tooltip content={<CustomTooltip />} />
                                             <Legend
-                                                layout="vertical"
-                                                verticalAlign="middle"
-                                                align="right"
+                                                layout="horizontal"
+                                                verticalAlign="bottom"
+                                                align="center"
                                                 iconType="circle"
                                                 iconSize={8}
-                                                wrapperStyle={{ fontSize: '11px', color: '#475569' }}
+                                                wrapperStyle={{ fontSize: '11px', color: '#475569', paddingTop: '10px' }}
                                             />
                                         </PieChart>
                                     </ResponsiveContainer>
@@ -503,7 +503,7 @@ export default function Analiz() {
                                                 dataKey="name"
                                                 type="category"
                                                 tick={{ fontSize: 12, fill: '#475569', fontWeight: 500 }}
-                                                width={70}
+                                                width={110}
                                                 axisLine={false}
                                                 tickLine={false}
                                             />
@@ -552,7 +552,7 @@ export default function Analiz() {
                                                                     dataKey="name"
                                                                     type="category"
                                                                     tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
-                                                                    width={65}
+                                                                    width={110}
                                                                     axisLine={false}
                                                                     tickLine={false}
                                                                 />

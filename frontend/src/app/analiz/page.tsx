@@ -371,8 +371,8 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Durum Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Genel üretim durumu özeti</p>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', height: '100%', minHeight: '250px' }}>
-                                    <ResponsiveContainer width="60%" height="100%">
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                                    <ResponsiveContainer width="100%" height={200}>
                                         <PieChart>
                                             <Pie
                                                 data={pieChartData}
@@ -391,14 +391,20 @@ export default function Analiz() {
                                             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
-                                    <div style={{ width: '40%', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center' }}>
+                                    <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
                                         {pieChartData.map((entry, index) => (
-                                            <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: entry.color }} />
-                                                    <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>{entry.name}</span>
-                                                </div>
-                                                <span style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>{entry.value}</span>
+                                            <div key={index} style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '6px 12px',
+                                                backgroundColor: 'rgba(0,0,0,0.02)',
+                                                borderRadius: '20px',
+                                                border: '1px solid #E2E8F0'
+                                            }}>
+                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: entry.color }} />
+                                                <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>{entry.name}</span>
+                                                <span style={{ fontSize: '13px', fontWeight: 700, color: entry.color, marginLeft: '2px' }}>{entry.value}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -438,8 +444,8 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Firma Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>En yüksek hacimli 8 firma</p>
                                 </div>
-                                <div style={{ height: '100%', minHeight: '250px' }}>
-                                    <ResponsiveContainer width="100%" height="100%">
+                                <div style={{ height: '280px' }}>
+                                    <ResponsiveContainer width="100%" height={280}>
                                         <PieChart>
                                             <Pie
                                                 data={companyDist}
@@ -481,37 +487,39 @@ export default function Analiz() {
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Üretim aşamalarındaki yoğunluk analizi</p>
                                 </div>
                             </div>
-                            <ResponsiveContainer width="100%" height={400}>
-                                <BarChart
-                                    layout="vertical"
-                                    data={barChartData}
-                                    margin={{ top: 0, right: 30, left: 40, bottom: 0 }}
-                                    barSize={24}
-                                    barGap={4}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
-                                    <XAxis type="number" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                                    <YAxis
-                                        dataKey="name"
-                                        type="category"
-                                        tick={{ fontSize: 12, fill: '#475569', fontWeight: 500 }}
-                                        width={100}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
-                                    <Legend
-                                        verticalAlign="top"
-                                        align="right"
-                                        iconType="circle"
-                                        iconSize={8}
-                                        wrapperStyle={{ paddingBottom: '20px' }}
-                                    />
-                                    <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
-                                    <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
-                                    <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <div style={{ width: '100%', height: '400px', minHeight: '300px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        layout="vertical"
+                                        data={barChartData}
+                                        margin={{ top: 0, right: 30, left: 40, bottom: 0 }}
+                                        barSize={24}
+                                        barGap={4}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={COLORS.grid} />
+                                        <XAxis type="number" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                                        <YAxis
+                                            dataKey="name"
+                                            type="category"
+                                            tick={{ fontSize: 12, fill: '#475569', fontWeight: 500 }}
+                                            width={100}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(2, 35, 71, 0.03)' }} />
+                                        <Legend
+                                            verticalAlign="top"
+                                            align="right"
+                                            iconType="circle"
+                                            iconSize={8}
+                                            wrapperStyle={{ paddingBottom: '20px' }}
+                                        />
+                                        <Bar dataKey="tamamlandi" name="Tamamlandı" stackId="a" fill={COLORS.success} radius={[0, 4, 4, 0]} />
+                                        <Bar dataKey="devamEdiyor" name="Devam Ediyor" stackId="a" fill={COLORS.warning} radius={[0, 0, 0, 0]} />
+                                        <Bar dataKey="baslamadi" name="Başlanmadı" stackId="a" fill={COLORS.danger} radius={[0, 0, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
 
                         {/* M3 Based Charts */}

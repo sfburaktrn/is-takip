@@ -371,7 +371,7 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Durum Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Genel üretim durumu özeti</p>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%' }}>
                                     <ResponsiveContainer width="99%" height={200} debounce={50}>
                                         <PieChart>
                                             <Pie
@@ -444,7 +444,7 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Firma Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>En yüksek hacimli 8 firma</p>
                                 </div>
-                                <div style={{ height: '280px' }}>
+                                <div style={{ height: '280px', width: '100%' }}>
                                     <ResponsiveContainer width="99%" height={280} debounce={50}>
                                         <PieChart>
                                             <Pie
@@ -489,7 +489,7 @@ export default function Analiz() {
                             </div>
                             <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px' }}>
                                 <div style={{ width: '100%', height: '400px', minHeight: '300px', minWidth: '600px' }}>
-                                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                                    <ResponsiveContainer width="100%" height={400} debounce={50}>
                                         <BarChart
                                             layout="vertical"
                                             data={barChartData}
@@ -538,7 +538,7 @@ export default function Analiz() {
                                                 <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>{m3} M³ İlerleme</h3>
                                                 <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px' }}>
                                                     <div style={{ width: '100%', height: '300px', minWidth: '500px' }}>
-                                                        <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                                                        <ResponsiveContainer width="100%" height={300} debounce={50}>
                                                             <BarChart
                                                                 layout="vertical"
                                                                 data={getChartData(stats)}

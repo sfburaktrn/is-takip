@@ -164,9 +164,9 @@ export default function AyarlarPage() {
                             </h2>
                             <button
                                 onClick={() => { setShowAddModal(true); setFormData({ username: '', password: '', fullName: '', isAdmin: false }); setError(''); }}
-                                style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                                className="btn btn-premium"
                             >
-                                <Plus size={16} style={{ marginRight: '6px' }} /> Yeni Kullanıcı
+                                <Plus size={18} /> Yeni Kullanıcı
                             </button>
                         </div>
 
@@ -207,72 +207,284 @@ export default function AyarlarPage() {
 
                     {/* Add User Modal */}
                     {showAddModal && (
-                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                            <div style={{ background: 'var(--card-bg)', borderRadius: '20px', padding: '32px', width: '100%', maxWidth: '400px', border: '1px solid var(--border)' }}>
-                                <h3 style={{ margin: '0 0 24px', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Plus size={24} /> Yeni Kullanıcı Ekle
-                                </h3>
-                                <form onSubmit={handleAddUser}>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--muted)', fontSize: '14px' }}>Kullanıcı Adı</label>
-                                        <input type="text" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} required style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
-                                    </div>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--muted)', fontSize: '14px' }}>İsim Soyisim</label>
-                                        <input type="text" value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} required style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
-                                    </div>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--muted)', fontSize: '14px' }}>Şifre</label>
-                                        <input type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
-                                    </div>
-                                    <div style={{ marginBottom: '24px' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                            <input type="checkbox" checked={formData.isAdmin} onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })} />
-                                            <span>Admin yetkisi ver</span>
-                                        </label>
-                                    </div>
-                                    {error && <div style={{ color: '#fca5a5', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={16} /> {error}</div>}
-                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                        <button type="button" onClick={() => setShowAddModal(false)} style={{ flex: 1, padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', cursor: 'pointer' }}>İptal</button>
-                                        <button type="submit" style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Ekle</button>
-                                    </div>
-                                </form>
+                        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setShowAddModal(false)} />
+                            <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 transform transition-all overflow-hidden flex flex-col max-h-[90vh]">
+                                {/* Header */}
+                                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                    <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                                            <Plus size={22} />
+                                        </div>
+                                        <span className="bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Yeni Kullanıcı Ekle</span>
+                                    </h3>
+                                    <button
+                                        onClick={() => setShowAddModal(false)}
+                                        className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-all hover:rotate-90"
+                                    >
+                                        <span className="sr-only">Kapat</span>
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+
+                                {/* Body */}
+                                <div className="p-6 overflow-y-auto">
+                                    <form id="addUserForm" onSubmit={handleAddUser} className="flex flex-col gap-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Username */}
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Kullanıcı Adı</label>
+                                                <div className="relative group">
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
+                                                        <UserIcon size={20} />
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={formData.username}
+                                                        onChange={e => setFormData({ ...formData, username: e.target.value })}
+                                                        required
+                                                        style={{ paddingLeft: '48px' }}
+                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
+                                                        placeholder="örn: ahmet.yilmaz"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Full Name */}
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">İsim Soyisim</label>
+                                                <div className="relative group">
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
+                                                        <Users size={20} />
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={formData.fullName}
+                                                        onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                                                        required
+                                                        style={{ paddingLeft: '48px' }}
+                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
+                                                        placeholder="örn: Ahmet Yılmaz"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Password */}
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Şifre</label>
+                                                <div className="relative group">
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
+                                                        <div className="flex items-center justify-center">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                        </div>
+                                                    </div>
+                                                    <input
+                                                        type="password"
+                                                        value={formData.password}
+                                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                                        required
+                                                        style={{ paddingLeft: '48px' }}
+                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
+                                                        placeholder="••••••••"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Admin Toggle */}
+                                            <div className="pt-0">
+                                                <label className="h-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 hover:border-blue-200 transition-all group bg-white shadow-sm relative overflow-hidden">
+                                                    <div className={`absolute inset-0 bg-blue-50/50 transition-transform ${formData.isAdmin ? 'translate-x-0' : '-translate-x-full'}`} />
+                                                    <div className="relative flex items-center shrink-0">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.isAdmin}
+                                                            onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })}
+                                                            className="peer h-6 w-6 cursor-pointer appearance-none rounded-lg border-2 border-slate-300 transition-all checked:border-blue-600 checked:bg-blue-600 hover:border-blue-400"
+                                                        />
+                                                        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col relative z-9">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition-colors">Yönetici Yetkisi</span>
+                                                            {formData.isAdmin && <Crown size={14} className="text-amber-500 animate-in zoom-in" />}
+                                                        </div>
+                                                        <span className="text-[11px] text-slate-500 leading-tight">Tam yetki erişimi</span>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {error && (
+                                            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 text-red-600 text-sm font-medium border border-red-100 animate-in fade-in slide-in-from-top-2">
+                                                <div className="p-1.5 bg-red-100 rounded-lg">
+                                                    <AlertTriangle size={18} className="shrink-0" />
+                                                </div>
+                                                {error}
+                                            </div>
+                                        )}
+                                    </form>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddModal(false)}
+                                        className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all shadow-sm"
+                                    >
+                                        İptal
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        form="addUserForm"
+                                        className="flex-1 btn btn-premium justify-center !py-2.5 !m-0 w-full"
+                                    >
+                                        Kullanıcı Ekle
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {/* Edit User Modal */}
                     {showEditModal && selectedUser && (
-                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                            <div style={{ background: 'var(--card-bg)', borderRadius: '20px', padding: '32px', width: '100%', maxWidth: '400px', border: '1px solid var(--border)' }}>
-                                <h3 style={{ margin: '0 0 24px', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Edit2 size={24} /> Kullanıcı Düzenle
-                                </h3>
-                                <form onSubmit={handleUpdateUser}>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--muted)', fontSize: '14px' }}>Kullanıcı Adı</label>
-                                        <input type="text" value={formData.username} disabled style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--muted)', fontSize: '14px', boxSizing: 'border-box' }} />
-                                    </div>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--muted)', fontSize: '14px' }}>İsim Soyisim</label>
-                                        <input type="text" value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
-                                    </div>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--muted)', fontSize: '14px' }}>Yeni Şifre (boş bırakılırsa değişmez)</label>
-                                        <input type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} placeholder="Yeni şifre" style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
-                                    </div>
-                                    <div style={{ marginBottom: '24px' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                            <input type="checkbox" checked={formData.isAdmin} onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })} />
-                                            <span>Admin yetkisi</span>
-                                        </label>
-                                    </div>
-                                    {error && <div style={{ color: '#fca5a5', marginBottom: '16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={16} /> {error}</div>}
-                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                        <button type="button" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} style={{ flex: 1, padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '10px', color: '#fff', cursor: 'pointer' }}>İptal</button>
-                                        <button type="submit" style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Kaydet</button>
-                                    </div>
-                                </form>
+                        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} />
+                            <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 transform transition-all overflow-hidden flex flex-col max-h-[90vh]">
+                                {/* Header */}
+                                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                    <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-200">
+                                            <Edit2 size={22} />
+                                        </div>
+                                        <span className="bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Kullanıcı Düzenle</span>
+                                    </h3>
+                                    <button
+                                        onClick={() => { setShowEditModal(false); setSelectedUser(null); }}
+                                        className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-all hover:rotate-90"
+                                    >
+                                        <span className="sr-only">Kapat</span>
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+
+                                {/* Body */}
+                                <div className="p-6 overflow-y-auto">
+                                    <form id="editUserForm" onSubmit={handleUpdateUser} className="flex flex-col gap-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Username */}
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Kullanıcı Adı</label>
+                                                <div className="relative">
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                        <UserIcon size={20} />
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={formData.username}
+                                                        disabled
+                                                        style={{ paddingLeft: '48px' }}
+                                                        className="w-full pr-4 py-3.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-bold tracking-tight cursor-not-allowed select-none"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Full Name */}
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">İsim Soyisim</label>
+                                                <div className="relative group">
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
+                                                        <Users size={20} />
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={formData.fullName}
+                                                        onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                                                        style={{ paddingLeft: '48px' }}
+                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Password */}
+                                            <div className="space-y-2">
+                                                <label className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                                                    Yeni Şifre
+                                                    <span className="text-[10px] font-bold text-blue-600 lowercase tracking-normal">isteğe bağlı</span>
+                                                </label>
+                                                <div className="relative group">
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
+                                                        <div className="flex items-center justify-center">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                        </div>
+                                                    </div>
+                                                    <input
+                                                        type="password"
+                                                        value={formData.password}
+                                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                                        placeholder="Değiştirmek için yazın"
+                                                        style={{ paddingLeft: '48px' }}
+                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Admin Toggle */}
+                                            <div className="pt-0">
+                                                <label className="h-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 hover:border-blue-200 transition-all group bg-white shadow-sm relative overflow-hidden">
+                                                    <div className={`absolute inset-0 bg-blue-50/50 transition-transform ${formData.isAdmin ? 'translate-x-0' : '-translate-x-full'}`} />
+                                                    <div className="relative flex items-center shrink-0">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData.isAdmin}
+                                                            onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })}
+                                                            className="peer h-6 w-6 cursor-pointer appearance-none rounded-lg border-2 border-slate-300 transition-all checked:border-blue-600 checked:bg-blue-600 hover:border-blue-400"
+                                                        />
+                                                        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col relative z-9">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition-colors">Yönetici Yetkisi</span>
+                                                            {formData.isAdmin && <Crown size={14} className="text-amber-500 animate-in zoom-in" />}
+                                                        </div>
+                                                        <span className="text-[11px] text-slate-500 leading-tight">Tam yetki erişimi</span>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {error && (
+                                            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 text-red-600 text-sm font-medium border border-red-100 animate-in fade-in slide-in-from-top-2">
+                                                <div className="p-1.5 bg-red-100 rounded-lg">
+                                                    <AlertTriangle size={18} className="shrink-0" />
+                                                </div>
+                                                {error}
+                                            </div>
+                                        )}
+                                    </form>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowEditModal(false); setSelectedUser(null); }}
+                                        className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all shadow-sm"
+                                    >
+                                        İptal
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        form="editUserForm"
+                                        className="flex-1 btn btn-premium justify-center !py-2.5 !m-0 w-full"
+                                    >
+                                        Değişiklikleri Kaydet
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}

@@ -371,8 +371,8 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Durum Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Genel üretim durumu özeti</p>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%' }}>
-                                    <ResponsiveContainer width="99%" height={200} debounce={50}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%', height: '260px' }}>
+                                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
                                         <PieChart>
                                             <Pie
                                                 data={pieChartData}
@@ -391,23 +391,23 @@ export default function Analiz() {
                                             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
-                                    <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                                        {pieChartData.map((entry, index) => (
-                                            <div key={index} style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                padding: '6px 12px',
-                                                backgroundColor: 'rgba(0,0,0,0.02)',
-                                                borderRadius: '20px',
-                                                border: '1px solid #E2E8F0'
-                                            }}>
-                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: entry.color }} />
-                                                <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>{entry.name}</span>
-                                                <span style={{ fontSize: '13px', fontWeight: 700, color: entry.color, marginLeft: '2px' }}>{entry.value}</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                                </div>
+                                <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                                    {pieChartData.map((entry, index) => (
+                                        <div key={index} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            padding: '6px 12px',
+                                            backgroundColor: 'rgba(0,0,0,0.02)',
+                                            borderRadius: '20px',
+                                            border: '1px solid #E2E8F0'
+                                        }}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: entry.color }} />
+                                            <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>{entry.name}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 700, color: entry.color, marginLeft: '2px' }}>{entry.value}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
@@ -444,8 +444,8 @@ export default function Analiz() {
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>Firma Dağılımı</h3>
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>En yüksek hacimli 8 firma</p>
                                 </div>
-                                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <ResponsiveContainer width="99%" height={220} debounce={50}>
+                                <div style={{ width: '100%', height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
                                         <PieChart>
                                             <Pie
                                                 data={companyDist}
@@ -487,7 +487,7 @@ export default function Analiz() {
                                     <p style={{ fontSize: '12px', color: '#64748B' }}>Üretim aşamalarındaki yoğunluk analizi</p>
                                 </div>
                             </div>
-                            <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px' }}>
+                            <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px', minHeight: '300px' }}>
                                 <div style={{ width: '100%', height: '400px', minHeight: '300px', minWidth: '600px' }}>
                                     <ResponsiveContainer width="100%" height={400} debounce={50}>
                                         <BarChart
@@ -536,7 +536,7 @@ export default function Analiz() {
                                         .map(([m3, stats]) => (
                                             <div key={m3} className="card" style={{ padding: '24px', minWidth: 0 }}>
                                                 <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>{m3} M³ İlerleme</h3>
-                                                <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px' }}>
+                                                <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '16px', minHeight: '400px' }}>
                                                     <div style={{ width: '100%', height: '300px', minWidth: '500px' }}>
                                                         <ResponsiveContainer width="100%" height={300} debounce={50}>
                                                             <BarChart
@@ -722,7 +722,8 @@ export default function Analiz() {
                             )}
                         </div>
                     </>
-                )}
+                )
+                }
             </main >
         </>
     );

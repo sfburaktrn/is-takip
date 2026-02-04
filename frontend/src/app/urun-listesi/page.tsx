@@ -47,7 +47,7 @@ import {
     deleteSasi
 } from '@/lib/api'; // Correct import path assumption? It was '@/lib/api' in view_file.
 
-type ProductType = 'DAMPER' | 'DORSE' | 'SASI';
+type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'HEPSI';
 
 function UrunListesiContent() {
     const [productType, setProductType] = useState<ProductType>('DAMPER');
@@ -137,7 +137,10 @@ function UrunListesiContent() {
                 getSasis(),
                 getDropdowns()
             ]);
-            setStats(productType === 'DAMPER' ? damperStats : productType === 'DORSE' ? dorseStats : sasiStats);
+            if (productType === 'DAMPER') setStats(damperStats);
+            else if (productType === 'DORSE') setStats(dorseStats);
+            else if (productType === 'SASI') setStats(sasiStats);
+
             setDampers(dampersData);
             setDorses(dorsesData);
             setSasis(sasisData);
@@ -152,6 +155,7 @@ function UrunListesiContent() {
     // Refresh stats when product type changes
     useEffect(() => {
         async function updateStats() {
+            if (productType === 'HEPSI') return;
             const s = await getStats(productType);
             setStats(s);
         }
@@ -591,26 +595,165 @@ function UrunListesiContent() {
         return statusFilter || sortBy || sasiFilter || searchTerm ? result : result.slice(0, 50);
     }, [sasis, statusFilter, sortBy, sasiFilter, searchTerm]);
 
-    const currentStats = useMemo(() => {
-        if (productType === 'DAMPER') return stats;
+    // Helper functions for status (defined here to be accessible in sortedAllProducts)
 
-        if (productType === 'SASI') {
-            return {
-                total: sasis.length,
-                tamamlanan: sasis.filter(s => getSasiStatus(s) === 'tamamlanan').length,
-                devamEden: sasis.filter(s => getSasiStatus(s) === 'devamEden').length,
-                baslamayan: sasis.filter(s => getSasiStatus(s) === 'baslamayan').length
-            };
+
+
+    // Filter and sort all products combined
+    const sortedAllProducts = useMemo(() => {
+        // Combine all products with a type identifier
+        const allItems = [
+            ...dampers.map(d => ({ ...d, _type: 'DAMPER' as const })),
+            ...dorses.map(d => ({ ...d, _type: 'DORSE' as const })),
+            ...sasis.map(d => ({ ...d, _type: 'SASI' as const }))
+        ];
+
+        let result = [...allItems];
+
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLocaleLowerCase('tr');
+            result = result.filter(item => {
+                if (item._type === 'DAMPER') {
+                    const d = item as typeof dampers[0];
+                    return (d.musteri || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
+                        (d.aracMarka || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
+                        (d.model || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
+                        (d.imalatNo || '').toString().includes(lowerTerm);
+                } else if (item._type === 'DORSE') {
+                    const d = item as typeof dorses[0];
+                    return (d.musteri || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
+                        (d.imalatNo || '').toString().includes(lowerTerm);
+                } else {
+                    const s = item as typeof sasis[0];
+                    return (s.musteri || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
+                        (s.sasiNo || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
+                        (s.imalatNo || '').toString().includes(lowerTerm);
+                }
+            });
         }
 
-        // Calculate Dorse stats client-side
-        return {
+        if (statusFilter) {
+            // General status filtering for combined list
+            // Mapping statuses to common terms if needed, or using specific logic
+            result = result.filter(item => {
+                let status = '';
+                if (item._type === 'DAMPER') status = getDamperStatus(item as any);
+                else if (item._type === 'DORSE') status = getDorseStatus(item as any);
+                else if (item._type === 'SASI') status = getSasiStatus(item as any);
+
+                // For simplified 'All Products' view, we might only support basic status matches
+                // or specific advanced filters if they apply to all. 
+                // For now, let's support basic matches if the filter values overlap.
+                // If filter is specific to Sasi (like 'bosStok'), handled below.
+
+                if (statusFilter === 'tamamlanan') return status === 'tamamlanan';
+                if (statusFilter === 'devamEden') return status === 'devamEden';
+                if (statusFilter === 'baslamayan') return status === 'baslamayan';
+
+                // Sasi specific filters - only apply to Sasi items, others are filtered out?
+                // Or maybe just show Sasi items that match, and hide others?
+                // Usually "All Products" implies a broader view. Let's keep it simple:
+                // If a specific filter is selected that only applies to one type, show only matching items of that type.
+
+                if (item._type === 'SASI') {
+                    if (statusFilter === 'bosStok') {
+                        return (item.musteri || '').toLowerCase().startsWith('stok') && !(item as any).isLinked;
+                    } else if (statusFilter === 'tamamlananStok') {
+                        return (item.musteri || '').toLowerCase().startsWith('stok') && status === 'tamamlanan';
+                    } else if (statusFilter === 'devamEdenStok') {
+                        return (item.musteri || '').toLowerCase().startsWith('stok') && status === 'devamEden';
+                    } else if (statusFilter === 'bosMusteri') {
+                        return !(item.musteri || '').toLowerCase().startsWith('stok') && !(item as any).isLinked;
+                    } else if (statusFilter === 'tamamlananMusteri') {
+                        return !(item.musteri || '').toLowerCase().startsWith('stok') && status === 'tamamlanan';
+                    } else if (statusFilter === 'devamEdenMusteri') {
+                        return !(item.musteri || '').toLowerCase().startsWith('stok') && status === 'devamEden';
+                    }
+                }
+
+                return false;
+            });
+        }
+
+        if (sortBy) {
+            result.sort((a, b) => {
+                // Progress can be handled generically
+                const getProgress = (item: any) => {
+                    if (item._type === 'DAMPER') return calculateProgress(item);
+                    if (item._type === 'DORSE') return calculateDorseProgress(item);
+                    if (item._type === 'SASI') return calculateSasiProgress(item);
+                    return 0;
+                };
+
+                const getName = (item: any) => item.musteri || '';
+                const getDate = (item: any) => new Date(item.createdAt || 0).getTime();
+
+                switch (sortBy) {
+                    case 'progress-asc':
+                        return getProgress(a) - getProgress(b);
+                    case 'progress-desc':
+                        return getProgress(b) - getProgress(a);
+                    case 'name-asc':
+                        return getName(a).localeCompare(getName(b), 'tr');
+                    case 'name-desc':
+                        return getName(b).localeCompare(getName(a), 'tr');
+                    case 'date-asc':
+                        return getDate(a) - getDate(b);
+                    case 'date-desc':
+                        return getDate(b) - getDate(a);
+                    default:
+                        return 0;
+                }
+            });
+        }
+
+        return result;
+    }, [dampers, dorses, sasis, searchTerm, statusFilter, sortBy]);
+
+    const currentStats = useMemo(() => {
+        // Yardımcı fonksiyonlar (Stats hesaplaması için)
+        const getDamperStatus = (d: Damper) => {
+            const p = calculateProgress(d);
+            return p === 100 ? 'tamamlanan' : p === 0 ? 'baslamayan' : 'devamEden';
+        };
+
+        const damperStats = {
+            total: dampers.length,
+            tamamlanan: dampers.filter(d => getDamperStatus(d) === 'tamamlanan').length,
+            devamEden: dampers.filter(d => getDamperStatus(d) === 'devamEden').length,
+            baslamayan: dampers.filter(d => getDamperStatus(d) === 'baslamayan').length
+        };
+
+        const dorseStats = {
             total: dorses.length,
             tamamlanan: dorses.filter(d => getDorseStatus(d) === 'tamamlanan').length,
             devamEden: dorses.filter(d => getDorseStatus(d) === 'devamEden').length,
             baslamayan: dorses.filter(d => getDorseStatus(d) === 'baslamayan').length
         };
-    }, [productType, stats, dorses, sasis]);
+
+        const sasiStats = {
+            total: sasis.length,
+            tamamlanan: sasis.filter(s => getSasiStatus(s) === 'tamamlanan').length,
+            devamEden: sasis.filter(s => getSasiStatus(s) === 'devamEden').length,
+            baslamayan: sasis.filter(s => getSasiStatus(s) === 'baslamayan').length
+        };
+
+        if (productType === 'HEPSI') {
+            return {
+                total: damperStats.total + dorseStats.total + sasiStats.total,
+                tamamlanan: damperStats.tamamlanan + dorseStats.tamamlanan + sasiStats.tamamlanan,
+                devamEden: damperStats.devamEden + dorseStats.devamEden + sasiStats.devamEden,
+                baslamayan: damperStats.baslamayan + dorseStats.baslamayan + sasiStats.baslamayan
+            };
+        }
+
+        if (productType === 'DAMPER') return stats;
+
+        if (productType === 'SASI') return sasiStats;
+
+        // Default: DORSE
+        return dorseStats;
+    }, [productType, stats, dorses, sasis, dampers]);
 
     if (loading) {
         return (
@@ -630,11 +773,13 @@ function UrunListesiContent() {
                     <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
                         <div>
                             <h1 className="header-title">Ürün Listesi</h1>
-                            <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerini görüntüleyin ve yönetin</p>
+                            <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Tüm'} imalat süreçlerini görüntüleyin ve yönetin</p>
                         </div>
-                        <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
-                            <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
-                        </button>
+                        {productType !== 'HEPSI' && (
+                            <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
+                                <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Ürün'} Ekle
+                            </button>
+                        )}
                     </div>
 
                     {/* Product Toggle & Search */}
@@ -688,13 +833,29 @@ function UrunListesiContent() {
                             >
                                 Şasiler
                             </button>
+                            <button
+                                type="button"
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: productType === 'HEPSI' ? 'var(--primary)' : 'transparent',
+                                    color: productType === 'HEPSI' ? 'white' : 'var(--muted)',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => setProductType('HEPSI')}
+                            >
+                                Tüm Ürünler
+                            </button>
                         </div>
 
                         <div style={{ position: 'relative', flex: '1 1 300px', minWidth: '250px', maxWidth: '400px' }}>
                             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
                             <input
                                 type="text"
-                                placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ara...`}
+                                placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Tüm Ürünler'} Ara...`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 style={{
@@ -1050,7 +1211,7 @@ function UrunListesiContent() {
                             </div>
                             <div>
                                 <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
-                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'}</div>
+                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Ürünler'}</div>
                             </div>
                         </div>
 
@@ -1289,7 +1450,920 @@ function UrunListesiContent() {
                         )}
                     </div>
 
-                    {productType === 'DAMPER' ? (
+                    {productType === 'HEPSI' ? (
+                        sortedAllProducts.length === 0 ? (
+                            <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
+                                Kriterlere uygun ürün bulunamadı
+                            </div>
+                        ) : (
+                            sortedAllProducts.map((item) => {
+                                if (item._type === 'DAMPER') {
+                                    const damper = item as typeof dampers[0];
+                                    const progress = calculateProgress(damper);
+                                    const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
+                                    const isExpanded = expandedId === damper.id;
+
+                                    return (
+                                        <div key={`DAMPER-${damper.id}`} className="damper-card">
+                                            <div
+                                                className="damper-card-header"
+                                                onClick={() => setExpandedId(isExpanded ? null : damper.id)}
+                                            >
+                                                <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{damper.imalatNo}</div>
+                                                <div style={{ fontWeight: 500 }}>{damper.musteri}</div>
+                                                <div>
+                                                    <span style={{
+                                                        background: 'rgba(99, 102, 241, 0.1)',
+                                                        color: 'var(--primary)',
+                                                        padding: '4px 10px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '12px'
+                                                    }}>
+                                                        {damper.tip}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                                    {damper.malzemeCinsi} | {damper.m3} M³
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
+                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                                    </div>
+                                                    <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                </div>
+                                                <div>{getStatusBadge(overallStatus)}</div>
+                                                <div style={{
+                                                    width: '10px',
+                                                    height: '10px',
+                                                    borderRadius: '50%',
+                                                    background: damper.aracGeldiMi ? 'var(--success)' : 'var(--danger)'
+                                                }} title={damper.aracGeldiMi ? 'Araç Geldi' : 'Araç Gelmedi'}></div>
+                                                <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div className="damper-card-body">
+                                                    {/* Araç Geldi Mi */}
+                                                    {/* Bilgi Kartları (İmalat No, Araç Durumu & Tarih) */}
+                                                    <div style={{
+                                                        display: 'grid',
+                                                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                                        gap: '12px',
+                                                        marginBottom: '20px',
+                                                        paddingBottom: '20px',
+                                                        borderBottom: '1px solid var(--border)'
+                                                    }}>
+                                                        {/* İmalat No - Düzenlenebilir */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: !damper.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: !damper.imalatNo ? 'var(--warning)' : 'var(--foreground)' }}>
+                                                                    {damper.imalatNo ?? 'Girilmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="number"
+                                                                className="input"
+                                                                style={{
+                                                                    width: '100px',
+                                                                    padding: '6px 10px',
+                                                                    fontSize: '13px',
+                                                                    textAlign: 'center',
+                                                                    height: '34px'
+                                                                }}
+                                                                placeholder="İmalat No"
+                                                                value={damper.imalatNo ?? ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                                                    const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
+                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        {/* Şasi No - Düzenlenebilir */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: damper.sasiNo ? 'var(--foreground)' : 'var(--muted)' }}>
+                                                                    {damper.sasiNo || 'Girilmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                className="input"
+                                                                style={{
+                                                                    width: '120px',
+                                                                    padding: '6px 10px',
+                                                                    fontSize: '13px',
+                                                                    height: '34px'
+                                                                }}
+                                                                placeholder="Şasi No"
+                                                                value={damper.sasiNo || ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newSasiNo = e.target.value;
+                                                                    const updated = await updateDamper(damper.id, { sasiNo: newSasiNo });
+                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        {/* Araç Durumu */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ARAÇ DURUMU</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {damper.aracGeldiMi ? 'Araç Fabrikada' : 'Araç Gelmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <div
+                                                                className={`step-toggle ${damper.aracGeldiMi ? 'active' : ''}`}
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    const updated = await updateDamper(damper.id, { aracGeldiMi: !damper.aracGeldiMi });
+                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                }}
+                                                                style={{ transform: 'scale(1.1)' }}
+                                                                title="Değiştirmek için tıklayın"
+                                                            ></div>
+                                                        </div>
+
+                                                        {/* Adet (Quantity) */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {damper.adet || 1}
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    className="input"
+                                                                    min="1"
+                                                                    style={{
+                                                                        width: '60px',
+                                                                        padding: '4px 8px',
+                                                                        fontSize: '13px',
+                                                                        textAlign: 'center',
+                                                                        height: '32px'
+                                                                    }}
+                                                                    value={damper.adet || 1}
+                                                                    onChange={async (e) => {
+                                                                        const newAdet = parseInt(e.target.value);
+                                                                        if (newAdet > 0) {
+                                                                            const updated = await updateDamper(damper.id, { adet: newAdet });
+                                                                            setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                        }
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Tarih/Saat */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px',
+                                                            position: 'relative' // İkon konumlandırma için
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
+                                                                <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
+                                                                    {damper.createdAt ? new Date(damper.createdAt).toLocaleString('tr-TR', {
+                                                                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                                                                    }) : '-'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="datetime-local"
+                                                                className="input"
+                                                                style={{
+                                                                    padding: '4px 8px',
+                                                                    fontSize: '12px',
+                                                                    width: '40px', // Sadece ikon için
+                                                                    height: '30px',
+                                                                    border: '1px solid var(--border)',
+                                                                    background: 'var(--bg)',
+                                                                    color: 'transparent',
+                                                                    cursor: 'pointer',
+                                                                    opacity: 0, // Tamamen görünmez yap, ama tıklanabilir olsun (custom icon altında)
+                                                                    position: 'absolute',
+                                                                    right: '16px',
+                                                                    zIndex: 10
+                                                                }}
+                                                                title="Tarihi Düzenle"
+                                                                onChange={async (e) => {
+                                                                    if (e.target.value) {
+                                                                        const updated = await updateDamper(damper.id, {
+                                                                            createdAt: new Date(e.target.value).toISOString()
+                                                                        });
+                                                                        setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                                <Calendar size={20} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {STEP_GROUPS.map((group) => {
+                                                        const status = damper[group.statusKey as keyof Damper] as string;
+                                                        return (
+                                                            <div key={group.key} className="step-group">
+                                                                <div className="step-group-title">
+                                                                    {group.name}
+                                                                    {getStatusBadge(status)}
+                                                                </div>
+                                                                <div className="step-items">
+                                                                    {group.subSteps.map((step) => {
+                                                                        const isCompleted = damper[step.key as keyof Damper] as boolean;
+                                                                        return (
+                                                                            <div key={step.key} className="step-item">
+                                                                                <span className="step-item-label">{step.label}</span>
+                                                                                <div
+                                                                                    className={`step-toggle ${isCompleted ? 'active' : ''}`}
+                                                                                    onClick={() => handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER')}
+                                                                                ></div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* Muayene ve Teslimat */}
+                                                    <div className="step-group">
+                                                        <div className="step-group-title">MUAYENE & TESLİMAT</div>
+                                                        <div className="step-items">
+                                                            <div className="step-item">
+                                                                <span className="step-item-label">Kurum Muayenesi</span>
+                                                                <select
+                                                                    className="select"
+                                                                    style={{ width: '120px', padding: '6px 10px', fontSize: '12px' }}
+                                                                    value={damper.kurumMuayenesi}
+                                                                    onChange={async (e) => {
+                                                                        const updated = await updateDamper(damper.id, { kurumMuayenesi: e.target.value });
+                                                                        setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    }}
+                                                                >
+                                                                    {dropdowns?.kurumMuayenesi.map(v => (
+                                                                        <option key={v} value={v}>{v}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            <div className="step-item">
+                                                                <span className="step-item-label">DMO Muayenesi</span>
+                                                                <select
+                                                                    className="select"
+                                                                    style={{ width: '140px', padding: '6px 10px', fontSize: '12px' }}
+                                                                    value={damper.dmoMuayenesi}
+                                                                    onChange={async (e) => {
+                                                                        const updated = await updateDamper(damper.id, { dmoMuayenesi: e.target.value });
+                                                                        setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    }}
+                                                                >
+                                                                    {dropdowns?.dmoMuayenesi.map(v => (
+                                                                        <option key={v} value={v}>{v}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            <div className="step-item">
+                                                                <span className="step-item-label">Teslimat</span>
+                                                                <div
+                                                                    className={`step-toggle ${damper.teslimat ? 'active' : ''}`}
+                                                                    onClick={() => handleStepToggle(damper.id, 'teslimat', damper.teslimat, 'DAMPER')}
+                                                                ></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Delete Button */}
+                                                    <div style={{
+                                                        marginTop: '20px',
+                                                        paddingTop: '16px',
+                                                        borderTop: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        justifyContent: 'flex-end'
+                                                    }}>
+                                                        <button
+                                                            className="btn"
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                                color: 'var(--danger)',
+                                                                border: '1px solid var(--danger)'
+                                                            }}
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                if (window.confirm(`"${damper.musteri}" - İmalat No: ${damper.imalatNo}\n\nBu damperi silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+                                                                    try {
+                                                                        await deleteDamper(damper.id);
+                                                                        setDampers(prev => prev.filter(d => d.id !== damper.id));
+                                                                        setExpandedId(null);
+                                                                        loadData(); // Refresh stats
+                                                                    } catch (error) {
+                                                                        console.error('Error deleting damper:', error);
+                                                                        alert('Damper silinirken hata oluştu');
+                                                                    }
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 size={16} /> Damperi Sil
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                } else if (item._type === 'SASI') {
+                                    const sasi = item as typeof sasis[0];
+                                    const progress = calculateSasiProgress(sasi);
+                                    let overallStatus = getSasiStatus(sasi);
+                                    overallStatus = overallStatus === 'tamamlanan' ? 'TAMAMLANDI' : overallStatus === 'baslamayan' ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
+                                    const isExpanded = expandedId === sasi.id;
+
+                                    return (
+                                        <div key={`SASI-${sasi.id}`} className="damper-card">
+                                            {/* Header */}
+                                            <div
+                                                className="damper-card-header"
+                                                onClick={() => setExpandedId(isExpanded ? null : sasi.id)}
+                                            >
+                                                <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{sasi.imalatNo}</div>
+                                                <div style={{ fontWeight: 500 }}>{sasi.musteri}</div>
+                                                <div>
+                                                    <span style={{
+                                                        background: 'rgba(99, 102, 241, 0.1)',
+                                                        color: 'var(--primary)',
+                                                        padding: '4px 10px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '12px'
+                                                    }}>
+                                                        {sasi.tampon || '-'}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                                    {sasi.sasiNo || '-'} | {sasi.dingil || '-'}
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
+                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                                    </div>
+                                                    <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                </div>
+                                                <div>{getStatusBadge(overallStatus)}</div>
+                                                <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                            </div>
+
+                                            {/* Body */}
+                                            {isExpanded && (
+                                                <div className="damper-card-body">
+                                                    {/* Info Cards */}
+                                                    <div style={{
+                                                        display: 'grid',
+                                                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                                        gap: '12px',
+                                                        marginBottom: '20px',
+                                                        paddingBottom: '20px',
+                                                        borderBottom: '1px solid var(--border)'
+                                                    }}>
+
+                                                        {/* IMALAT NO */}
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.imalatNo}</div>
+                                                            </div>
+                                                            <input type="number" className="input" style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }} value={sasi.imalatNo || ''} onChange={async (e) => {
+                                                                const val = e.target.value ? parseInt(e.target.value) : null;
+                                                                const updated = await updateSasi(sasi.id, { imalatNo: val });
+                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                            }} onClick={e => e.stopPropagation()} />
+                                                        </div>
+
+
+                                                        {/* MÜŞTERİ (Editable) */}
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MÜŞTERİ / İSİM</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.musteri}</div>
+                                                            </div>
+                                                            <input type="text" className="input" style={{ width: '120px', padding: '4px', fontSize: '13px' }} value={sasi.musteri || ''} onChange={async (e) => {
+                                                                const updated = await updateSasi(sasi.id, { musteri: e.target.value });
+                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                            }} onClick={e => e.stopPropagation()} placeholder="İsim Giriniz" />
+                                                        </div>
+
+                                                        {/* TAMPON */}
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
+                                                            <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.tampon || ''} onChange={async (e) => {
+                                                                const updated = await updateSasi(sasi.id, { tampon: e.target.value });
+                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                            }} onClick={e => e.stopPropagation()}>
+                                                                <option style={{ color: 'black' }} value="">Seçiniz</option>
+                                                                <option style={{ color: 'black' }} value="Kırma Tampon">KIRMA</option>
+                                                                <option style={{ color: 'black' }} value="Sabit Tampon">SABİT</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {/* DINGIL */}
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
+                                                            <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.dingil || ''} onChange={async (e) => {
+                                                                const updated = await updateSasi(sasi.id, { dingil: e.target.value });
+                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                            }} onClick={e => e.stopPropagation()}>
+                                                                <option style={{ color: 'black' }} value="">Seçiniz</option>
+                                                                <option style={{ color: 'black' }} value="TRAX">TRAX</option>
+                                                                <option style={{ color: 'black' }} value="BPW">BPW</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {/* TARİH */}
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TARİH</div>
+                                                                <div style={{ fontSize: '13px' }}>{sasi.createdAt ? new Date(sasi.createdAt).toLocaleDateString() : '-'}</div>
+                                                            </div>
+                                                            <input type="date" className="input" style={{ width: '110px', padding: '4px', fontSize: '12px' }} onChange={async (e) => {
+                                                                if (e.target.value) {
+                                                                    const updated = await updateSasi(sasi.id, { createdAt: new Date(e.target.value).toISOString() });
+                                                                    setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                                }
+                                                            }} onClick={e => e.stopPropagation()} />
+                                                        </div>
+
+                                                    </div>
+
+                                                    {/* Steps */}
+                                                    {SASI_STEP_GROUPS.map((group) => {
+                                                        const status = sasi[group.statusKey as keyof Sasi] as string;
+                                                        return (
+                                                            <div key={group.key} className="step-group">
+                                                                <div className="step-group-title">
+                                                                    {group.name}
+                                                                    {getStatusBadge(status)}
+                                                                </div>
+                                                                <div className="step-items">
+                                                                    {group.subSteps.map((step) => {
+                                                                        const isCompleted = sasi[step.key as keyof Sasi] as boolean;
+                                                                        return (
+                                                                            <div key={step.key} className="step-item">
+                                                                                <span className="step-item-label">{step.label}</span>
+                                                                                <div
+                                                                                    className={`step-toggle ${isCompleted ? 'active' : ''}`}
+                                                                                    onClick={() => handleStepToggle(sasi.id, step.key, isCompleted, 'SASI')}
+                                                                                ></div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* Delete */}
+                                                    <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
+                                                        <button className="btn" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid var(--danger)' }} onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            if (window.confirm(`Sasi #${sasi.imalatNo} silinecek. Emin misiniz?`)) {
+                                                                await deleteSasi(sasi.id);
+                                                                setSasis(prev => prev.filter(s => s.id !== sasi.id));
+                                                                loadData();
+                                                            }
+                                                        }}><Trash2 size={16} /> Şasiyi Sil</button>
+                                                    </div>
+
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                } else {
+                                    const dorse = item as typeof dorses[0];
+                                    const progress = calculateDorseProgress(dorse);
+                                    const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
+                                    const isExpanded = expandedId === dorse.id;
+
+                                    return (
+                                        <div key={`DORSE-${dorse.id}`} className="damper-card">
+                                            <div
+                                                className="damper-card-header"
+                                                onClick={() => setExpandedId(isExpanded ? null : dorse.id)}
+                                            >
+                                                <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{dorse.imalatNo}</div>
+                                                <div style={{ fontWeight: 500 }}>{dorse.musteri}</div>
+                                                <div>
+                                                    <span style={{
+                                                        background: 'rgba(99, 102, 241, 0.1)',
+                                                        color: 'var(--primary)',
+                                                        padding: '4px 10px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '12px'
+                                                    }}>
+                                                        {dorse.kalinlik}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                                    {dorse.dingil} | {dorse.m3} M³
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
+                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                                    </div>
+                                                    <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                </div>
+                                                <div>{getStatusBadge(overallStatus)}</div>
+                                                <div style={{
+                                                    width: '10px',
+                                                    height: '10px',
+                                                    borderRadius: '50%',
+                                                    background: dorse.cekiciGeldiMi ? 'var(--success)' : 'var(--danger)'
+                                                }} title={dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}></div>
+                                                <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div className="damper-card-body">
+                                                    <div style={{
+                                                        display: 'grid',
+                                                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                                        gap: '12px',
+                                                        marginBottom: '20px',
+                                                        paddingBottom: '20px',
+                                                        borderBottom: '1px solid var(--border)'
+                                                    }}>
+                                                        {/* İmalat No */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: !dorse.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.imalatNo ? 'var(--warning)' : 'var(--foreground)' }}>
+                                                                    {dorse.imalatNo ?? 'Girilmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="number"
+                                                                className="input"
+                                                                style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                                placeholder="İmalat No"
+                                                                value={dorse.imalatNo ?? ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                                                    const updated = await updateDorse(dorse.id, { imalatNo: newImalatNo });
+                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        {/* Şasi No */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.sasiNo ? 'var(--muted)' : 'var(--foreground)' }}>
+                                                                    {dorse.sasiNo ?? 'Girilmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                className="input"
+                                                                style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                                placeholder="Şasi No"
+                                                                value={dorse.sasiNo ?? ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newSasiNo = e.target.value;
+                                                                    const updated = await updateDorse(dorse.id, { sasiNo: newSasiNo });
+                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        {/* Kalınlık */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>KALINLIK</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.kalinlik ? 'var(--muted)' : 'var(--foreground)' }}>
+                                                                    {dorse.kalinlik ?? 'Girilmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                className="input"
+                                                                style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                                placeholder="Kalınlık"
+                                                                value={dorse.kalinlik ?? ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newKalinlik = e.target.value;
+                                                                    const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
+                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        {/* Şasi Bağlantısı */}
+                                                        <div style={{
+                                                            gridColumn: '1 / -1',
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '16px',
+                                                            borderRadius: '12px',
+                                                            border: '1px dashed var(--primary)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            marginBottom: '12px'
+                                                        }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <Truck size={24} />
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>ŞASİ BAĞLANTISI</div>
+                                                                    <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--primary)' }}>
+                                                                        {dorse.sasi ? (
+                                                                            <span>#{dorse.sasi.imalatNo} - {dorse.sasi.musteri} ({dorse.sasi.sasiNo})</span>
+                                                                        ) : (
+                                                                            <span style={{ color: 'var(--muted)' }}>Şasi bağlı değil</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                className="btn btn-primary"
+                                                                onClick={(e) => { e.stopPropagation(); openLinkModal(dorse); }}
+                                                                style={{ fontSize: '13px', padding: '8px 16px' }}
+                                                            >
+                                                                {dorse.sasi ? <><LinkIcon size={14} /> Şasiyi Değiştir</> : <><LinkIcon size={14} /> Şasi Bağla</>}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Çekici Durumu */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ÇEKİCİ DURUMU</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {dorse.cekiciGeldiMi ? 'Çekici Fabrikada' : 'Çekici Gelmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <div
+                                                                className={`step-toggle ${dorse.cekiciGeldiMi ? 'active' : ''}`}
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    const updated = await updateDorse(dorse.id, { cekiciGeldiMi: !dorse.cekiciGeldiMi });
+                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                }}
+                                                                style={{ transform: 'scale(1.1)' }}
+                                                                title="Değiştirmek için tıklayın"
+                                                            ></div>
+                                                        </div>
+
+                                                        {/* Adet */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {dorse.adet || 1}
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    className="input"
+                                                                    min="1"
+                                                                    style={{ width: '60px', padding: '4px 8px', fontSize: '13px', textAlign: 'center', height: '32px' }}
+                                                                    value={dorse.adet || 1}
+                                                                    onChange={async (e) => {
+                                                                        const newAdet = parseInt(e.target.value);
+                                                                        if (newAdet > 0) {
+                                                                            const updated = await updateDorse(dorse.id, { adet: newAdet });
+                                                                            setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                        }
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Tarih */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px',
+                                                            position: 'relative'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
+                                                                <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
+                                                                    {dorse.createdAt ? new Date(dorse.createdAt).toLocaleString('tr-TR', {
+                                                                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                                                                    }) : '-'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="datetime-local"
+                                                                className="input"
+                                                                style={{ padding: '4px 8px', fontSize: '12px', width: '40px', height: '30px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'transparent', cursor: 'pointer', opacity: 0, position: 'absolute', right: '16px', zIndex: 10 }}
+                                                                title="Tarihi Düzenle"
+                                                                onChange={async (e) => {
+                                                                    if (e.target.value) {
+                                                                        const updated = await updateDorse(dorse.id, {
+                                                                            createdAt: new Date(e.target.value).toISOString()
+                                                                        });
+                                                                        setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                                <Calendar size={20} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Dorse Steps */}
+                                                    {DORSE_STEP_GROUPS.map((group) => {
+                                                        return (
+                                                            <div key={group.key} className="step-group">
+                                                                <div className="step-group-title">
+                                                                    {group.name}
+                                                                </div>
+                                                                <div className="step-items">
+                                                                    {group.subSteps.map((step) => {
+                                                                        // Handle non-boolean steps (Dropdowns)
+                                                                        if (step.key === 'akmTseMuayenesi' || step.key === 'dmoMuayenesi') {
+                                                                            const currentValue = dorse[step.key as keyof Dorse] as string;
+                                                                            const options = step.key === 'akmTseMuayenesi' ? dropdowns?.kurumMuayenesi : dropdowns?.dmoMuayenesi;
+
+                                                                            return (
+                                                                                <div key={step.key} className="step-item">
+                                                                                    <span className="step-item-label">{step.label}</span>
+                                                                                    <select
+                                                                                        className="select"
+                                                                                        style={{ width: '130px', padding: '4px 8px', fontSize: '12px' }}
+                                                                                        value={currentValue || ''}
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                        onChange={async (e) => {
+                                                                                            const updated = await updateDorse(dorse.id, { [step.key]: e.target.value });
+                                                                                            setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                                        }}
+                                                                                    >
+                                                                                        <option value="">Seçiniz</option>
+                                                                                        {options?.map(v => (
+                                                                                            <option key={v} value={v}>{v}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                </div>
+                                                                            );
+                                                                        }
+
+                                                                        // Handle boolean steps (Toggles)
+                                                                        const isCompleted = dorse[step.key as keyof Dorse] as boolean;
+                                                                        return (
+                                                                            <div key={step.key} className="step-item">
+                                                                                <span className="step-item-label">{step.label}</span>
+                                                                                <div
+                                                                                    className={`step-toggle ${isCompleted ? 'active' : ''}`}
+                                                                                    onClick={() => handleStepToggle(dorse.id, step.key, isCompleted, 'DORSE')}
+                                                                                ></div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* Delete Button */}
+                                                    <div style={{
+                                                        marginTop: '20px',
+                                                        paddingTop: '16px',
+                                                        borderTop: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        justifyContent: 'flex-end'
+                                                    }}>
+                                                        <button
+                                                            className="btn"
+                                                            style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                if (window.confirm(`"${dorse.musteri}" - İmalat No: ${dorse.imalatNo}\n\nBu dorseyi silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+                                                                    try {
+                                                                        await deleteDorse(dorse.id);
+                                                                        setDorses(prev => prev.filter(d => d.id !== dorse.id));
+                                                                        setExpandedId(null);
+                                                                        loadData();
+                                                                    } catch (error) {
+                                                                        console.error('Error deleting dorse:', error);
+                                                                        alert('Dorse silinirken hata oluştu');
+                                                                    }
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 size={16} /> Dorseyi Sil
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+                            })
+                        )
+                    ) : productType === 'DAMPER' ? (
                         sortedDampers.length === 0 ? (
                             <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
                                 Bu kategoride damper bulunamadı
@@ -2222,7 +3296,7 @@ function UrunListesiContent() {
                     <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
                         <div className="modal" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
-                                <h2 className="modal-title">Yeni {productType === 'DAMPER' ? 'Damper' : 'Dorse'} Ekle</h2>
+                                <h2 className="modal-title">Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Ürün'} Ekle</h2>
                                 <button className="modal-close" onClick={() => setShowAddModal(false)}>✕</button>
                             </div>
                             <form onSubmit={handleCreate}>

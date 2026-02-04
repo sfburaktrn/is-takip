@@ -19,8 +19,12 @@ import {
     ArrowUp,
     ArrowDown,
     LineChart,
-    Type
+    Type,
+    FileSpreadsheet, // Added icon
+    Download // Added icon
 } from 'lucide-react';
+import { saveAs } from 'file-saver';
+import ExcelJS from 'exceljs';
 
 import {
     getStats,
@@ -755,6 +759,368 @@ function UrunListesiContent() {
         return dorseStats;
     }, [productType, stats, dorses, sasis, dampers]);
 
+    const handleExportExcel = async () => {
+        if (productType === 'HEPSI') {
+            alert('Lütfen Excel çıktısı almak için belirli bir ürün grubu (Damper, Dorse veya Şasi) seçiniz.');
+            return;
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Ürün Listesi');
+
+        // Header Styles
+        const groupHeaderStyle: Partial<ExcelJS.Style> = {
+            font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 },
+            alignment: { horizontal: 'center', vertical: 'middle' },
+            border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        };
+
+        const subHeaderStyle: Partial<ExcelJS.Style> = {
+            font: { bold: true, color: { argb: 'FF000000' } },
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1D5DB' } } as ExcelJS.Fill, // Gray-300
+            alignment: { horizontal: 'center', vertical: 'middle' },
+            border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        };
+
+        // --- EXPORT CONFIGURATION ---
+        let baseColumns: any[] = [];
+        let stepGroups: any[] = [];
+        let data: any[] = [];
+        let inspectionKeys = { kurum: '', dmo: '' }; // Keys for inspection fields
+
+        if (productType === 'DAMPER') {
+            baseColumns = [
+                { header: 'İMALAT NO', key: 'imalatNo', width: 12 },
+                { header: 'MÜŞTERİ', key: 'musteri', width: 25 },
+                { header: 'ARAÇ GELDİ Mİ', key: 'aracGeldiMi', width: 15 },
+                { header: 'MARKA', key: 'aracMarka', width: 15 },
+                { header: 'MODEL', key: 'model', width: 15 },
+                { header: 'TİP', key: 'tip', width: 20 },
+                { header: 'MALZEME', key: 'malzemeCinsi', width: 15 },
+                { header: 'M3', key: 'm3', width: 8 },
+            ];
+            stepGroups = STEP_GROUPS;
+            data = sortedDampers;
+            inspectionKeys = { kurum: 'kurumMuayenesi', dmo: 'dmoMuayenesi' };
+
+        } else if (productType === 'DORSE') {
+            baseColumns = [
+                { header: 'İMALAT NO', key: 'imalatNo', width: 15 },
+                { header: 'MÜŞTERİ', key: 'musteri', width: 25 },
+                { header: 'TARİH', key: 'createdAt', width: 15 },
+                { header: 'ŞASİ NO', key: 'sasiNo', width: 20 },
+                { header: 'ÇEKİCİ GELDİ Mİ', key: 'cekiciGeldiMi', width: 18 },
+                { header: 'DİNGİL', key: 'dingil', width: 15 },
+                { header: 'LASTİK', key: 'lastik', width: 15 },
+                { header: 'TAMPON', key: 'tampon', width: 15 },
+                { header: 'KALINLIK', key: 'kalinlik', width: 15 },
+                { header: 'M3', key: 'm3', width: 10 },
+            ];
+            // Filter out inspection steps from Dorse groups to avoid duplication in "MUAYENE & TESLİMAT"
+            stepGroups = DORSE_STEP_GROUPS.map(g => ({
+                ...g,
+                subSteps: g.subSteps.filter(s => !['akmTseMuayenesi', 'dmoMuayenesi', 'teslimat'].includes(s.key))
+            }));
+            data = sortedDorses;
+            inspectionKeys = { kurum: 'akmTseMuayenesi', dmo: 'dmoMuayenesi' };
+
+        } else if (productType === 'SASI') {
+            baseColumns = [
+                { header: 'İMALAT NO', key: 'imalatNo', width: 15 },
+                { header: 'MÜŞTERİ', key: 'musteri', width: 25 },
+                { header: 'ŞASİ NO', key: 'sasiNo', width: 20 },
+                { header: 'TAMPON', key: 'tampon', width: 15 },
+                { header: 'DİNGİL', key: 'dingil', width: 15 },
+            ];
+            stepGroups = SASI_STEP_GROUPS; // Sasi doesn't have inspections in groups usually
+            data = sortedSasis;
+            inspectionKeys = { kurum: '', dmo: '' }; // Sasi has no inspections
+        }
+
+        // --- PREPARE COLUMNS ---
+        let excelColumns: Partial<ExcelJS.Column>[] = [...baseColumns];
+
+        // Step Groups
+        stepGroups.forEach(group => {
+            group.subSteps.forEach((step: any) => {
+                excelColumns.push({ header: step.label, key: step.key, width: 18 });
+            });
+            // Summary Column
+            excelColumns.push({ header: group.name, key: `${group.key}Summary`, width: 20 });
+        });
+
+        // "MUAYENE & TESLİMAT" Group
+        if (productType !== 'SASI') {
+            excelColumns.push({ header: 'KURUM MUAYENESİ', key: 'kurumMuayenesi', width: 20 });
+            excelColumns.push({ header: 'DMO MUAYENESİ', key: 'dmoMuayenesi', width: 20 });
+            excelColumns.push({ header: 'TESLİMAT', key: 'teslimat', width: 20 });
+        }
+
+        worksheet.columns = excelColumns;
+
+        // --- HEADER ROW 1 & 2 VALUES ---
+        const row1Values: any[] = [];
+        const row2Values: any[] = [];
+
+        baseColumns.forEach(col => {
+            row1Values.push(col.header);
+            row2Values.push(col.header);
+        });
+
+        stepGroups.forEach((group, idx) => {
+            row1Values.push(group.name);
+            // Fill placeholders for merge
+            // Correct logic for merge placeholders
+            for (let i = 0; i < group.subSteps.length; i++) {
+                row1Values.push(group.name);
+            }
+
+            group.subSteps.forEach((step: any) => {
+                row2Values.push(step.label);
+            });
+            row2Values.push('DURUM');
+        });
+
+        // Muayene Group
+        if (productType !== 'SASI') {
+            row1Values.push('MUAYENE & TESLİMAT');
+            row1Values.push('MUAYENE & TESLİMAT');
+            row1Values.push('MUAYENE & TESLİMAT');
+
+            row2Values.push('KURUM MUAYENESİ');
+            row2Values.push('DMO MUAYENESİ');
+            row2Values.push('TESLİMAT');
+        }
+
+        const headerRow1 = worksheet.getRow(1);
+        headerRow1.values = row1Values;
+        const headerRow2 = worksheet.insertRow(2, row2Values);
+
+        // --- MERGING & STYLING ---
+        let currentCol = 1;
+
+        // 1. Static Cols
+        baseColumns.forEach(() => {
+            worksheet.mergeCells(1, currentCol, 2, currentCol);
+            const cell = worksheet.getCell(1, currentCol);
+            cell.style = groupHeaderStyle;
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+            currentCol++;
+        });
+
+        // 2. Step Groups
+        stepGroups.forEach((group, idx) => {
+            const startCol = currentCol;
+            const endCol = startCol + group.subSteps.length; // subSteps + 1 summary
+
+            worksheet.mergeCells(1, startCol, 1, endCol);
+
+            const groupTitleCell = worksheet.getCell(1, startCol);
+            groupTitleCell.value = group.name;
+
+            // Alternating Colors
+            const isEven = idx % 2 === 0;
+            const bgColor = isEven ? 'FF1E3A8A' : 'FFFFFFFF';
+            const fontColor = isEven ? 'FFFFFFFF' : 'FF000000';
+
+            groupTitleCell.style = {
+                font: { bold: true, color: { argb: fontColor }, size: 12 },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } },
+                alignment: { horizontal: 'center', vertical: 'middle' },
+                border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+            } as ExcelJS.Style;
+
+            for (let c = startCol; c <= endCol; c++) {
+                const cell = worksheet.getCell(2, c);
+                cell.style = subHeaderStyle;
+                // Summary sub-header
+                if (c === endCol) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4B5563' } };
+                    cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                }
+            }
+            currentCol = endCol + 1;
+        });
+
+        // 3. Muayene Group
+        if (productType !== 'SASI') {
+            const startCol = currentCol;
+            const endCol = startCol + 2;
+            worksheet.mergeCells(1, startCol, 1, endCol);
+
+            const muayeneTitleCell = worksheet.getCell(1, startCol);
+            muayeneTitleCell.value = 'MUAYENE & TESLİMAT';
+
+            // Next color
+            const nextIdx = stepGroups.length;
+            const isEven = nextIdx % 2 === 0;
+            const bgColor = isEven ? 'FF1E3A8A' : 'FFFFFFFF';
+            const fontColor = isEven ? 'FFFFFFFF' : 'FF000000';
+
+            muayeneTitleCell.style = {
+                font: { bold: true, color: { argb: fontColor }, size: 12 },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } },
+                alignment: { horizontal: 'center', vertical: 'middle' },
+                border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+            } as ExcelJS.Style;
+
+            for (let c = startCol; c <= endCol; c++) {
+                const cell = worksheet.getCell(2, c);
+                cell.style = subHeaderStyle;
+            }
+        }
+
+        // --- DATA ROWS ---
+        data.forEach(item => {
+            const rowValues: any[] = [];
+
+            // Base Info
+            baseColumns.forEach(col => {
+                let val = (item as any)[col.key];
+
+                // Special handling for Sasi No in Dorse (it might be in linked sasi object)
+                if (col.key === 'sasiNo' && productType === 'DORSE') {
+                    if (!val && (item as any).sasi) {
+                        const sasiObj = (item as any).sasi;
+                        if (sasiObj.sasiNo) {
+                            val = `${sasiObj.musteri} - ${sasiObj.sasiNo}`;
+                        } else if (sasiObj.imalatNo) {
+                            val = `${sasiObj.musteri} - #${sasiObj.imalatNo}`;
+                        } else {
+                            val = sasiObj.musteri;
+                        }
+                    }
+                }
+
+                if (['aracGeldiMi', 'cekiciGeldiMi'].includes(col.key)) val = val ? 'EVET' : 'HAYIR';
+                if (col.key === 'createdAt' && val) val = new Date(val).toLocaleDateString('tr-TR');
+                rowValues.push(val);
+            });
+
+            // Step Groups Status
+            stepGroups.forEach(group => {
+                let completedCount = 0;
+                group.subSteps.forEach((step: any) => {
+                    const val = (item as any)[step.key];
+                    if (val) completedCount++;
+                    rowValues.push(val);
+                });
+
+                const total = group.subSteps.length;
+                let summary = '';
+                if (completedCount === total) summary = 'TAMAMLANDI';
+                else if (completedCount > 0) summary = 'DEVAM EDİYOR';
+                else summary = 'BAŞLAMADI';
+
+                rowValues.push(summary);
+            });
+
+            // Custom Group Data
+            if (productType !== 'SASI') {
+                // Kurum
+                const kurumVal = inspectionKeys.kurum ? ((item as any)[inspectionKeys.kurum] || 'YOK') : 'YOK';
+                rowValues.push(kurumVal);
+                // DMO
+                const dmoVal = inspectionKeys.dmo ? ((item as any)[inspectionKeys.dmo] || 'YOK') : 'YOK';
+                rowValues.push(dmoVal);
+                // Teslimat
+                rowValues.push(item.teslimat);
+            }
+
+            const row = worksheet.addRow(rowValues);
+
+            // --- CELL FORMATTING ---
+            let cellIdx = baseColumns.length + 1;
+
+            stepGroups.forEach(group => {
+                // Sub Steps
+                group.subSteps.forEach(() => {
+                    const cell = row.getCell(cellIdx);
+                    const val = cell.value;
+
+                    if (val === true) {
+                        cell.value = 'TAMAMLANDI';
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF22C55E' } };
+                        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 };
+                    } else {
+                        cell.value = 'BAŞLAMADI';
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } };
+                        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 };
+                    }
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                    cellIdx++;
+                });
+
+                // Summary Cell
+                const summaryCell = row.getCell(cellIdx);
+                const summaryVal = summaryCell.value;
+                summaryCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                summaryCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                summaryCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+                if (summaryVal === 'TAMAMLANDI') {
+                    summaryCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF22C55E' } };
+                } else if (summaryVal === 'DEVAM EDİYOR') {
+                    summaryCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF06B6D4' } }; // Cyan
+                } else {
+                    summaryCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } };
+                }
+                cellIdx++;
+            });
+
+            // Muayene & Teslimat formatting
+            if (productType !== 'SASI') {
+                const kurumCell = row.getCell(cellIdx);
+                if (['YAPILDI', 'VAR', 'EVET', 'TAMAMLANDI'].includes(kurumCell.value as string)) {
+                    kurumCell.value = 'YAPILDI';
+                    kurumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF22C55E' } };
+                    kurumCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                } else {
+                    kurumCell.value = 'YOK';
+                    kurumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } };
+                    kurumCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                }
+                kurumCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                kurumCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                cellIdx++;
+
+                const dmoCell = row.getCell(cellIdx);
+                if (['YAPILDI', 'VAR', 'EVET', 'TAMAMLANDI'].includes(dmoCell.value as string)) {
+                    dmoCell.value = 'YAPILDI';
+                    dmoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF22C55E' } };
+                    dmoCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                } else {
+                    dmoCell.value = 'YOK';
+                    dmoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } };
+                    dmoCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                }
+                dmoCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                dmoCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                cellIdx++;
+
+                const teslimatCell = row.getCell(cellIdx);
+                if (teslimatCell.value === true || teslimatCell.value === 'TAMAMLANDI') {
+                    teslimatCell.value = 'TAMAMLANDI';
+                    teslimatCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF22C55E' } };
+                    teslimatCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                } else {
+                    teslimatCell.value = 'BAŞLAMADI';
+                    teslimatCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } };
+                    teslimatCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                }
+                teslimatCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                teslimatCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                cellIdx++;
+            }
+        });
+
+        // Generate buffer
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, `${productType}_Listesi_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -775,11 +1141,16 @@ function UrunListesiContent() {
                             <h1 className="header-title">Ürün Listesi</h1>
                             <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Tüm'} imalat süreçlerini görüntüleyin ve yönetin</p>
                         </div>
-                        {productType !== 'HEPSI' && (
-                            <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
-                                <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Ürün'} Ekle
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button className="btn btn-secondary" onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FileSpreadsheet size={20} /> Excel'e Aktar
                             </button>
-                        )}
+                            {productType !== ('HEPSI' as any) && (
+                                <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
+                                    <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Ürün'} Ekle
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Product Toggle & Search */}

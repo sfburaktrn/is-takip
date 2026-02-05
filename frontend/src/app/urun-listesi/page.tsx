@@ -21,7 +21,9 @@ import {
     LineChart,
     Type,
     FileSpreadsheet, // Added icon
-    Download // Added icon
+    Download, // Added icon
+    X, // Added icon
+    Info // Added icon
 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import ExcelJS from 'exceljs';
@@ -3991,161 +3993,226 @@ function UrunListesiContent() {
                     </div >
                 )}
 
-                {/* Şasi Bağlama Modalı */}
+                {/* Şasi Bağlantısı Modalı */}
                 {showLinkModal && activeDorseForLink && (
-                    <div className="modal-overlay" onClick={() => setShowLinkModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)' }}>
+                    <div className="modal-overlay" onClick={() => setShowLinkModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', background: 'rgba(0, 0, 0, 0.6)' }}>
                         <div
                             className="modal-content"
                             onClick={(e) => e.stopPropagation()}
                             style={{
                                 maxWidth: '600px',
                                 width: '90%',
-                                maxHeight: '85vh',
-                                overflow: 'hidden',
+                                maxHeight: '80vh',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                borderRadius: '16px',
-                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                                background: 'var(--card-bg)'
+                                borderRadius: '24px',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                                background: 'white',
+                                overflow: 'hidden'
                             }}
                         >
+                            {/* Modal Header */}
                             <div className="modal-header" style={{
-                                background: 'linear-gradient(to right, #022347, #0f172a)',
-                                padding: '20px 24px',
-                                borderBottom: '1px solid var(--border)'
+                                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                                padding: '24px 32px',
+                                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                     <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '10px',
+                                        width: '48px',
+                                        height: '48px',
+                                        borderRadius: '14px',
                                         background: 'rgba(255, 255, 255, 0.1)',
+                                        backdropFilter: 'blur(10px)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        color: '#fff'
+                                        color: '#fff',
+                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
                                     }}>
-                                        <LinkIcon size={20} />
+                                        <LinkIcon size={24} />
                                     </div>
                                     <div>
-                                        <h3 className="modal-title" style={{ margin: 0, color: '#fff', fontSize: '18px' }}>Şasi Bağlantısı</h3>
-                                        <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', margin: '4px 0 0 0' }}>{activeDorseForLink.musteri} için şasi seçin</p>
+                                        <h3 className="modal-title" style={{ margin: 0, color: '#fff', fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em' }}>Şasi Bağlantısı</h3>
+                                        <p style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.6)', margin: '4px 0 0 0', fontWeight: 500 }}>
+                                            <span style={{ color: '#fff' }}>{activeDorseForLink.musteri}</span> için şasi seçimi
+                                        </p>
                                     </div>
                                 </div>
                                 <button
-                                    className="modal-close"
                                     onClick={() => setShowLinkModal(false)}
-                                    style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '24px', fontWeight: 300, background: 'none', border: 'none', cursor: 'pointer' }}
-                                >✕</button>
+                                    style={{
+                                        width: '36px',
+                                        height: '36px',
+                                        borderRadius: '50%',
+                                        background: 'rgba(255,255,255,0.1)',
+                                        border: 'none',
+                                        color: 'white',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                                    onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                >
+                                    <X size={20} />
+                                </button>
                             </div>
 
-                            <div style={{ padding: '20px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                            {/* Search & Filters */}
+                            <div style={{ padding: '24px 32px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                                 <div style={{ position: 'relative', marginBottom: '16px' }}>
-                                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', display: 'flex' }}>
-                                        <Search size={18} />
-                                    </span>
+                                    <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
                                     <input
                                         type="text"
-                                        className="input"
-                                        placeholder="Şasi ara (Müşteri adı veya Stok no...)"
-                                        style={{ paddingLeft: '40px', height: '42px', borderRadius: '10px' }}
+                                        placeholder="Şasi ara (Müşteri adı, Stok no veya İmalat no...)"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 16px 12px 48px',
+                                            borderRadius: '12px',
+                                            border: '1px solid #e2e8f0',
+                                            background: 'white',
+                                            fontSize: '15px',
+                                            color: '#1e293b',
+                                            outline: 'none',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                        }}
                                         value={linkSearchTerm}
                                         onChange={(e) => setLinkSearchTerm(e.target.value)}
+                                        onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                                        onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
                                     />
                                 </div>
-                                <div className="stats-tabs" style={{ marginBottom: '0', background: 'var(--card-bg)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                                    <button
-                                        className={`tab-btn ${linkFilter === 'hepsi' ? 'active' : ''}`}
-                                        onClick={() => setLinkFilter('hepsi')}
-                                        style={{ flex: 1, borderRadius: '8px', fontSize: '13px' }}
-                                    >Hepsi</button>
-                                    <button
-                                        className={`tab-btn ${linkFilter === 'stok' ? 'active' : ''}`}
-                                        onClick={() => setLinkFilter('stok')}
-                                        style={{ flex: 1, borderRadius: '8px', fontSize: '13px' }}
-                                    >Stok</button>
-                                    <button
-                                        className={`tab-btn ${linkFilter === 'musteri' ? 'active' : ''}`}
-                                        onClick={() => setLinkFilter('musteri')}
-                                        style={{ flex: 1, borderRadius: '8px', fontSize: '13px' }}
-                                    >Müşteri</button>
+                                <div style={{ display: 'flex', background: '#e2e8f0', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+                                    {['hepsi', 'stok', 'musteri'].map((filter) => (
+                                        <button
+                                            key={filter}
+                                            onClick={() => setLinkFilter(filter as any)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                background: linkFilter === filter ? 'white' : 'transparent',
+                                                color: linkFilter === filter ? '#0f172a' : '#64748b',
+                                                fontSize: '14px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                boxShadow: linkFilter === filter ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {filter === 'hepsi' ? 'Tüm Şasiler' : filter === 'stok' ? 'Stok Şasileri' : 'Müşteri Şasileri'}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 
-                            <div className="modal-body" style={{ overflowY: 'auto', padding: '0', flex: 1, background: 'var(--card-bg)' }}>
+                            {/* List Content */}
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 32px', background: '#fff' }}>
                                 {availableSasis.length === 0 ? (
-                                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
-                                            <Package size={48} strokeWidth={1} style={{ opacity: 0.5 }} />
-                                        </div>
-                                        <p style={{ margin: '0 0 16px 0', fontSize: '14px' }}>Bağlanabilir boş şasi bulunamadı.</p>
-                                        <button className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }} onClick={() => { setShowLinkModal(false); setShowAddModal(true); setProductType('SASI'); }}>
-                                            <Plus size={16} style={{ marginRight: '6px' }} /> Yeni Şasi Oluştur
+                                    <div style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>
+                                        <Package size={64} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                                        <p style={{ fontSize: '16px', fontWeight: 500, color: '#64748b' }}>Bağlanabilir şasi bulunamadı.</p>
+                                        <button
+                                            style={{ marginTop: '16px', padding: '10px 20px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                                            onClick={() => { setShowLinkModal(false); setShowAddModal(true); setProductType('SASI'); }}
+                                        >
+                                            + Yeni Şasi Oluştur
                                         </button>
                                     </div>
                                 ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {[...availableSasis]
                                             .filter(s => {
-                                                // First apply tab filter
                                                 if (linkFilter === 'stok' && !s.musteri.toLowerCase().includes('stok')) return false;
                                                 if (linkFilter === 'musteri' && s.musteri.toLowerCase().includes('stok')) return false;
 
-                                                // Then apply search filter
                                                 if (linkSearchTerm.trim()) {
                                                     const search = linkSearchTerm.toLowerCase().trim();
-                                                    const matchesMusteri = s.musteri.toLowerCase().includes(search);
-                                                    const matchesSasiNo = (s.sasiNo || '').toLowerCase().includes(search);
-                                                    const matchesImalatNo = String(s.imalatNo || '').includes(search);
-                                                    return matchesMusteri || matchesSasiNo || matchesImalatNo;
+                                                    return s.musteri.toLowerCase().includes(search) ||
+                                                        (s.sasiNo || '').toLowerCase().includes(search) ||
+                                                        String(s.imalatNo || '').includes(search);
                                                 }
                                                 return true;
                                             })
-                                            .sort((a, b) => {
-                                                const aMatches = a.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase());
-                                                const bMatches = b.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase());
-                                                if (aMatches && !bMatches) return -1;
-                                                if (!aMatches && bMatches) return 1;
-                                                return 0;
-                                            }).map(sasi => {
+                                            .map(sasi => {
                                                 const isMatch = sasi.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase()) && !sasi.musteri.toLowerCase().includes('stok');
                                                 const progress = calculateSasiProgress(sasi);
+
                                                 return (
                                                     <div
                                                         key={sasi.id}
                                                         onClick={() => handleLinkSasi(activeDorseForLink.id, sasi.id)}
                                                         style={{
-                                                            padding: '16px 20px',
-                                                            borderBottom: '1px solid var(--border)',
+                                                            padding: '20px',
+                                                            borderRadius: '16px',
+                                                            border: isMatch ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                                                            background: isMatch ? '#eef2ff' : 'white',
                                                             cursor: 'pointer',
                                                             transition: 'all 0.2s',
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'space-between',
-                                                            background: isMatch ? 'rgba(99, 102, 241, 0.04)' : 'transparent',
-                                                            borderLeft: isMatch ? '4px solid var(--primary)' : '4px solid transparent'
+                                                            position: 'relative',
+                                                            overflow: 'hidden'
                                                         }}
-                                                        className="sasi-list-item"
+                                                        onMouseOver={(e) => {
+                                                            if (!isMatch) {
+                                                                e.currentTarget.style.borderColor = '#94a3b8';
+                                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)';
+                                                            }
+                                                        }}
+                                                        onMouseOut={(e) => {
+                                                            if (!isMatch) {
+                                                                e.currentTarget.style.borderColor = '#e2e8f0';
+                                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                                e.currentTarget.style.boxShadow = 'none';
+                                                            }
+                                                        }}
                                                     >
                                                         <div style={{ flex: 1 }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--foreground)' }}>#{sasi.imalatNo || '0'} - {sasi.musteri}</span>
-                                                                {isMatch && <span style={{ fontSize: '10px', background: 'var(--primary)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>UYGUN</span>}
-                                                                {progress === 100 && <span style={{ fontSize: '10px', background: 'var(--success)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={10} /> HAZIR</span>}
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                                                                <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                                                                    #{sasi.imalatNo} - {sasi.musteri}
+                                                                </span>
+                                                                {isMatch && (
+                                                                    <span style={{ fontSize: '11px', background: '#4f46e5', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, letterSpacing: '0.5px' }}>
+                                                                        ÖNERİLEN
+                                                                    </span>
+                                                                )}
+                                                                {progress === 100 && (
+                                                                    <span style={{ fontSize: '11px', background: '#059669', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <CheckCircle size={12} /> HAZIR
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                            <div style={{ fontSize: '13px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                <span>{sasi.sasiNo || 'No yok'} | {sasi.dingil} | {sasi.tampon}</span>
-                                                                <div style={{ width: '1px', height: '12px', background: 'var(--border)' }}></div>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <div className="progress-bar" style={{ width: '60px', height: '6px', borderRadius: '3px', background: 'var(--bg-secondary)' }}>
-                                                                        <div className="progress-bar-fill" style={{ width: `${progress}%`, background: progress === 100 ? 'var(--success)' : 'var(--primary)', borderRadius: '3px' }}></div>
-                                                                    </div>
-                                                                    <span style={{ fontSize: '12px', fontWeight: 500, color: progress === 100 ? 'var(--success)' : 'var(--primary)' }}>%{progress}</span>
-                                                                </div>
+                                                            <div style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: '16px', color: '#64748b', fontSize: '13px', fontWeight: 500 }}>
+                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Info size={14} /> {sasi.sasiNo || 'Şasi No Yok'}</span>
+                                                                <span style={{ width: '4px', height: '4px', background: '#cbd5e1', borderRadius: '50%' }}></span>
+                                                                <span>{sasi.dingil}</span>
+                                                                <span style={{ width: '4px', height: '4px', background: '#cbd5e1', borderRadius: '50%' }}></span>
+                                                                <span>{sasi.tampon}</span>
                                                             </div>
                                                         </div>
-                                                        <div style={{ color: 'var(--muted)', marginLeft: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                                                            <LinkIcon size={16} />
+
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: progress === 100 ? '#059669' : '#3b82f6' }}>
+                                                                %{progress} Tamamlandı
+                                                            </span>
+                                                            <div style={{ width: '100px', height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#059669' : '#3b82f6', borderRadius: '3px', transition: 'width 0.5s' }}></div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ marginLeft: '24px', width: '40px', height: '40px', borderRadius: '12px', background: isMatch ? '#4f46e5' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isMatch ? 'white' : '#94a3b8' }}>
+                                                            <LinkIcon size={20} />
                                                         </div>
                                                     </div>
                                                 );
@@ -4154,8 +4221,26 @@ function UrunListesiContent() {
                                 )}
                             </div>
 
-                            <div className="modal-footer" style={{ padding: '16px 24px', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)' }}>
-                                <button className="btn btn-secondary" onClick={() => setShowLinkModal(false)} style={{ width: '100%', justifyContent: 'center' }}>İptal</button>
+                            {/* Footer */}
+                            <div style={{ padding: '20px 32px', background: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => setShowLinkModal(false)}
+                                    style={{
+                                        padding: '12px 32px',
+                                        borderRadius: '12px',
+                                        background: '#f1f5f9',
+                                        color: '#64748b',
+                                        border: '1px solid #e2e8f0',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        fontSize: '14px',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseOver={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+                                >
+                                    İptal
+                                </button>
                             </div>
                         </div>
                     </div>

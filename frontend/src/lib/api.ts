@@ -63,6 +63,9 @@ export interface Damper {
     dmoMuayenesi: string;
     teslimat: boolean;
 
+    branda: boolean;
+    brandaMontaji: boolean;
+
     // Calculated statuses
     kesimBukumStatus?: string;
     sasiBitisStatus?: string;
@@ -454,6 +457,9 @@ export interface Dorse {
     dmoMuayenesi: string;
     tahsilat: boolean;
     teslimat: boolean;
+
+    branda: boolean;
+    brandaMontaji: boolean;
 
     createdAt?: string;
     updatedAt?: string;

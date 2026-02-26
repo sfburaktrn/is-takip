@@ -23,6 +23,7 @@ export default function DamperListesi() {
         malzemeCinsi: '',
         m3: '',
         adet: '1',
+        branda: false,
     });
 
     useEffect(() => {
@@ -96,6 +97,8 @@ export default function DamperListesi() {
                 malzemeCinsi: formData.malzemeCinsi,
                 m3: formData.m3 ? parseFloat(formData.m3) : null,
                 adet: parseInt(formData.adet) || 1,
+                branda: formData.branda,
+                brandaMontaji: formData.branda,
             });
             setShowAddModal(false);
             setFormData({
@@ -108,6 +111,7 @@ export default function DamperListesi() {
                 malzemeCinsi: '',
                 m3: '',
                 adet: '1',
+                branda: false,
             });
             loadData();
         } catch (error) {
@@ -478,6 +482,13 @@ export default function DamperListesi() {
                                             <div className="step-group-title">MUAYENE & TESLİMAT</div>
                                             <div className="step-items">
                                                 <div className="step-item">
+                                                    <span className="step-item-label">Branda Montajı</span>
+                                                    <div
+                                                        className={`step-toggle ${damper.brandaMontaji ? 'active' : ''}`}
+                                                        onClick={() => handleStepToggle(damper.id, 'brandaMontaji', damper.brandaMontaji)}
+                                                    ></div>
+                                                </div>
+                                                <div className="step-item">
                                                     <span className="step-item-label">Kurum Muayenesi</span>
                                                     <select
                                                         className="select"
@@ -646,6 +657,17 @@ export default function DamperListesi() {
                                                 {dropdowns?.malzemeCinsi.map(m => (
                                                     <option key={m} value={m}>{m}</option>
                                                 ))}
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Branda *</label>
+                                            <select
+                                                className="select"
+                                                value={formData.branda ? 'VAR' : 'YOK'}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, branda: e.target.value === 'VAR' }))}
+                                            >
+                                                <option value="YOK">YOK</option>
+                                                <option value="VAR">VAR</option>
                                             </select>
                                         </div>
                                         <div className="form-group">

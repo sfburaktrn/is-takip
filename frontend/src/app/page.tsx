@@ -96,6 +96,7 @@ function DashboardContent() {
     malzemeCinsi: '',
     m3: '',
     adet: '1',
+    branda: false,
   });
 
   // Dorse Form State
@@ -112,6 +113,7 @@ function DashboardContent() {
     sasiId: '',
     silindir: '',
     malzemeCinsi: '',
+    branda: false,
   });
 
   // Sasi Form State
@@ -362,6 +364,8 @@ function DashboardContent() {
           malzemeCinsi: formData.malzemeCinsi,
           m3: formData.m3 ? parseFloat(formData.m3) : null,
           adet: quantity,
+          branda: formData.branda,
+          brandaMontaji: formData.branda,
         });
         setShowAddModal(false);
         setFormData({
@@ -374,6 +378,7 @@ function DashboardContent() {
           malzemeCinsi: '',
           m3: '',
           adet: '1',
+          branda: false,
         });
         loadData();
         if (quantity > 1) {
@@ -400,6 +405,8 @@ function DashboardContent() {
           sasiId: dorseFormData.sasiId ? parseInt(dorseFormData.sasiId) : null,
           silindir: dorseFormData.silindir || null,
           malzemeCinsi: dorseFormData.malzemeCinsi || null,
+          branda: dorseFormData.branda,
+          brandaMontaji: dorseFormData.branda,
         });
         setShowAddModal(false);
         setDorseFormData({
@@ -415,6 +422,7 @@ function DashboardContent() {
           sasiId: '',
           silindir: '',
           malzemeCinsi: '',
+          branda: false,
         });
         loadData();
         if (quantity > 1) {
@@ -1800,6 +1808,13 @@ function DashboardContent() {
                             <div className="step-group-title">MUAYENE & TESLİMAT</div>
                             <div className="step-items">
                               <div className="step-item">
+                                <span className="step-item-label">Branda Montajı</span>
+                                <div
+                                  className={`step-toggle ${damper.brandaMontaji ? 'active' : ''}`}
+                                  onClick={() => handleStepToggle(damper.id, 'brandaMontaji', damper.brandaMontaji, 'DAMPER')}
+                                ></div>
+                              </div>
+                              <div className="step-item">
                                 <span className="step-item-label">Kurum Muayenesi</span>
                                 <select
                                   className="select"
@@ -2261,6 +2276,15 @@ function DashboardContent() {
                                       </div>
                                     );
                                   })}
+                                  {group.name === 'SON KONTROL' && (
+                                    <div className="step-item">
+                                      <span className="step-item-label">Branda Montajı</span>
+                                      <div
+                                        className={`step-toggle ${dorse.brandaMontaji ? 'active' : ''}`}
+                                        onClick={() => handleStepToggle(dorse.id, 'brandaMontaji', dorse.brandaMontaji as boolean, 'DORSE')}
+                                      ></div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -2607,6 +2631,17 @@ function DashboardContent() {
                         </select>
                       </div>
                       <div className="form-group">
+                        <label className="form-label">Branda *</label>
+                        <select
+                          className="select"
+                          value={formData.branda ? 'VAR' : 'YOK'}
+                          onChange={(e) => setFormData(prev => ({ ...prev, branda: e.target.value === 'VAR' }))}
+                        >
+                          <option value="YOK">YOK</option>
+                          <option value="VAR">VAR</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
                         <label className="form-label">M³</label>
                         <input
                           type="number"
@@ -2753,6 +2788,17 @@ function DashboardContent() {
                           value={dorseFormData.kalinlik}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: e.target.value }))}
                         />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Branda *</label>
+                        <select
+                          className="select"
+                          value={dorseFormData.branda ? 'VAR' : 'YOK'}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, branda: e.target.value === 'VAR' }))}
+                        >
+                          <option value="YOK">YOK</option>
+                          <option value="VAR">VAR</option>
+                        </select>
                       </div>
                       <div className="form-group">
                         <label className="form-label">M³</label>

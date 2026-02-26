@@ -533,7 +533,7 @@ app.post('/api/dampers', requireAuth, async (req, res) => {
         res.status(201).json(createdDampers);
     } catch (error) {
         console.error('Error creating damper:', error);
-        res.status(500).json({ error: 'Failed to create damper' });
+        res.status(500).json({ error: 'Failed to create damper', details: String(error) });
     }
 });
 

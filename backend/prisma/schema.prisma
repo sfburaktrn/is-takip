@@ -46,6 +46,8 @@ model Damper {
   kurumMuayenesi        String   @default("YOK")
   dmoMuayenesi          String   @default("MUAYENE YOK")
   teslimat              Boolean  @default(false)
+  branda                Boolean  @default(false)
+  brandaMontaji         Boolean  @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   adet                  Int      @default(1)
@@ -105,6 +107,8 @@ model Dorse {
   dmoMuayenesi          String   @default("MUAYENE YOK")
   tahsilat              Boolean  @default(false)
   teslimat              Boolean  @default(false)
+  branda                Boolean  @default(false)
+  brandaMontaji         Boolean  @default(false)
   
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

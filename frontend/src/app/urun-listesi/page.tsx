@@ -99,9 +99,11 @@ function UrunListesiContent() {
         malzemeCinsi: '',
         m3: '',
         adet: '1',
+        branda: false,
+        sasiId: '', // Added
+        silindir: '', // Added
     });
 
-    // Dorse Form State
     // Dorse Form State
     const [dorseFormData, setDorseFormData] = useState({
         imalatNo: '',
@@ -114,6 +116,9 @@ function UrunListesiContent() {
         m3: '',
         adet: '1',
         sasiId: '',
+        silindir: '', // Added
+        malzemeCinsi: '', // Added
+        branda: false, // Added
     });
 
     // Sasi Form State
@@ -359,6 +364,8 @@ function UrunListesiContent() {
                     malzemeCinsi: formData.malzemeCinsi,
                     m3: formData.m3 ? parseFloat(formData.m3) : null,
                     adet: quantity,
+                    branda: formData.branda,
+                    brandaMontaji: formData.branda,
                 });
                 setShowAddModal(false);
                 setFormData({
@@ -371,6 +378,9 @@ function UrunListesiContent() {
                     malzemeCinsi: '',
                     m3: '',
                     adet: '1',
+                    branda: false,
+                    sasiId: '', // Added
+                    silindir: '', // Added
                 });
                 loadData();
                 if (quantity > 1) {
@@ -425,6 +435,10 @@ function UrunListesiContent() {
                     m3: dorseFormData.m3 ? parseFloat(dorseFormData.m3) : null,
                     adet: quantity,
                     sasiId: dorseFormData.sasiId ? parseInt(dorseFormData.sasiId) : null,
+                    silindir: dorseFormData.silindir || null, // Added
+                    malzemeCinsi: dorseFormData.malzemeCinsi || null, // Added
+                    branda: dorseFormData.branda, // Added
+                    brandaMontaji: dorseFormData.branda, // Added
                 });
                 setShowAddModal(false);
                 setDorseFormData({
@@ -438,6 +452,9 @@ function UrunListesiContent() {
                     m3: '',
                     adet: '1',
                     sasiId: '',
+                    silindir: '', // Added
+                    malzemeCinsi: '', // Added
+                    branda: false, // Added
                 });
                 loadData();
                 if (quantity > 1) {
@@ -2115,6 +2132,13 @@ function UrunListesiContent() {
                                                         <div className="step-group-title">MUAYENE & TESLİMAT</div>
                                                         <div className="step-items">
                                                             <div className="step-item">
+                                                                <span className="step-item-label">Branda Montajı</span>
+                                                                <div
+                                                                    className={`step-toggle ${damper.brandaMontaji ? 'active' : ''}`}
+                                                                    onClick={() => handleStepToggle(damper.id, 'brandaMontaji', damper.brandaMontaji, 'DAMPER')}
+                                                                ></div>
+                                                            </div>
+                                                            <div className="step-item">
                                                                 <span className="step-item-label">Kurum Muayenesi</span>
                                                                 <select
                                                                     className="select"
@@ -2695,6 +2719,15 @@ function UrunListesiContent() {
                                                                             </div>
                                                                         );
                                                                     })}
+                                                                    {group.name === 'SON KONTROL' && (
+                                                                        <div className="step-item">
+                                                                            <span className="step-item-label">Branda Montajı</span>
+                                                                            <div
+                                                                                className={`step-toggle ${dorse.brandaMontaji ? 'active' : ''}`}
+                                                                                onClick={() => handleStepToggle(dorse.id, 'brandaMontaji', dorse.brandaMontaji as boolean, 'DORSE')}
+                                                                            ></div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         );
@@ -3025,6 +3058,13 @@ function UrunListesiContent() {
                                                 <div className="step-group">
                                                     <div className="step-group-title">MUAYENE & TESLİMAT</div>
                                                     <div className="step-items">
+                                                        <div className="step-item">
+                                                            <span className="step-item-label">Branda Montajı</span>
+                                                            <div
+                                                                className={`step-toggle ${damper.brandaMontaji ? 'active' : ''}`}
+                                                                onClick={() => handleStepToggle(damper.id, 'brandaMontaji', damper.brandaMontaji, 'DAMPER')}
+                                                            ></div>
+                                                        </div>
                                                         <div className="step-item">
                                                             <span className="step-item-label">Kurum Muayenesi</span>
                                                             <select
@@ -3621,6 +3661,15 @@ function UrunListesiContent() {
                                                                         </div>
                                                                     );
                                                                 })}
+                                                                {group.name === 'SON KONTROL' && (
+                                                                    <div className="step-item">
+                                                                        <span className="step-item-label">Branda Montajı</span>
+                                                                        <div
+                                                                            className={`step-toggle ${dorse.brandaMontaji ? 'active' : ''}`}
+                                                                            onClick={() => handleStepToggle(dorse.id, 'brandaMontaji', dorse.brandaMontaji as boolean, 'DORSE')}
+                                                                        ></div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     );
@@ -3756,6 +3805,17 @@ function UrunListesiContent() {
                                                 </select>
                                             </div>
                                             <div className="form-group">
+                                                <label className="form-label">Branda *</label>
+                                                <select
+                                                    className="select"
+                                                    value={formData.branda ? 'VAR' : 'YOK'}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, branda: e.target.value === 'VAR' }))}
+                                                >
+                                                    <option value="YOK">YOK</option>
+                                                    <option value="VAR">VAR</option>
+                                                </select>
+                                            </div>
+                                            <div className="form-group">
                                                 <label className="form-label">M³</label>
                                                 <input
                                                     type="number"
@@ -3879,6 +3939,17 @@ function UrunListesiContent() {
                                                     value={dorseFormData.kalinlik}
                                                     onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: e.target.value }))}
                                                 />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Branda *</label>
+                                                <select
+                                                    className="select"
+                                                    value={dorseFormData.branda ? 'VAR' : 'YOK'}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, branda: e.target.value === 'VAR' }))}
+                                                >
+                                                    <option value="YOK">YOK</option>
+                                                    <option value="VAR">VAR</option>
+                                                </select>
                                             </div>
                                             <div className="form-group">
                                                 <label className="form-label">M³</label>

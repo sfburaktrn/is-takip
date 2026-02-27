@@ -319,6 +319,23 @@ function DashboardContent() {
     }
   };
 
+  const handleUnlinkSasi = async (dorseId: number) => {
+    if (!confirm('Şasi bağlantısını kaldırmak istediğinize emin misiniz?')) return;
+
+    try {
+      setLinkLoading(true);
+      const { unlinkSasi } = await import('@/lib/api');
+      const updatedDorse = await unlinkSasi(dorseId);
+      setDorses(prev => prev.map(d => d.id === dorseId ? updatedDorse : d));
+      loadData(); // Refresh stats and list
+    } catch (error) {
+      console.error('Error unlinking sasi:', error);
+      alert('Şasi bağlantısı kaldırılırken hata oluştu');
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
   const openLinkModal = async (dorse: Dorse) => {
     try {
       setActiveDorseForLink(dorse);
@@ -2115,13 +2132,24 @@ function DashboardContent() {
                                   </div>
                                 </div>
                               </div>
-                              <button
-                                className="btn btn-primary"
-                                onClick={(e) => { e.stopPropagation(); openLinkModal(dorse); }}
-                                style={{ fontSize: '13px', padding: '8px 16px' }}
-                              >
-                                {dorse.sasi ? <><LinkIcon size={14} /> Şasiyi Değiştir</> : <><LinkIcon size={14} /> Şasi Bağla</>}
-                              </button>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={(e) => { e.stopPropagation(); openLinkModal(dorse); }}
+                                  style={{ fontSize: '13px', padding: '8px 16px' }}
+                                >
+                                  {dorse.sasi ? <><LinkIcon size={14} /> Şasiyi Değiştir</> : <><LinkIcon size={14} /> Şasi Bağla</>}
+                                </button>
+                                {dorse.sasi && (
+                                  <button
+                                    className="btn btn-danger"
+                                    onClick={(e) => { e.stopPropagation(); handleUnlinkSasi(dorse.id); }}
+                                    style={{ fontSize: '13px', padding: '8px 16px' }}
+                                  >
+                                    <X size={14} /> Şasiyi Kaldır
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
                             {/* Dorse Durumu -> Çekici Durumu */}

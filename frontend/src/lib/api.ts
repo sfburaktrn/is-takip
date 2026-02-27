@@ -598,6 +598,16 @@ export async function linkSasi(dorseId: number, sasiId: number): Promise<Dorse> 
     return handleResponse<Dorse>(res);
 }
 
+export async function unlinkSasi(dorseId: number): Promise<Dorse> {
+    const res = await fetch(`${API_URL}/dorses/${dorseId}/link-sasi`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ sasiId: null }),
+    });
+    return handleResponse<Dorse>(res);
+}
+
 export const DORSE_STEP_GROUPS = [
     {
         key: 'kesimBukum',

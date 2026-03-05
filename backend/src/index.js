@@ -1550,7 +1550,7 @@ app.delete('/api/company-m3', requireAuth, async (req, res) => {
                     contains: companyName,
                     mode: 'insensitive'
                 },
-                m3: parseFloat(m3)
+                m3: m3
             }
         });
 

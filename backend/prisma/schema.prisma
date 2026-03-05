@@ -17,7 +17,8 @@ model Damper {
   model                 String?
   tip                   String
   malzemeCinsi          String
-  m3                    Float?
+  m3                    String?
+  renk                  String?
   plazmaProgrami        Boolean  @default(false)
   sacMalzemeKontrolu    Boolean  @default(false)
   plazmaKesim           Boolean  @default(false)
@@ -63,7 +64,8 @@ model Dorse {
   lastik                String?
   tampon                String?
   kalinlik              String?
-  m3                    Float?
+  m3                    String?
+  renk                  String?
   
   // KESIM - BUKUM
   plazmaProgrami        Boolean  @default(false)

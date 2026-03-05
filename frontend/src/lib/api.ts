@@ -29,7 +29,8 @@ export interface Damper {
     model: string | null;
     tip: string;
     malzemeCinsi: string;
-    m3: number | null;
+    m3: string | null;
+    renk: string | null;
     adet: number;
 
     // Sub-steps
@@ -90,7 +91,7 @@ export interface DamperSummary {
     model: string | null;
     tip: string;
     malzemeCinsi: string;
-    m3: number | null;
+    m3: string | null;
     kesimBukum: string;
     sasiBitis: string;
     onHazirlik: string;
@@ -111,7 +112,7 @@ export interface DorseSummary {
     cekiciGeldiMi: boolean;
     sasiNo: string | null;
     kalinlik: string | null;
-    m3: number | null;
+    m3: string | null;
     kesimBukum: string;
     sasiBitis: string;
     onHazirlik: string;
@@ -164,7 +165,7 @@ export interface CompanyVariant {
 }
 
 export interface M3Group {
-    m3: number;
+    m3: string;
     count: number;
     tamamlanan: number;
     devamEden: number;
@@ -177,7 +178,7 @@ export interface CompanyDamper {
     id: number;
     imalatNo: number;
     musteri: string;
-    m3: number;
+    m3: string;
     progress: number;
     status: string;
     kesimBukumStatus: string;
@@ -310,7 +311,7 @@ export async function getCompanySummary(type: 'DAMPER' | 'DORSE' | 'SASI' = 'DAM
     return handleResponse<CompanySummary[]>(res);
 }
 
-export async function deleteCompanyM3Group(companyName: string, m3: number, type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<void> {
+export async function deleteCompanyM3Group(companyName: string, m3: string, type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<void> {
     const res = await fetch(`${API_URL}/company-m3`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -393,6 +394,7 @@ export const STEP_GROUPS = [
             { key: 'elektrik', label: 'Elektrik' },
             { key: 'hava', label: 'Hava' },
             { key: 'tamamlama', label: 'Tamamlama' },
+            { key: 'brandaMontaji', label: 'Branda Montajı' },
         ],
     },
     {
@@ -414,7 +416,8 @@ export interface Dorse {
     lastik: string | null;
     tampon: string | null;
     kalinlik: string | null;
-    m3: number | null;
+    m3: string | null;
+    renk: string | null;
     adet: number;
     sasiNo: string | null;
     silindir: string | null;
@@ -667,6 +670,7 @@ export const DORSE_STEP_GROUPS = [
             { key: 'dorseElektrik', label: 'Dorse Elektrik' },
             { key: 'tamamlama', label: 'Tamamlama' },
             { key: 'aracKontrolBypassAyari', label: 'Araç kontrol bypass ayarı' },
+            { key: 'brandaMontaji', label: 'Branda Montajı' },
         ],
     },
     {

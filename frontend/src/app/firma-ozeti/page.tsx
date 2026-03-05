@@ -29,7 +29,7 @@ export default function FirmaOzeti() {
         loadData();
     }, [productType]);
 
-    const handleDeleteM3Group = async (companyName: string, m3: number) => {
+    const handleDeleteM3Group = async (companyName: string, m3: string) => {
         if (!confirm(`${companyName} firmasına ait ${m3} m³ grubunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
             return;
         }

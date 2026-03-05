@@ -2071,6 +2071,43 @@ function UrunListesiContent() {
                                                             </div>
                                                         </div>
 
+                                                        {/* Renk - Düzenlenebilir */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: damper.renk ? 'var(--foreground)' : 'var(--muted)' }}>
+                                                                    {damper.renk || 'Girilmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                className="input"
+                                                                style={{
+                                                                    width: '100px',
+                                                                    padding: '6px 10px',
+                                                                    fontSize: '13px',
+                                                                    height: '34px'
+                                                                }}
+                                                                placeholder="Renk"
+                                                                value={damper.renk || ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newRenk = e.target.value;
+                                                                    const updated = await updateDamper(damper.id, { renk: newRenk });
+                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                }}
+                                                            />
+                                                        </div>
+
                                                         {/* Tarih/Saat */}
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
@@ -2543,6 +2580,43 @@ function UrunListesiContent() {
                                                                 onChange={async (e) => {
                                                                     const newKalinlik = e.target.value;
                                                                     const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
+                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        {/* Renk - Düzenlenebilir */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: dorse.renk ? 'var(--foreground)' : 'var(--muted)' }}>
+                                                                    {dorse.renk || 'Girilmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                className="input"
+                                                                style={{
+                                                                    width: '100px',
+                                                                    padding: '6px 10px',
+                                                                    fontSize: '13px',
+                                                                    height: '34px'
+                                                                }}
+                                                                placeholder="Renk"
+                                                                value={dorse.renk || ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newRenk = e.target.value;
+                                                                    const updated = await updateDorse(dorse.id, { renk: newRenk });
                                                                     setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                                                                 }}
                                                             />
@@ -3944,7 +4018,7 @@ function UrunListesiContent() {
                                                     onChange={(e) => setDorseFormData(prev => ({ ...prev, tampon: e.target.value }))}
                                                 >
                                                     <option value="">Seçiniz</option>
-                                                    <option value="Katlanabilir">Katlanabilir</option>
+                                                    <option value="Kırma">Kırma</option>
                                                     <option value="Sabit">Sabit</option>
                                                 </select>
                                             </div>

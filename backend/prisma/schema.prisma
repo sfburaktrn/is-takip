@@ -53,6 +53,7 @@ model Damper {
   updatedAt             DateTime @updatedAt
   adet                  Int      @default(1)
   sasiNo                String?
+  productionStartedAt   DateTime?
 }
 
 model Dorse {
@@ -118,6 +119,7 @@ model Dorse {
   sasiNo                String?
   silindir              String?
   malzemeCinsi          String?
+  productionStartedAt   DateTime?
 
   // RELATIONSHIP
   sasiId                Int?     @unique
@@ -133,6 +135,24 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   loginLogs LoginLog[]
+  auditLogs AuditLog[]
+}
+
+/// Ürün güncellemelerinde kimin neyi değiştirdiği (ek kayıt; ürün satırları silinmez).
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username    String?
+  action      String
+  productType String
+  productId   Int
+  summary     String?
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([productType, productId])
+  @@index([createdAt])
 }
 
 model LoginLog {
@@ -174,7 +194,49 @@ model Sasi {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   adet                  Int      @default(1)
+  productionStartedAt   DateTime?
 
   // RELATIONSHIP
   dorse                 Dorse?
+}
+
+model StepCompletionEvent {
+  id           Int      @id @default(autoincrement())
+  productType  String
+  productId    Int
+  mainStepKey  String
+  completedAt  DateTime @default(now())
+
+  @@index([productType, productId, mainStepKey])
+  @@index([productType, completedAt])
+}
+
+/// Haftalık bölüm kapasitesi (Pazartesi hafta başı). normalHours = bölüm toplam kişi-saat (genelde kişi × 45).
+model DepartmentWeekCapacity {
+  id              Int      @id @default(autoincrement())
+  productType     String
+  mainStepKey     String
+  weekStart       DateTime @db.Date
+  headcount       Int      @default(0)
+  normalHours     Float    @default(0)
+  overtimeHours   Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([productType, mainStepKey, weekStart])
+  @@index([productType, weekStart])
+}
+
+/// Haftalık bölüm hedef adedi (verimlilik raporunda hedef / sapma için).
+model WeeklyStepTarget {
+  id           Int      @id @default(autoincrement())
+  productType  String
+  mainStepKey  String
+  weekStart    DateTime @db.Date
+  targetCount  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([productType, mainStepKey, weekStart])
+  @@index([productType, weekStart])
 }

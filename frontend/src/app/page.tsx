@@ -18,6 +18,7 @@ import {
   deleteDamper,
   deleteDorse,
   deleteSasi,
+  getStaleProducts,
   type Stats,
   type Damper,
   type Dorse,
@@ -28,6 +29,7 @@ import {
   SASI_STEP_GROUPS
 } from '@/lib/api';
 import Link from 'next/link';
+import { trIncludes, trStartsWithStok } from '@/lib/trSearch';
 import {
   Package,
   CheckCircle,
@@ -83,6 +85,7 @@ function DashboardContent() {
   const [linkSearchTerm, setLinkSearchTerm] = useState('');
   const [availableSasis, setAvailableSasis] = useState<Sasi[]>([]);
   const [linkLoading, setLinkLoading] = useState(false);
+  const [staleHint, setStaleHint] = useState<{ total: number; days: number } | null>(null);
 
 
   // Damper Form State
@@ -131,6 +134,15 @@ function DashboardContent() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    getStaleProducts(14)
+      .then(d => {
+        const total = d.dampers.length + d.dorses.length + d.sasis.length;
+        setStaleHint(total > 0 ? { total, days: d.days } : null);
+      })
+      .catch(() => setStaleHint(null));
   }, []);
 
   useEffect(() => {
@@ -496,12 +508,13 @@ function DashboardContent() {
     let result = [...dampers];
 
     if (searchTerm) {
-      const lowerTerm = searchTerm.toLowerCase();
-      result = result.filter(d =>
-        (d.musteri || '').toLowerCase().includes(lowerTerm) ||
-        (d.aracMarka || '').toLowerCase().includes(lowerTerm) ||
-        (d.model || '').toLowerCase().includes(lowerTerm) ||
-        (d.imalatNo || '').toString().includes(lowerTerm)
+      const t = searchTerm.trim();
+      result = result.filter(
+        d =>
+          trIncludes(d.musteri, t) ||
+          trIncludes(d.aracMarka, t) ||
+          trIncludes(d.model, t) ||
+          (d.imalatNo ?? '').toString().includes(t)
       );
     }
 
@@ -538,10 +551,9 @@ function DashboardContent() {
     let result = [...dorses];
 
     if (searchTerm) {
-      const lowerTerm = searchTerm.toLowerCase();
-      result = result.filter(d =>
-        (d.musteri || '').toLowerCase().includes(lowerTerm) ||
-        (d.imalatNo || '').toString().includes(lowerTerm)
+      const t = searchTerm.trim();
+      result = result.filter(
+        d => trIncludes(d.musteri, t) || (d.imalatNo ?? '').toString().includes(t)
       );
     }
 
@@ -578,11 +590,12 @@ function DashboardContent() {
     let result = [...sasis];
 
     if (searchTerm) {
-      const lowerTerm = searchTerm.toLowerCase();
-      result = result.filter(s =>
-        (s.musteri || '').toLowerCase().includes(lowerTerm) ||
-        (s.sasiNo || '').toLowerCase().includes(lowerTerm) ||
-        (s.imalatNo || '').toString().includes(lowerTerm)
+      const t = searchTerm.trim();
+      result = result.filter(
+        s =>
+          trIncludes(s.musteri, t) ||
+          trIncludes(s.sasiNo, t) ||
+          (s.imalatNo ?? '').toString().includes(t)
       );
     }
 
@@ -594,17 +607,17 @@ function DashboardContent() {
       } else if (statusFilter === 'baslamayan') {
         result = result.filter(s => getSasiStatus(s) === 'baslamayan');
       } else if (statusFilter === 'bosStok') {
-        result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && !(s as any).dorse);
+        result = result.filter(s => trStartsWithStok(s.musteri) && !(s as any).dorse);
       } else if (statusFilter === 'tamamlananStok') {
-        result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'tamamlanan');
+        result = result.filter(s => trStartsWithStok(s.musteri) && getSasiStatus(s) === 'tamamlanan');
       } else if (statusFilter === 'devamEdenStok') {
-        result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'devamEden');
+        result = result.filter(s => trStartsWithStok(s.musteri) && getSasiStatus(s) === 'devamEden');
       } else if (statusFilter === 'bosMusteri') {
-        result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && !(s as any).dorse);
+        result = result.filter(s => !trStartsWithStok(s.musteri) && !(s as any).dorse);
       } else if (statusFilter === 'tamamlananMusteri') {
-        result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'tamamlanan');
+        result = result.filter(s => !trStartsWithStok(s.musteri) && getSasiStatus(s) === 'tamamlanan');
       } else if (statusFilter === 'devamEdenMusteri') {
-        result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'devamEden');
+        result = result.filter(s => !trStartsWithStok(s.musteri) && getSasiStatus(s) === 'devamEden');
       }
     }
 
@@ -681,12 +694,12 @@ function DashboardContent() {
 
   const filteredLinkedDorseSasis = useMemo(() => {
     if (!searchTerm.trim()) return linkedDorseSasis;
-    const term = searchTerm.toLowerCase().trim();
+    const term = searchTerm.trim();
     return linkedDorseSasis.filter(({ dorse, sasi }) =>
-      dorse.musteri.toLowerCase().includes(term) ||
+      trIncludes(dorse.musteri, term) ||
       String(dorse.imalatNo).includes(term) ||
-      sasi.musteri.toLowerCase().includes(term) ||
-      (sasi.sasiNo || '').toLowerCase().includes(term) ||
+      trIncludes(sasi.musteri, term) ||
+      trIncludes(sasi.sasiNo, term) ||
       String(sasi.imalatNo).includes(term)
     );
   }, [linkedDorseSasis, searchTerm]);
@@ -715,6 +728,26 @@ function DashboardContent() {
               <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
             </button>
           </div>
+
+          {staleHint && (
+            <div
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                fontSize: '13px',
+                color: '#92400e',
+              }}
+            >
+              <strong>Hatırlatma:</strong> Üretimde olup son {staleHint.days} gündür güncellenmeyen{' '}
+              <strong>{staleHint.total}</strong> kayıt var (teslimat bekleyen / şasi montajı bitmemiş).{' '}
+              <Link href="/urun-listesi" style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                Ürün listesine git
+              </Link>
+            </div>
+          )}
 
           {/* Product Toggle */}
           <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', flexWrap: 'wrap' }}>
@@ -3163,19 +3196,23 @@ function DashboardContent() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {[...availableSasis]
                       .filter(s => {
-                        if (linkFilter === 'stok' && !s.musteri.toLowerCase().includes('stok')) return false;
-                        if (linkFilter === 'musteri' && s.musteri.toLowerCase().includes('stok')) return false;
+                        if (linkFilter === 'stok' && !trIncludes(s.musteri, 'stok')) return false;
+                        if (linkFilter === 'musteri' && trIncludes(s.musteri, 'stok')) return false;
 
                         if (linkSearchTerm.trim()) {
-                          const search = linkSearchTerm.toLowerCase().trim();
-                          return s.musteri.toLowerCase().includes(search) ||
-                            (s.sasiNo || '').toLowerCase().includes(search) ||
-                            String(s.imalatNo || '').includes(search);
+                          const search = linkSearchTerm.trim();
+                          return (
+                            trIncludes(s.musteri, search) ||
+                            trIncludes(s.sasiNo, search) ||
+                            String(s.imalatNo || '').includes(search)
+                          );
                         }
                         return true;
                       })
                       .map(sasi => {
-                        const isMatch = sasi.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase()) && !sasi.musteri.toLowerCase().includes('stok');
+                        const isMatch =
+                          trIncludes(sasi.musteri, activeDorseForLink.musteri) &&
+                          !trIncludes(sasi.musteri, 'stok');
                         const progress = calculateSasiProgress(sasi);
 
                         return (

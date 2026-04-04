@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import AuthGuard from '@/components/AuthGuard';
 import { getCompanySummary, deleteCompanyM3Group, type CompanySummary } from '@/lib/api';
 
 type ProductType = 'DAMPER' | 'DORSE';
@@ -90,6 +91,7 @@ export default function FirmaOzeti() {
     const columns = getColumns();
 
     return (
+        <AuthGuard>
         <>
             <Sidebar />
             <main className="main-content">
@@ -366,7 +368,8 @@ export default function FirmaOzeti() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="badge badge-warning">⟳</span> <span style={{ fontSize: '12px' }}>Devam Ediyor</span></div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="badge badge-danger">✗</span> <span style={{ fontSize: '12px' }}>Başlamadı</span></div>
                 </div>
-            </main >
+            </main>
         </>
+        </AuthGuard>
     );
 }

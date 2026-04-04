@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import {
@@ -28,6 +29,7 @@ import {
 import { saveAs } from 'file-saver';
 import ExcelJS from 'exceljs';
 
+import { trIncludes, trStartsWithStok } from '@/lib/trSearch';
 import {
     getStats,
     getDampers,
@@ -56,6 +58,7 @@ import {
 type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'HEPSI';
 
 function UrunListesiContent() {
+    const searchParams = useSearchParams();
     const [productType, setProductType] = useState<ProductType>('DAMPER');
     const [stats, setStats] = useState<Stats | null>(null);
     const [dampers, setDampers] = useState<Damper[]>([]);
@@ -138,6 +141,21 @@ function UrunListesiContent() {
     useEffect(() => {
         loadData();
     }, []);
+
+    useEffect(() => {
+        if (loading) return;
+        const t = searchParams.get('type') as ProductType | null;
+        const exp = searchParams.get('expand');
+        if (!exp || !t || !['DAMPER', 'DORSE', 'SASI'].includes(t)) return;
+        const id = parseInt(exp, 10);
+        if (Number.isNaN(id)) return;
+        setProductType(t);
+        setExpandedId(id);
+        const tick = window.setTimeout(() => {
+            document.getElementById(`urun-row-${t}-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
+        return () => window.clearTimeout(tick);
+    }, [loading, searchParams, dampers.length, dorses.length, sasis.length]);
 
     async function loadData() {
         try {
@@ -495,12 +513,13 @@ function UrunListesiContent() {
         let result = [...dampers];
 
         if (searchTerm) {
-            const lowerTerm = searchTerm.toLowerCase();
-            result = result.filter(d =>
-                (d.musteri || '').toLowerCase().includes(lowerTerm) ||
-                (d.aracMarka || '').toLowerCase().includes(lowerTerm) ||
-                (d.model || '').toLowerCase().includes(lowerTerm) ||
-                (d.imalatNo || '').toString().includes(lowerTerm)
+            const t = searchTerm.trim();
+            result = result.filter(
+                d =>
+                    trIncludes(d.musteri, t) ||
+                    trIncludes(d.aracMarka, t) ||
+                    trIncludes(d.model, t) ||
+                    (d.imalatNo ?? '').toString().includes(t)
             );
         }
 
@@ -537,10 +556,9 @@ function UrunListesiContent() {
         let result = [...dorses];
 
         if (searchTerm) {
-            const lowerTerm = searchTerm.toLowerCase();
-            result = result.filter(d =>
-                (d.musteri || '').toLowerCase().includes(lowerTerm) ||
-                (d.imalatNo || '').toString().includes(lowerTerm)
+            const t = searchTerm.trim();
+            result = result.filter(
+                d => trIncludes(d.musteri, t) || (d.imalatNo ?? '').toString().includes(t)
             );
         }
 
@@ -577,11 +595,12 @@ function UrunListesiContent() {
         let result = [...sasis];
 
         if (searchTerm) {
-            const lowerTerm = searchTerm.toLowerCase();
-            result = result.filter(s =>
-                (s.musteri || '').toLowerCase().includes(lowerTerm) ||
-                (s.sasiNo || '').toLowerCase().includes(lowerTerm) ||
-                (s.imalatNo || '').toString().includes(lowerTerm)
+            const t = searchTerm.trim();
+            result = result.filter(
+                s =>
+                    trIncludes(s.musteri, t) ||
+                    trIncludes(s.sasiNo, t) ||
+                    (s.imalatNo ?? '').toString().includes(t)
             );
         }
 
@@ -593,17 +612,17 @@ function UrunListesiContent() {
             } else if (statusFilter === 'baslamayan') {
                 result = result.filter(s => getSasiStatus(s) === 'baslamayan');
             } else if (statusFilter === 'bosStok') {
-                result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && !(s as any).isLinked);
+                result = result.filter(s => trStartsWithStok(s.musteri) && !(s as any).isLinked);
             } else if (statusFilter === 'tamamlananStok') {
-                result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'tamamlanan');
+                result = result.filter(s => trStartsWithStok(s.musteri) && getSasiStatus(s) === 'tamamlanan');
             } else if (statusFilter === 'devamEdenStok') {
-                result = result.filter(s => (s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'devamEden');
+                result = result.filter(s => trStartsWithStok(s.musteri) && getSasiStatus(s) === 'devamEden');
             } else if (statusFilter === 'bosMusteri') {
-                result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && !(s as any).isLinked);
+                result = result.filter(s => !trStartsWithStok(s.musteri) && !(s as any).isLinked);
             } else if (statusFilter === 'tamamlananMusteri') {
-                result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'tamamlanan');
+                result = result.filter(s => !trStartsWithStok(s.musteri) && getSasiStatus(s) === 'tamamlanan');
             } else if (statusFilter === 'devamEdenMusteri') {
-                result = result.filter(s => !(s.musteri || '').toLowerCase().startsWith('stok') && getSasiStatus(s) === 'devamEden');
+                result = result.filter(s => !trStartsWithStok(s.musteri) && getSasiStatus(s) === 'devamEden');
             }
         }
 
@@ -657,23 +676,26 @@ function UrunListesiContent() {
         let result = [...allItems];
 
         if (searchTerm) {
-            const lowerTerm = searchTerm.toLocaleLowerCase('tr');
+            const t = searchTerm.trim();
             result = result.filter(item => {
                 if (item._type === 'DAMPER') {
                     const d = item as typeof dampers[0];
-                    return (d.musteri || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
-                        (d.aracMarka || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
-                        (d.model || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
-                        (d.imalatNo || '').toString().includes(lowerTerm);
+                    return (
+                        trIncludes(d.musteri, t) ||
+                        trIncludes(d.aracMarka, t) ||
+                        trIncludes(d.model, t) ||
+                        (d.imalatNo ?? '').toString().includes(t)
+                    );
                 } else if (item._type === 'DORSE') {
                     const d = item as typeof dorses[0];
-                    return (d.musteri || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
-                        (d.imalatNo || '').toString().includes(lowerTerm);
+                    return trIncludes(d.musteri, t) || (d.imalatNo ?? '').toString().includes(t);
                 } else {
                     const s = item as typeof sasis[0];
-                    return (s.musteri || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
-                        (s.sasiNo || '').toLocaleLowerCase('tr').includes(lowerTerm) ||
-                        (s.imalatNo || '').toString().includes(lowerTerm);
+                    return (
+                        trIncludes(s.musteri, t) ||
+                        trIncludes(s.sasiNo, t) ||
+                        (s.imalatNo ?? '').toString().includes(t)
+                    );
                 }
             });
         }
@@ -703,17 +725,17 @@ function UrunListesiContent() {
 
                 if (item._type === 'SASI') {
                     if (statusFilter === 'bosStok') {
-                        return (item.musteri || '').toLowerCase().startsWith('stok') && !(item as any).isLinked;
+                        return trStartsWithStok(item.musteri) && !(item as any).isLinked;
                     } else if (statusFilter === 'tamamlananStok') {
-                        return (item.musteri || '').toLowerCase().startsWith('stok') && status === 'tamamlanan';
+                        return trStartsWithStok(item.musteri) && status === 'tamamlanan';
                     } else if (statusFilter === 'devamEdenStok') {
-                        return (item.musteri || '').toLowerCase().startsWith('stok') && status === 'devamEden';
+                        return trStartsWithStok(item.musteri) && status === 'devamEden';
                     } else if (statusFilter === 'bosMusteri') {
-                        return !(item.musteri || '').toLowerCase().startsWith('stok') && !(item as any).isLinked;
+                        return !trStartsWithStok(item.musteri) && !(item as any).isLinked;
                     } else if (statusFilter === 'tamamlananMusteri') {
-                        return !(item.musteri || '').toLowerCase().startsWith('stok') && status === 'tamamlanan';
+                        return !trStartsWithStok(item.musteri) && status === 'tamamlanan';
                     } else if (statusFilter === 'devamEdenMusteri') {
-                        return !(item.musteri || '').toLowerCase().startsWith('stok') && status === 'devamEden';
+                        return !trStartsWithStok(item.musteri) && status === 'devamEden';
                     }
                 }
 
@@ -1877,7 +1899,7 @@ function UrunListesiContent() {
                                     const isExpanded = expandedId === damper.id;
 
                                     return (
-                                        <div key={`DAMPER-${damper.id}`} className="damper-card">
+                                        <div key={`DAMPER-${damper.id}`} id={`urun-row-DAMPER-${damper.id}`} className="damper-card">
                                             <div
                                                 className="damper-card-header"
                                                 onClick={() => setExpandedId(isExpanded ? null : damper.id)}
@@ -2279,7 +2301,7 @@ function UrunListesiContent() {
                                     const isExpanded = expandedId === sasi.id;
 
                                     return (
-                                        <div key={`SASI-${sasi.id}`} className="damper-card">
+                                        <div key={`SASI-${sasi.id}`} id={`urun-row-SASI-${sasi.id}`} className="damper-card">
                                             {/* Header */}
                                             <div
                                                 className="damper-card-header"
@@ -2442,7 +2464,7 @@ function UrunListesiContent() {
                                     const isExpanded = expandedId === dorse.id;
 
                                     return (
-                                        <div key={`DORSE-${dorse.id}`} className="damper-card">
+                                        <div key={`DORSE-${dorse.id}`} id={`urun-row-DORSE-${dorse.id}`} className="damper-card">
                                             <div
                                                 className="damper-card-header"
                                                 onClick={() => setExpandedId(isExpanded ? null : dorse.id)}
@@ -2864,7 +2886,7 @@ function UrunListesiContent() {
                                 const isExpanded = expandedId === damper.id;
 
                                 return (
-                                    <div key={damper.id} className="damper-card">
+                                    <div key={damper.id} id={`urun-row-DAMPER-${damper.id}`} className="damper-card">
                                         <div
                                             className="damper-card-header"
                                             onClick={() => setExpandedId(isExpanded ? null : damper.id)}
@@ -3237,7 +3259,7 @@ function UrunListesiContent() {
                                 const isExpanded = expandedId === sasi.id;
 
                                 return (
-                                    <div key={sasi.id} className="damper-card">
+                                    <div key={sasi.id} id={`urun-row-SASI-${sasi.id}`} className="damper-card">
                                         {/* Header */}
                                         <div
                                             className="damper-card-header"
@@ -3407,7 +3429,7 @@ function UrunListesiContent() {
                                 const isExpanded = expandedId === dorse.id;
 
                                 return (
-                                    <div key={dorse.id} className="damper-card">
+                                    <div key={dorse.id} id={`urun-row-DORSE-${dorse.id}`} className="damper-card">
                                         <div
                                             className="damper-card-header"
                                             onClick={() => setExpandedId(isExpanded ? null : dorse.id)}
@@ -4303,19 +4325,23 @@ function UrunListesiContent() {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {[...availableSasis]
                                             .filter(s => {
-                                                if (linkFilter === 'stok' && !s.musteri.toLowerCase().includes('stok')) return false;
-                                                if (linkFilter === 'musteri' && s.musteri.toLowerCase().includes('stok')) return false;
+                                                if (linkFilter === 'stok' && !trIncludes(s.musteri, 'stok')) return false;
+                                                if (linkFilter === 'musteri' && trIncludes(s.musteri, 'stok')) return false;
 
                                                 if (linkSearchTerm.trim()) {
-                                                    const search = linkSearchTerm.toLowerCase().trim();
-                                                    return s.musteri.toLowerCase().includes(search) ||
-                                                        (s.sasiNo || '').toLowerCase().includes(search) ||
-                                                        String(s.imalatNo || '').includes(search);
+                                                    const search = linkSearchTerm.trim();
+                                                    return (
+                                                        trIncludes(s.musteri, search) ||
+                                                        trIncludes(s.sasiNo, search) ||
+                                                        String(s.imalatNo || '').includes(search)
+                                                    );
                                                 }
                                                 return true;
                                             })
                                             .map(sasi => {
-                                                const isMatch = sasi.musteri.toLowerCase().includes(activeDorseForLink.musteri.toLowerCase()) && !sasi.musteri.toLowerCase().includes('stok');
+                                                const isMatch =
+                                                    trIncludes(sasi.musteri, activeDorseForLink.musteri) &&
+                                                    !trIncludes(sasi.musteri, 'stok');
                                                 const progress = calculateSasiProgress(sasi);
 
                                                 return (
@@ -4426,7 +4452,15 @@ function UrunListesiContent() {
 export default function UrunListesiPage() {
     return (
         <AuthGuard>
-            <UrunListesiContent />
+            <Suspense
+                fallback={
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+                        <span style={{ color: 'var(--muted)' }}>Yükleniyor…</span>
+                    </div>
+                }
+            >
+                <UrunListesiContent />
+            </Suspense>
         </AuthGuard>
     );
 }

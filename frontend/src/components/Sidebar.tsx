@@ -1,30 +1,75 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
+import { getSearch, type SearchResponse } from '@/lib/api';
 import {
     LayoutDashboard,
     Truck,
     ClipboardList,
     Building2,
     LineChart,
+    Gauge,
     Settings,
     FileText,
     Menu,
     X,
     LogOut,
     Crown,
-    User
+    User,
+    Users,
+    Search,
+    History
 } from 'lucide-react';
+
+function typeLabel(t: string) {
+    if (t === 'DAMPER') return 'Damper';
+    if (t === 'DORSE') return 'Dorse';
+    if (t === 'SASI') return 'Şasi';
+    return t;
+}
 
 export default function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const { user, isAdmin, logout } = useAuth();
+    const [searchQ, setSearchQ] = useState('');
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [searchRes, setSearchRes] = useState<SearchResponse | null>(null);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
+    const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        if (!user || searchQ.trim().length < 2) {
+            setSearchRes(null);
+            setSearchError(null);
+            setSearchLoading(false);
+            return;
+        }
+        searchTimer.current = setTimeout(() => {
+            setSearchLoading(true);
+            setSearchError(null);
+            setSearchRes(null);
+            getSearch(searchQ.trim())
+                .then(data => {
+                    setSearchRes(data);
+                })
+                .catch(() => {
+                    setSearchRes(null);
+                    setSearchError('Arama yanıt vermedi. Backend (3001) çalışıyor mu ve giriş yaptınız mı?');
+                })
+                .finally(() => setSearchLoading(false));
+        }, 320);
+        return () => {
+            if (searchTimer.current) clearTimeout(searchTimer.current);
+        };
+    }, [searchQ, user]);
 
     const menuItems = [
         { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -32,10 +77,12 @@ export default function Sidebar() {
         { href: '/ozet', label: 'Özet Görünüm', icon: ClipboardList },
         { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
         { href: '/analiz', label: 'Analiz', icon: LineChart },
+        { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
     ];
 
-    // Admin menu items
     const adminMenuItems = [
+        { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
+        { href: '/islem-kayitlari', label: 'İşlem kayıtları', icon: History },
         { href: '/ayarlar', label: 'Ayarlar', icon: Settings },
         { href: '/giris-loglari', label: 'Giriş Logları', icon: FileText },
     ];
@@ -88,6 +135,117 @@ export default function Sidebar() {
                     </div>
                 </div>
 
+                {user && (
+                    <div style={{ padding: '8px 12px 12px', position: 'relative', zIndex: 20 }}>
+                        <div style={{ position: 'relative' }}>
+                            <Search
+                                size={16}
+                                style={{
+                                    position: 'absolute',
+                                    left: '10px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    color: 'var(--muted)',
+                                    pointerEvents: 'none',
+                                }}
+                            />
+                            <input
+                                type="search"
+                                placeholder="İmalat no, müşteri, şasi..."
+                                value={searchQ}
+                                onChange={e => {
+                                    setSearchQ(e.target.value);
+                                    setSearchOpen(true);
+                                }}
+                                onFocus={() => setSearchOpen(true)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 10px 8px 34px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border)',
+                                    fontSize: '12px',
+                                    background: 'var(--card-bg, #fff)',
+                                }}
+                            />
+                        </div>
+                        {searchOpen && searchQ.trim().length >= 2 && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    left: '12px',
+                                    right: '12px',
+                                    top: '100%',
+                                    marginTop: '4px',
+                                    maxHeight: '280px',
+                                    overflowY: 'auto',
+                                    background: 'var(--card-bg, #fff)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 8px 24px rgba(15,23,42,0.12)',
+                                    zIndex: 50,
+                                }}
+                            >
+                                {(() => {
+                                    const all = [
+                                        ...(searchRes?.dampers.map(d => ({ ...d, productType: 'DAMPER' as const })) ?? []),
+                                        ...(searchRes?.dorses.map(d => ({ ...d, productType: 'DORSE' as const })) ?? []),
+                                        ...(searchRes?.sasis.map(s => ({ ...s, productType: 'SASI' as const })) ?? []),
+                                    ];
+                                    if (searchLoading) {
+                                        return (
+                                            <div style={{ padding: '12px', fontSize: '12px', color: 'var(--muted)' }}>
+                                                Aranıyor…
+                                            </div>
+                                        );
+                                    }
+                                    if (searchError) {
+                                        return (
+                                            <div style={{ padding: '12px', fontSize: '12px', color: '#b91c1c' }}>
+                                                {searchError}
+                                            </div>
+                                        );
+                                    }
+                                    if (!searchRes) {
+                                        return null;
+                                    }
+                                    if (all.length === 0) {
+                                        return (
+                                            <div style={{ padding: '12px', fontSize: '12px', color: 'var(--muted)' }}>
+                                                Sonuç yok
+                                            </div>
+                                        );
+                                    }
+                                    return all.map(hit => (
+                                        <Link
+                                            key={`${hit.productType}-${hit.id}`}
+                                            href={`/urun-listesi?type=${hit.productType}&expand=${hit.id}`}
+                                            onClick={() => {
+                                                setIsOpen(false);
+                                                setSearchOpen(false);
+                                            }}
+                                            style={{
+                                                display: 'block',
+                                                padding: '10px 12px',
+                                                fontSize: '12px',
+                                                borderBottom: '1px solid var(--border)',
+                                                color: 'var(--foreground, #0f172a)',
+                                                textDecoration: 'none',
+                                            }}
+                                        >
+                                            <span style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                                                {typeLabel(hit.productType)}
+                                            </span>
+                                            {' · '}
+                                            #{hit.imalatNo ?? hit.id} — {hit.musteri || '—'}
+                                            {hit.sasiNo ? ` · ${hit.sasiNo}` : ''}
+                                        </Link>
+                                    ));
+                                })()}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <nav className="sidebar-menu">
                     {menuItems.map((item) => (
                         <Link
@@ -102,7 +260,6 @@ export default function Sidebar() {
                         </Link>
                     ))}
 
-                    {/* Admin Menu Items */}
                     {isAdmin && (
                         <>
                             <div style={{

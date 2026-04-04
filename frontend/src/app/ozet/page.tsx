@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import AuthGuard from '@/components/AuthGuard';
 import { getDampersSummary, getDorsesSummary, type DamperSummary, type DorseSummary } from '@/lib/api';
 
 export default function OzetSayfasi() {
@@ -56,6 +57,7 @@ export default function OzetSayfasi() {
 
     if (loading) {
         return (
+            <AuthGuard>
             <>
                 <Sidebar />
                 <main className="main-content">
@@ -67,10 +69,12 @@ export default function OzetSayfasi() {
                     </div>
                 </main>
             </>
+            </AuthGuard>
         );
     }
 
     return (
+        <AuthGuard>
         <>
             <Sidebar />
             <main className="main-content">
@@ -299,5 +303,6 @@ export default function OzetSayfasi() {
                 </div>
             </main>
         </>
+        </AuthGuard>
     );
 }

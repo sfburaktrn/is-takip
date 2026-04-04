@@ -4,9 +4,120 @@ const cors = require('cors');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, Prisma } = require('@prisma/client');
 
 const prisma = new PrismaClient();
+
+/** SQL LIKE/ILIKE özel karakterlerini kaçır */
+function escapeSqlLikePattern(q) {
+    return q.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+function searchIlikeParam(raw) {
+    return `%${escapeSqlLikePattern(raw)}%`;
+}
+
+/**
+ * Türkçe İ/I/ı/i için PostgreSQL ILIKE tek başına yetmez; aynı kelimenin olası yazılışlarını üretir.
+ * Örn. "rize" → "RİZE", "rİze" vb. (kayıtta RİZE iken küçük harfli arama bulsun).
+ */
+function expandTrSearchTerms(s) {
+    const t = (s || '').trim().normalize('NFKC');
+    if (t.length < 2) return [];
+    const out = new Set();
+    const add = (x) => {
+        const v = String(x || '').trim().normalize('NFKC');
+        if (v.length >= 2) out.add(v);
+    };
+    add(t);
+    add(t.toLocaleLowerCase('tr-TR'));
+    add(t.toLocaleUpperCase('tr-TR'));
+    add(t.toLocaleLowerCase('en-US'));
+    add(t.toLocaleUpperCase('en-US'));
+    if (/i/.test(t)) {
+        add(t.replace(/i/g, 'İ'));
+        add(t.replace(/i/g, 'ı'));
+    }
+    if (/I/.test(t) && !/İ/.test(t)) {
+        add(t.replace(/I/g, 'İ'));
+        add(t.replace(/I/g, 'ı'));
+    }
+    if (/ı/.test(t)) {
+        add(t.replace(/ı/g, 'i'));
+        add(t.replace(/ı/g, 'I'));
+    }
+    if (/İ/.test(t)) {
+        add(t.replace(/İ/g, 'i'));
+        add(t.replace(/İ/g, 'I'));
+    }
+    return [...out];
+}
+
+function buildSearchPatList(raw) {
+    return [...new Set(expandTrSearchTerms(raw).map(searchIlikeParam))];
+}
+
+function buildProductTextSearchOr(fieldExprs, patList, includeImalatText) {
+    const conds = [];
+    for (const pat of patList) {
+        for (const expr of fieldExprs) {
+            conds.push(Prisma.sql`${expr} ILIKE ${pat} ESCAPE '\\'`);
+        }
+        if (includeImalatText) {
+            conds.push(Prisma.sql`("imalatNo" IS NOT NULL AND CAST("imalatNo" AS TEXT) ILIKE ${pat} ESCAPE '\\')`);
+        }
+    }
+    return conds.length ? Prisma.join(conds, ' OR ') : Prisma.sql`FALSE`;
+}
+
+function buildDamperSearchWhere(patList, num) {
+    const fields = [
+        Prisma.sql`musteri`,
+        Prisma.sql`COALESCE("sasiNo", '')`,
+        Prisma.sql`tip`,
+        Prisma.sql`"malzemeCinsi"`,
+        Prisma.sql`COALESCE(renk, '')`,
+        Prisma.sql`COALESCE("aracMarka", '')`,
+        Prisma.sql`COALESCE(model, '')`,
+        Prisma.sql`COALESCE(m3::text, '')`
+    ];
+    const likeOr = buildProductTextSearchOr(fields, patList, true);
+    if (Number.isFinite(num)) {
+        return Prisma.sql`(${likeOr}) OR "imalatNo" = ${num}`;
+    }
+    return Prisma.sql`(${likeOr})`;
+}
+
+function buildDorseSearchWhere(patList, num) {
+    const fields = [
+        Prisma.sql`musteri`,
+        Prisma.sql`COALESCE("sasiNo", '')`,
+        Prisma.sql`COALESCE("malzemeCinsi", '')`,
+        Prisma.sql`COALESCE(silindir, '')`,
+        Prisma.sql`COALESCE(renk, '')`,
+        Prisma.sql`COALESCE(m3::text, '')`
+    ];
+    const likeOr = buildProductTextSearchOr(fields, patList, true);
+    if (Number.isFinite(num)) {
+        return Prisma.sql`(${likeOr}) OR "imalatNo" = ${num}`;
+    }
+    return Prisma.sql`(${likeOr})`;
+}
+
+function buildSasiSearchWhere(patList, num) {
+    const fields = [
+        Prisma.sql`COALESCE(musteri, '')`,
+        Prisma.sql`COALESCE("sasiNo", '')`,
+        Prisma.sql`COALESCE(tampon, '')`,
+        Prisma.sql`COALESCE(dingil, '')`
+    ];
+    const likeOr = buildProductTextSearchOr(fields, patList, true);
+    if (Number.isFinite(num)) {
+        return Prisma.sql`(${likeOr}) OR "imalatNo" = ${num}`;
+    }
+    return Prisma.sql`(${likeOr})`;
+}
+
 const app = express();
 
 // Middleware
@@ -206,6 +317,89 @@ function addCalculatedSasiSteps(sasi) {
     };
 }
 
+const { syncStepCompletionEvents, STEP_LABELS, TRACKED_MAIN_STEPS } = require('./stepCompletionSync');
+const {
+    aggregateCapacityForRange,
+    aggregateTargetForRange,
+    HOURS_PER_PERSON_WEEK,
+    SCHEDULE_DESCRIPTION,
+    WORK_DAYS_PER_WEEK,
+    NET_HOURS_PER_DAY,
+    weekStartToDateKey,
+    mondayOfUtcWeekContaining
+} = require('./capacitySchedule');
+
+function getDamperTrackedStatus(rec, key) {
+    if (!rec) return 'BAŞLAMADI';
+    if (key === 'hidrolik') return rec.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI';
+    return calculateMainStepStatus(rec, key);
+}
+
+function getDorseTrackedStatus(rec, key) {
+    if (!rec) return 'BAŞLAMADI';
+    return calculateMainDorseStepStatus(rec, key);
+}
+
+function getSasiTrackedStatus(rec, key) {
+    if (!rec) return 'BAŞLAMADI';
+    return calculateMainSasiStepStatus(rec, key);
+}
+
+function parseProductionStartedAt(body) {
+    if (body.productionStartedAt != null && body.productionStartedAt !== '') {
+        const d = new Date(body.productionStartedAt);
+        if (!Number.isNaN(d.getTime())) return d;
+    }
+    return new Date();
+}
+
+function omitProductionStartedFromUpdate(body) {
+    if (!body || typeof body !== 'object') return body;
+    const { productionStartedAt: _omit, ...rest } = body;
+    return rest;
+}
+
+const AUDIT_SKIP_KEYS = new Set(['updatedAt', 'createdAt']);
+
+function serializeAuditValue(v) {
+    if (v === null || v === undefined) return v;
+    if (v instanceof Date) return v.toISOString();
+    return v;
+}
+
+function collectFieldChanges(before, after) {
+    if (!before || !after) return [];
+    const out = [];
+    for (const key of Object.keys(after)) {
+        if (AUDIT_SKIP_KEYS.has(key)) continue;
+        const bv = before[key];
+        const av = after[key];
+        const sb = serializeAuditValue(bv);
+        const sa = serializeAuditValue(av);
+        if (sb === sa) continue;
+        out.push({ field: key, from: sb, to: sa });
+    }
+    return out;
+}
+
+async function writeAuditLog(req, { action, productType, productId, summary, details }) {
+    try {
+        await prisma.auditLog.create({
+            data: {
+                userId: req.session.userId ?? null,
+                username: req.session.username ?? null,
+                action,
+                productType,
+                productId,
+                summary: summary ?? null,
+                details: details === undefined ? undefined : details
+            }
+        });
+    } catch (e) {
+        console.error('Audit log write failed:', e);
+    }
+}
+
 // Add calculated main steps to damper object
 function addCalculatedSteps(damper) {
     return {
@@ -248,6 +442,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
         // Session'a kullanıcı bilgilerini kaydet
         req.session.userId = user.id;
+        req.session.username = user.username;
         req.session.isAdmin = user.isAdmin;
 
         // Giriş logunu kaydet
@@ -476,7 +671,11 @@ app.get('/api/dampers', requireAuth, async (req, res) => {
         res.json(dampersWithStatus);
     } catch (error) {
         console.error('Error fetching dampers:', error);
-        res.status(500).json({ error: 'Failed to fetch dampers' });
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması kodla uyumsuz: backend klasöründe önce npx prisma migrate deploy, gerekirse npx prisma db push'
+                : '';
+        res.status(500).json({ error: `Failed to fetch dampers.${hint}` });
     }
 });
 
@@ -502,8 +701,9 @@ app.get('/api/dampers/:id', requireAuth, async (req, res) => {
 // Create new damper(s) - creates multiple if adet > 1 - Requires authentication
 app.post('/api/dampers', requireAuth, async (req, res) => {
     try {
-        const { adet, musteri, ...restData } = req.body;
+        const { adet, musteri, productionStartedAt: _ps, ...restData } = req.body;
         const quantity = adet || 1;
+        const t0 = parseProductionStartedAt(req.body);
 
         // If quantity is 1, create single damper
         if (quantity === 1) {
@@ -511,9 +711,11 @@ app.post('/api/dampers', requireAuth, async (req, res) => {
                 data: {
                     ...restData,
                     musteri,
-                    adet: 1
+                    adet: 1,
+                    productionStartedAt: t0
                 }
             });
+            await syncStepCompletionEvents(prisma, 'DAMPER', damper.id, null, damper, getDamperTrackedStatus);
             return res.status(201).json(addCalculatedSteps(damper));
         }
 
@@ -524,9 +726,11 @@ app.post('/api/dampers', requireAuth, async (req, res) => {
                 data: {
                     ...restData,
                     musteri: `${musteri} ${i}`,
-                    adet: 1
+                    adet: 1,
+                    productionStartedAt: new Date()
                 }
             });
+            await syncStepCompletionEvents(prisma, 'DAMPER', damper.id, null, damper, getDamperTrackedStatus);
             createdDampers.push(addCalculatedSteps(damper));
         }
 
@@ -541,10 +745,26 @@ app.post('/api/dampers', requireAuth, async (req, res) => {
 app.put('/api/dampers/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        const idNum = parseInt(id);
+        const before = await prisma.damper.findUnique({ where: { id: idNum } });
+        if (!before) {
+            return res.status(404).json({ error: 'Damper not found' });
+        }
         const damper = await prisma.damper.update({
-            where: { id: parseInt(id) },
-            data: req.body
+            where: { id: idNum },
+            data: omitProductionStartedFromUpdate(req.body)
         });
+        await syncStepCompletionEvents(prisma, 'DAMPER', damper.id, before, damper, getDamperTrackedStatus);
+        const changes = collectFieldChanges(before, damper);
+        if (changes.length > 0) {
+            await writeAuditLog(req, {
+                action: 'UPDATE',
+                productType: 'DAMPER',
+                productId: damper.id,
+                summary: `Damper güncellendi (#${damper.imalatNo ?? damper.id}, ${changes.length} alan)`,
+                details: { changes }
+            });
+        }
         res.json(addCalculatedSteps(damper));
     } catch (error) {
         console.error('Error updating damper:', error);
@@ -556,8 +776,12 @@ app.put('/api/dampers/:id', requireAuth, async (req, res) => {
 app.delete('/api/dampers/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        const idNum = parseInt(id);
+        await prisma.stepCompletionEvent.deleteMany({
+            where: { productType: 'DAMPER', productId: idNum }
+        });
         await prisma.damper.delete({
-            where: { id: parseInt(id) }
+            where: { id: idNum }
         });
         res.json({ message: 'Damper deleted successfully' });
     } catch (error) {
@@ -649,13 +873,21 @@ app.post('/api/sasis', requireAuth, async (req, res) => {
             lastStokNumber = maxNum;
         }
 
+        const { productionStartedAt: _sps, ...sasiRest } = restData;
+
         if (quantity === 1) {
             let finalMusteri = musteri;
             if (musteri === 'Stok') finalMusteri = `Stok ${lastStokNumber + 1}`;
 
             const sasi = await prisma.sasi.create({
-                data: { ...restData, musteri: finalMusteri, adet: 1 }
+                data: {
+                    ...sasiRest,
+                    musteri: finalMusteri,
+                    adet: 1,
+                    productionStartedAt: parseProductionStartedAt(req.body)
+                }
             });
+            await syncStepCompletionEvents(prisma, 'SASI', sasi.id, null, sasi, getSasiTrackedStatus);
             return res.status(201).json(addCalculatedSasiSteps(sasi));
         }
 
@@ -666,8 +898,14 @@ app.post('/api/sasis', requireAuth, async (req, res) => {
             else finalMusteri = `${musteri} ${i}`;
 
             const sasi = await prisma.sasi.create({
-                data: { ...restData, musteri: finalMusteri, adet: 1 }
+                data: {
+                    ...sasiRest,
+                    musteri: finalMusteri,
+                    adet: 1,
+                    productionStartedAt: new Date()
+                }
             });
+            await syncStepCompletionEvents(prisma, 'SASI', sasi.id, null, sasi, getSasiTrackedStatus);
             createdSasis.push(addCalculatedSasiSteps(sasi));
         }
         res.status(201).json(createdSasis);
@@ -681,10 +919,26 @@ app.post('/api/sasis', requireAuth, async (req, res) => {
 app.put('/api/sasis/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        const idNum = parseInt(id);
+        const before = await prisma.sasi.findUnique({ where: { id: idNum } });
+        if (!before) {
+            return res.status(404).json({ error: 'Sasi not found' });
+        }
         const sasi = await prisma.sasi.update({
-            where: { id: parseInt(id) },
-            data: req.body
+            where: { id: idNum },
+            data: omitProductionStartedFromUpdate(req.body)
         });
+        await syncStepCompletionEvents(prisma, 'SASI', sasi.id, before, sasi, getSasiTrackedStatus);
+        const sasiChanges = collectFieldChanges(before, sasi);
+        if (sasiChanges.length > 0) {
+            await writeAuditLog(req, {
+                action: 'UPDATE',
+                productType: 'SASI',
+                productId: sasi.id,
+                summary: `Şasi güncellendi (#${sasi.imalatNo ?? sasi.id}, ${sasiChanges.length} alan)`,
+                details: { changes: sasiChanges }
+            });
+        }
         res.json(addCalculatedSasiSteps(sasi));
     } catch (error) {
         console.error('Error updating sasi:', error);
@@ -696,8 +950,12 @@ app.put('/api/sasis/:id', requireAuth, async (req, res) => {
 app.delete('/api/sasis/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        const idNum = parseInt(id);
+        await prisma.stepCompletionEvent.deleteMany({
+            where: { productType: 'SASI', productId: idNum }
+        });
         await prisma.sasi.delete({
-            where: { id: parseInt(id) }
+            where: { id: idNum }
         });
         res.json({ message: 'Sasi deleted successfully' });
     } catch (error) {
@@ -1172,7 +1430,7 @@ app.get('/api/stats', requireAuth, async (req, res) => {
             });
 
             const allUnlinkedSasis = await prisma.sasi.findMany({
-                where: { dorse: null },
+                where: { dorse: { is: null } },
                 select: { musteri: true }
             });
 
@@ -1201,13 +1459,27 @@ app.get('/api/stats', requireAuth, async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching stats:', error);
-        res.status(500).json({ error: 'Failed to fetch stats' });
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması kodla uyumsuz: backend klasöründe npx prisma migrate deploy; hâlâ olursa npx prisma db push'
+                : '';
+        res.status(500).json({ error: `İstatistik alınamadı.${hint}` });
     }
 });
 
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health/db', async (req, res) => {
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        res.json({ status: 'OK', db: 'up', timestamp: new Date().toISOString() });
+    } catch (e) {
+        console.error('health db:', e);
+        res.status(503).json({ status: 'ERROR', db: 'down', timestamp: new Date().toISOString() });
+    }
 });
 
 // ==================== ANALYTICS ENDPOINTS ====================
@@ -1588,15 +1860,20 @@ app.get('/api/dorses', requireAuth, async (req, res) => {
         res.json(dorses);
     } catch (error) {
         console.error('Error fetching dorses:', error);
-        res.status(500).json({ error: 'Failed to fetch dorses' });
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması kodla uyumsuz: backend klasöründe önce npx prisma migrate deploy, gerekirse npx prisma db push'
+                : '';
+        res.status(500).json({ error: `Failed to fetch dorses.${hint}` });
     }
 });
 
 // Create new dorse - Requires authentication
 app.post('/api/dorses', requireAuth, async (req, res) => {
     try {
-        const { adet, musteri, sasiId, ...restData } = req.body;
+        const { adet, musteri, sasiId, productionStartedAt: _dps, ...restData } = req.body;
         const quantity = adet || 1;
+        const t0 = parseProductionStartedAt(req.body);
 
         if (quantity === 1) {
             const dorse = await prisma.dorse.create({
@@ -1604,10 +1881,12 @@ app.post('/api/dorses', requireAuth, async (req, res) => {
                     ...restData,
                     musteri,
                     adet: 1,
-                    sasiId: sasiId ? parseInt(sasiId) : null
+                    sasiId: sasiId ? parseInt(sasiId) : null,
+                    productionStartedAt: t0
                 },
                 include: { sasi: true }
             });
+            await syncStepCompletionEvents(prisma, 'DORSE', dorse.id, null, dorse, getDorseTrackedStatus);
             return res.status(201).json(dorse);
         }
 
@@ -1618,10 +1897,10 @@ app.post('/api/dorses', requireAuth, async (req, res) => {
                     ...restData,
                     musteri: `${musteri} ${i}`,
                     adet: 1,
-                    // If quantity > 1, we don't link the sasiId to all of them 
-                    // unless specifically requested. Usually one sasi per dorse.
+                    productionStartedAt: new Date()
                 }
             });
+            await syncStepCompletionEvents(prisma, 'DORSE', dorse.id, null, dorse, getDorseTrackedStatus);
             createdDorses.push(dorse);
         }
 
@@ -1636,10 +1915,26 @@ app.post('/api/dorses', requireAuth, async (req, res) => {
 app.put('/api/dorses/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        const idNum = parseInt(id);
+        const before = await prisma.dorse.findUnique({ where: { id: idNum } });
+        if (!before) {
+            return res.status(404).json({ error: 'Dorse not found' });
+        }
         const dorse = await prisma.dorse.update({
-            where: { id: parseInt(id) },
-            data: req.body
+            where: { id: idNum },
+            data: omitProductionStartedFromUpdate(req.body)
         });
+        await syncStepCompletionEvents(prisma, 'DORSE', dorse.id, before, dorse, getDorseTrackedStatus);
+        const dorseChanges = collectFieldChanges(before, dorse);
+        if (dorseChanges.length > 0) {
+            await writeAuditLog(req, {
+                action: 'UPDATE',
+                productType: 'DORSE',
+                productId: dorse.id,
+                summary: `Dorse güncellendi (#${dorse.imalatNo ?? dorse.id}, ${dorseChanges.length} alan)`,
+                details: { changes: dorseChanges }
+            });
+        }
         res.json(dorse);
     } catch (error) {
         console.error('Error updating dorse:', error);
@@ -1651,8 +1946,12 @@ app.put('/api/dorses/:id', requireAuth, async (req, res) => {
 app.delete('/api/dorses/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+        const idNum = parseInt(id);
+        await prisma.stepCompletionEvent.deleteMany({
+            where: { productType: 'DORSE', productId: idNum }
+        });
         await prisma.dorse.delete({
-            where: { id: parseInt(id) }
+            where: { id: idNum }
         });
         res.json({ message: 'Dorse deleted successfully' });
     } catch (error) {
@@ -1719,8 +2018,600 @@ app.get('/api/dorses/:id', requireAuth, async (req, res) => {
     }
 });
 
-// Start server
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+async function loadAdetMapForVerimlilik(productType, productIds) {
+    const map = {};
+    if (!productIds.length) return map;
+    if (productType === 'DAMPER') {
+        const rows = await prisma.damper.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, adet: true }
+        });
+        rows.forEach(r => { map[r.id] = r.adet || 1; });
+    } else if (productType === 'DORSE') {
+        const rows = await prisma.dorse.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, adet: true }
+        });
+        rows.forEach(r => { map[r.id] = r.adet || 1; });
+    } else {
+        const rows = await prisma.sasi.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, adet: true }
+        });
+        rows.forEach(r => { map[r.id] = r.adet || 1; });
+    }
+    return map;
+}
+
+async function throughputForVerimlilikRange(productType, fromDate, toDate) {
+    let events;
+    try {
+        events = await prisma.stepCompletionEvent.findMany({
+            where: {
+                productType,
+                completedAt: { gte: fromDate, lt: toDate }
+            },
+            select: { productId: true, mainStepKey: true }
+        });
+    } catch (err) {
+        if (err.code === 'P2021') {
+            console.error(
+                'StepCompletionEvent tablosu yok. Veritabanında çalıştırın: npx prisma migrate deploy'
+            );
+            return {};
+        }
+        throw err;
+    }
+    const ids = [...new Set(events.map(e => e.productId))];
+    const adetMap = await loadAdetMapForVerimlilik(productType, ids);
+    const byStep = {};
+    for (const e of events) {
+        const w = adetMap[e.productId] ?? 1;
+        byStep[e.mainStepKey] = (byStep[e.mainStepKey] || 0) + w;
+    }
+    return byStep;
+}
+
+async function computeVerimlilikReport(productType, fromDate, toDate) {
+    const ms = toDate.getTime() - fromDate.getTime();
+    const prevTo = new Date(fromDate.getTime());
+    const prevFrom = new Date(fromDate.getTime() - ms);
+
+    const current = await throughputForVerimlilikRange(productType, fromDate, toDate);
+    const previous = await throughputForVerimlilikRange(productType, prevFrom, prevTo);
+
+    let capCurrent = {};
+    let capPrev = {};
+    let targetCurrentRaw = {};
+    let targetPrevRaw = {};
+    try {
+        capCurrent = await aggregateCapacityForRange(prisma, productType, fromDate, toDate);
+        capPrev = await aggregateCapacityForRange(prisma, productType, prevFrom, prevTo);
+    } catch (err) {
+        if (err.code === 'P2021') {
+            console.error('DepartmentWeekCapacity tablosu eksik; kapasite 0 kabul edildi. migrate deploy çalıştırın.');
+        } else {
+            throw err;
+        }
+    }
+    try {
+        targetCurrentRaw = await aggregateTargetForRange(prisma, productType, fromDate, toDate);
+        targetPrevRaw = await aggregateTargetForRange(prisma, productType, prevFrom, prevTo);
+    } catch (err) {
+        if (err.code === 'P2021') {
+            console.error('WeeklyStepTarget tablosu eksik; hedef 0 kabul edildi. migrate deploy çalıştırın.');
+        } else {
+            throw err;
+        }
+    }
+
+    const keys = TRACKED_MAIN_STEPS[productType] || [];
+    const labels = STEP_LABELS[productType] || {};
+
+    const steps = keys.map(key => {
+        const cur = current[key] || 0;
+        const prev = previous[key] || 0;
+        const delta = cur - prev;
+        let deltaPercent = null;
+        if (prev > 0) {
+            deltaPercent = Math.round((delta / prev) * 1000) / 10;
+        } else if (cur > 0) {
+            deltaPercent = null;
+        } else {
+            deltaPercent = 0;
+        }
+
+        const c = capCurrent[key] || { normalHours: 0, overtimeHours: 0, headcountWeighted: 0, weightSum: 0 };
+        const pCap = capPrev[key] || { normalHours: 0, overtimeHours: 0, headcountWeighted: 0, weightSum: 0 };
+        const capNorm = Math.round(c.normalHours * 100) / 100;
+        const capOt = Math.round(c.overtimeHours * 100) / 100;
+        const capTotal = Math.round((capNorm + capOt) * 100) / 100;
+        const efficiency = capTotal > 0 ? Math.round((cur / capTotal) * 10000) / 10000 : null;
+
+        const prevCapTotal = Math.round((pCap.normalHours + pCap.overtimeHours) * 100) / 100;
+        const previousEfficiency = prevCapTotal > 0 ? Math.round((prev / prevCapTotal) * 10000) / 10000 : null;
+
+        const avgHeadcount = c.weightSum > 0 ? Math.round((c.headcountWeighted / c.weightSum) * 10) / 10 : null;
+
+        const tgtCur = Math.round((targetCurrentRaw[key] || 0) * 100) / 100;
+        const tgtPrev = Math.round((targetPrevRaw[key] || 0) * 100) / 100;
+        const targetInPeriod = tgtCur > 0 ? tgtCur : null;
+        const previousTargetInPeriod = tgtPrev > 0 ? tgtPrev : null;
+        const targetVariance =
+            targetInPeriod != null ? Math.round((cur - targetInPeriod) * 100) / 100 : null;
+        const previousTargetVariance =
+            previousTargetInPeriod != null ? Math.round((prev - previousTargetInPeriod) * 100) / 100 : null;
+
+        return {
+            mainStepKey: key,
+            label: labels[key] || key,
+            current: cur,
+            previous: prev,
+            delta,
+            deltaPercent,
+            capacityNormalHours: capTotal > 0 ? capNorm : null,
+            capacityOvertimeHours: capTotal > 0 ? capOt : null,
+            capacityTotalHours: capTotal > 0 ? capTotal : null,
+            efficiency,
+            previousCapacityTotalHours: prevCapTotal > 0 ? prevCapTotal : null,
+            previousEfficiency,
+            avgHeadcountInPeriod: avgHeadcount,
+            targetInPeriod,
+            previousTargetInPeriod,
+            targetVariance,
+            previousTargetVariance
+        };
+    });
+
+    const trackedProductCountWithT0 = productType === 'DAMPER'
+        ? await prisma.damper.count({ where: { productionStartedAt: { not: null } } })
+        : productType === 'DORSE'
+            ? await prisma.dorse.count({ where: { productionStartedAt: { not: null } } })
+            : await prisma.sasi.count({ where: { productionStartedAt: { not: null } } });
+
+    return {
+        productType,
+        from: fromDate.toISOString(),
+        to: toDate.toISOString(),
+        previousFrom: prevFrom.toISOString(),
+        previousTo: prevTo.toISOString(),
+        steps,
+        trackedProductCountWithT0,
+        scheduleDefaults: {
+            workDaysPerWeek: WORK_DAYS_PER_WEEK,
+            netHoursPerDay: NET_HOURS_PER_DAY,
+            hoursPerPersonWeek: HOURS_PER_PERSON_WEEK,
+            description: SCHEDULE_DESCRIPTION
+        }
+    };
+}
+
+// Verimlilik: bölüm bazlı tamamlanan adet (T0’lu yeni kayıtların olayları), önceki dönemle kıyas + kapasite
+app.get('/api/capacity/defaults', requireAuth, (req, res) => {
+    res.json({
+        workDaysPerWeek: WORK_DAYS_PER_WEEK,
+        netHoursPerDay: NET_HOURS_PER_DAY,
+        hoursPerPersonWeek: HOURS_PER_PERSON_WEEK,
+        description: SCHEDULE_DESCRIPTION
+    });
 });
+
+app.get('/api/capacity/week', requireAuth, async (req, res) => {
+    try {
+        const { type, weekStart } = req.query;
+        const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
+        if (!weekStart || typeof weekStart !== 'string') {
+            return res.status(400).json({ error: 'weekStart gerekli (YYYY-MM-DD)' });
+        }
+        const mon = mondayOfUtcWeekContaining(new Date(`${weekStart}T12:00:00.000Z`));
+        const key = weekStartToDateKey(mon);
+        const weekDate = new Date(`${key}T12:00:00.000Z`);
+
+        const keys = TRACKED_MAIN_STEPS[productType] || [];
+        const labels = STEP_LABELS[productType] || {};
+        const [dbRows, targetRows] = await Promise.all([
+            prisma.departmentWeekCapacity.findMany({
+                where: { productType, weekStart: weekDate }
+            }),
+            prisma.weeklyStepTarget.findMany({
+                where: { productType, weekStart: weekDate }
+            })
+        ]);
+        const map = Object.fromEntries(dbRows.map(r => [r.mainStepKey, r]));
+        const targetMap = Object.fromEntries(targetRows.map(r => [r.mainStepKey, r]));
+
+        const rows = keys.map(mainStepKey => {
+            const r = map[mainStepKey];
+            const t = targetMap[mainStepKey];
+            return {
+                mainStepKey,
+                label: labels[mainStepKey] || mainStepKey,
+                headcount: r?.headcount ?? 0,
+                normalHours: r?.normalHours ?? 0,
+                overtimeHours: r?.overtimeHours ?? 0,
+                targetCount: t?.targetCount ?? 0
+            };
+        });
+
+        res.json({
+            productType,
+            weekStart: key,
+            hoursPerPersonWeek: HOURS_PER_PERSON_WEEK,
+            rows
+        });
+    } catch (error) {
+        console.error('Error fetching capacity week:', error);
+        res.status(500).json({ error: 'Kapasite verisi alınamadı' });
+    }
+});
+
+app.put('/api/capacity/week', requireAdmin, async (req, res) => {
+    try {
+        const { productType, weekStart, mainStepKey, headcount, normalHours, overtimeHours } = req.body;
+        if (!productType || !weekStart || !mainStepKey) {
+            return res.status(400).json({ error: 'productType, weekStart, mainStepKey gerekli' });
+        }
+        const mon = mondayOfUtcWeekContaining(new Date(`${weekStart}T12:00:00.000Z`));
+        const key = weekStartToDateKey(mon);
+        const weekDate = new Date(`${key}T12:00:00.000Z`);
+
+        const hc = parseInt(String(headcount), 10);
+        const nh = parseFloat(String(normalHours));
+        const oh = parseFloat(String(overtimeHours));
+
+        const row = await prisma.departmentWeekCapacity.upsert({
+            where: {
+                productType_mainStepKey_weekStart: {
+                    productType,
+                    mainStepKey,
+                    weekStart: weekDate
+                }
+            },
+            create: {
+                productType,
+                mainStepKey,
+                weekStart: weekDate,
+                headcount: Number.isFinite(hc) ? hc : 0,
+                normalHours: Number.isFinite(nh) ? nh : 0,
+                overtimeHours: Number.isFinite(oh) ? oh : 0
+            },
+            update: {
+                headcount: Number.isFinite(hc) ? hc : 0,
+                normalHours: Number.isFinite(nh) ? nh : 0,
+                overtimeHours: Number.isFinite(oh) ? oh : 0
+            }
+        });
+        res.json(row);
+    } catch (error) {
+        console.error('Error upserting capacity week:', error);
+        res.status(500).json({ error: 'Kapasite kaydedilemedi' });
+    }
+});
+
+app.delete('/api/capacity/week', requireAdmin, async (req, res) => {
+    try {
+        const { type, weekStart, mainStepKey } = req.query;
+        const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
+        if (!weekStart || !mainStepKey) {
+            return res.status(400).json({ error: 'weekStart ve mainStepKey gerekli' });
+        }
+        const mon = mondayOfUtcWeekContaining(new Date(`${weekStart}T12:00:00.000Z`));
+        const key = weekStartToDateKey(mon);
+        const weekDate = new Date(`${key}T12:00:00.000Z`);
+
+        await prisma.departmentWeekCapacity.deleteMany({
+            where: { productType, mainStepKey, weekStart: weekDate }
+        });
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('Error deleting capacity week:', error);
+        res.status(500).json({ error: 'Kapasite silinemedi' });
+    }
+});
+
+app.put('/api/capacity/target', requireAdmin, async (req, res) => {
+    try {
+        const { productType, weekStart, mainStepKey, targetCount } = req.body;
+        if (!productType || !weekStart || !mainStepKey) {
+            return res.status(400).json({ error: 'productType, weekStart, mainStepKey gerekli' });
+        }
+        const mon = mondayOfUtcWeekContaining(new Date(`${weekStart}T12:00:00.000Z`));
+        const key = weekStartToDateKey(mon);
+        const weekDate = new Date(`${key}T12:00:00.000Z`);
+        const tc = parseInt(String(targetCount), 10);
+        const row = await prisma.weeklyStepTarget.upsert({
+            where: {
+                productType_mainStepKey_weekStart: {
+                    productType,
+                    mainStepKey,
+                    weekStart: weekDate
+                }
+            },
+            create: {
+                productType,
+                mainStepKey,
+                weekStart: weekDate,
+                targetCount: Number.isFinite(tc) ? tc : 0
+            },
+            update: {
+                targetCount: Number.isFinite(tc) ? tc : 0
+            }
+        });
+        res.json(row);
+    } catch (error) {
+        console.error('Error upserting weekly target:', error);
+        res.status(500).json({ error: 'Hedef kaydedilemedi' });
+    }
+});
+
+app.delete('/api/capacity/target', requireAdmin, async (req, res) => {
+    try {
+        const { type, weekStart, mainStepKey } = req.query;
+        const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
+        if (!weekStart || !mainStepKey) {
+            return res.status(400).json({ error: 'weekStart ve mainStepKey gerekli' });
+        }
+        const mon = mondayOfUtcWeekContaining(new Date(`${weekStart}T12:00:00.000Z`));
+        const key = weekStartToDateKey(mon);
+        const weekDate = new Date(`${key}T12:00:00.000Z`);
+        await prisma.weeklyStepTarget.deleteMany({
+            where: { productType, mainStepKey, weekStart: weekDate }
+        });
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('Error deleting weekly target:', error);
+        res.status(500).json({ error: 'Hedef silinemedi' });
+    }
+});
+
+app.get('/api/audit-logs', requireAdmin, async (req, res) => {
+    try {
+        const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
+        const skip = Math.max(0, parseInt(String(req.query.skip || '0'), 10) || 0);
+        const { productType, productId } = req.query;
+        const where = {};
+        if (productType && typeof productType === 'string') where.productType = productType;
+        if (productId != null && productId !== '') {
+            const pid = parseInt(String(productId), 10);
+            if (Number.isFinite(pid)) where.productId = pid;
+        }
+        const [rows, total] = await Promise.all([
+            prisma.auditLog.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip,
+                include: { user: { select: { username: true, fullName: true } } }
+            }),
+            prisma.auditLog.count({ where })
+        ]);
+        res.json({ rows, total, limit, skip });
+    } catch (error) {
+        console.error('Error listing audit logs:', error);
+        res.status(500).json({ error: 'Denetim kayıtları alınamadı' });
+    }
+});
+
+app.get('/api/search', requireAuth, async (req, res) => {
+    try {
+        const raw = (req.query.q || '').trim();
+        if (raw.length < 2) {
+            return res.status(400).json({ error: 'En az 2 karakter girin' });
+        }
+        const take = 15;
+        const patList = buildSearchPatList(raw);
+        const digitOnly = /^\d+$/.test(raw);
+        const num = digitOnly ? parseInt(raw, 10) : NaN;
+
+        const mapRow = (r) => ({
+            id: Number(r.id),
+            imalatNo: r.imalatNo != null ? Number(r.imalatNo) : null,
+            musteri: r.musteri,
+            sasiNo: r.sasiNo
+        });
+
+        const whereDamper = buildDamperSearchWhere(patList, num);
+        const whereDorse = buildDorseSearchWhere(patList, num);
+        const whereSasi = buildSasiSearchWhere(patList, num);
+
+        const [dampers, dorses, sasis] = await Promise.all([
+            prisma.$queryRaw`
+                SELECT id, "imalatNo", musteri, "sasiNo"
+                FROM "Damper"
+                WHERE ${whereDamper}
+                ORDER BY "updatedAt" DESC
+                LIMIT ${take}
+            `,
+            prisma.$queryRaw`
+                SELECT id, "imalatNo", musteri, "sasiNo"
+                FROM "Dorse"
+                WHERE ${whereDorse}
+                ORDER BY "updatedAt" DESC
+                LIMIT ${take}
+            `,
+            prisma.$queryRaw`
+                SELECT id, "imalatNo", musteri, "sasiNo"
+                FROM "Sasi"
+                WHERE ${whereSasi}
+                ORDER BY "updatedAt" DESC
+                LIMIT ${take}
+            `
+        ]);
+
+        res.json({
+            q: raw,
+            dampers: dampers.map((d) => ({ productType: 'DAMPER', ...mapRow(d) })),
+            dorses: dorses.map((d) => ({ productType: 'DORSE', ...mapRow(d) })),
+            sasis: sasis.map((s) => ({ productType: 'SASI', ...mapRow(s) }))
+        });
+    } catch (error) {
+        console.error('Error search:', error);
+        res.status(500).json({ error: 'Arama yapılamadı' });
+    }
+});
+
+app.get('/api/analytics/stale-products', requireAuth, async (req, res) => {
+    try {
+        const days = Math.min(90, Math.max(1, parseInt(String(req.query.days || '14'), 10) || 14));
+        const cutoff = new Date(Date.now() - days * 86400000);
+
+        const [dampers, dorses, sasis] = await Promise.all([
+            prisma.damper.findMany({
+                where: {
+                    productionStartedAt: { not: null },
+                    teslimat: false,
+                    updatedAt: { lt: cutoff }
+                },
+                orderBy: { updatedAt: 'asc' },
+                take: 40,
+                select: { id: true, imalatNo: true, musteri: true, updatedAt: true }
+            }),
+            prisma.dorse.findMany({
+                where: {
+                    productionStartedAt: { not: null },
+                    teslimat: false,
+                    updatedAt: { lt: cutoff }
+                },
+                orderBy: { updatedAt: 'asc' },
+                take: 40,
+                select: { id: true, imalatNo: true, musteri: true, updatedAt: true }
+            }),
+            prisma.sasi.findMany({
+                where: {
+                    productionStartedAt: { not: null },
+                    lastikMontaji: false,
+                    updatedAt: { lt: cutoff }
+                },
+                orderBy: { updatedAt: 'asc' },
+                take: 40,
+                select: { id: true, imalatNo: true, musteri: true, sasiNo: true, updatedAt: true }
+            })
+        ]);
+
+        res.json({
+            days,
+            cutoff: cutoff.toISOString(),
+            dampers: dampers.map(d => ({ productType: 'DAMPER', ...d })),
+            dorses: dorses.map(d => ({ productType: 'DORSE', ...d })),
+            sasis: sasis.map(s => ({ productType: 'SASI', ...s }))
+        });
+    } catch (error) {
+        console.error('Error stale-products:', error);
+        res.status(500).json({ error: 'Veri alınamadı' });
+    }
+});
+
+app.get('/api/analytics/verimlilik', requireAuth, async (req, res) => {
+    try {
+        const { type, from, to } = req.query;
+        const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
+        const fromDate = from ? new Date(from) : null;
+        const toDate = to ? new Date(to) : null;
+        if (!fromDate || !toDate || Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+            return res.status(400).json({ error: 'from ve to zorunlu (ISO 8601)' });
+        }
+        if (fromDate >= toDate) {
+            return res.status(400).json({ error: 'from, to tarihinden önce olmalı' });
+        }
+
+        const report = await computeVerimlilikReport(productType, fromDate, toDate);
+        res.json(report);
+    } catch (error) {
+        console.error('Error fetching verimlilik:', error);
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması eksik olabilir: backend klasöründe npx prisma migrate deploy'
+                : '';
+        res.status(500).json({
+            error: `Verimlilik verisi alınamadı.${hint}`,
+            code: error.code || undefined
+        });
+    }
+});
+
+const aiInsightLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 8,
+    message: { error: 'Çok fazla AI isteği. Bir dakika sonra deneyin.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+app.post('/api/analytics/ai-insight', requireAdmin, aiInsightLimiter, async (req, res) => {
+    try {
+        if (!process.env.OPENAI_API_KEY) {
+            return res.status(503).json({ error: 'OPENAI_API_KEY tanımlı değil' });
+        }
+        const { type, from, to } = req.body || {};
+        const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
+        const fromDate = from ? new Date(from) : null;
+        const toDate = to ? new Date(to) : null;
+        if (!fromDate || !toDate || Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+            return res.status(400).json({ error: 'from ve to zorunlu (ISO 8601)' });
+        }
+        if (fromDate >= toDate) {
+            return res.status(400).json({ error: 'from, to tarihinden önce olmalı' });
+        }
+
+        const report = await computeVerimlilikReport(productType, fromDate, toDate);
+        const payload = {
+            uyari: 'Bu metin karar desteği içindir; resmi KPI veya muhasebe kaydı değildir.',
+            rapor: report
+        };
+
+        const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                messages: [
+                    {
+                        role: 'system',
+                        content:
+                            'Sen bir üretim verimliliği asistanısın. Türkçe, kısa ve net yaz. Sadece verilen JSON sayılarına dayan; uydurma. En fazla 8 cümle: özet, dikkat çeken bölümler, varsa düşük verim veya mesai ipuçları.'
+                    },
+                    {
+                        role: 'user',
+                        content: JSON.stringify(payload)
+                    }
+                ],
+                temperature: 0.4,
+                max_tokens: 600
+            })
+        });
+
+        if (!openaiRes.ok) {
+            const errText = await openaiRes.text();
+            console.error('OpenAI error:', openaiRes.status, errText);
+            return res.status(502).json({ error: 'AI yanıtı alınamadı' });
+        }
+
+        const aiJson = await openaiRes.json();
+        const text = aiJson.choices?.[0]?.message?.content?.trim() || '';
+        res.json({ text, model: process.env.OPENAI_MODEL || 'gpt-4o-mini' });
+    } catch (error) {
+        console.error('Error ai-insight:', error);
+        res.status(500).json({ error: 'AI özeti oluşturulamadı' });
+    }
+});
+
+// Start server (önce şema — P2022 drift önleme)
+const PORT = process.env.PORT || 3001;
+const { ensureDatabaseSchema } = require('./ensureSchema');
+
+async function startServer() {
+    try {
+        await ensureDatabaseSchema();
+    } catch (err) {
+        console.error('[ensureSchema] Başarısız:', err.message);
+        process.exit(1);
+    }
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+
+startServer();

@@ -80,6 +80,8 @@ export interface Damper {
 
     createdAt?: string;
     updatedAt?: string;
+    /** Üretime giriş (verimlilik metrikleri); yalnızca yeni kayıtlarda dolu */
+    productionStartedAt?: string | null;
 }
 
 export interface DamperSummary {
@@ -232,7 +234,7 @@ export interface CompanySummary {
 async function handleResponse<T>(res: Response): Promise<T> {
     if (!res.ok) {
         const text = await res.text();
-        throw new Error(`API Error: ${res.status} ${res.statusText} - ${text.substring(0, 100)}`);
+        throw new Error(`API Error: ${res.status} ${res.statusText} - ${text.substring(0, 500)}`);
     }
     const contentType = res.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
@@ -466,6 +468,7 @@ export interface Dorse {
 
     createdAt?: string;
     updatedAt?: string;
+    productionStartedAt?: string | null;
 
     // RELATIONSHIP
     sasiId?: number | null;
@@ -507,11 +510,263 @@ export interface Sasi {
 
     createdAt?: string;
     updatedAt?: string;
+    productionStartedAt?: string | null;
 
     // RELATIONSHIP
     isLinked?: boolean;
     linkedDorseId?: number;
     linkedDorseMusteri?: string;
+}
+
+export type VerimlilikProductType = 'DAMPER' | 'DORSE' | 'SASI';
+
+export interface VerimlilikStepRow {
+    mainStepKey: string;
+    label: string;
+    current: number;
+    previous: number;
+    delta: number;
+    deltaPercent: number | null;
+    capacityNormalHours: number | null;
+    capacityOvertimeHours: number | null;
+    capacityTotalHours: number | null;
+    efficiency: number | null;
+    previousCapacityTotalHours: number | null;
+    previousEfficiency: number | null;
+    avgHeadcountInPeriod: number | null;
+    /** Dönemle örtüşen haftalarda girilen hedef adet (orantılı toplam) */
+    targetInPeriod?: number | null;
+    previousTargetInPeriod?: number | null;
+    targetVariance?: number | null;
+    previousTargetVariance?: number | null;
+}
+
+export interface VerimlilikScheduleDefaults {
+    workDaysPerWeek: number;
+    netHoursPerDay: number;
+    hoursPerPersonWeek: number;
+    description: string;
+}
+
+export interface VerimlilikResponse {
+    productType: string;
+    from: string;
+    to: string;
+    previousFrom: string;
+    previousTo: string;
+    steps: VerimlilikStepRow[];
+    trackedProductCountWithT0: number;
+    scheduleDefaults: VerimlilikScheduleDefaults;
+}
+
+export async function getVerimlilik(
+    type: VerimlilikProductType,
+    fromIso: string,
+    toIso: string
+): Promise<VerimlilikResponse> {
+    const q = new URLSearchParams({ type, from: fromIso, to: toIso });
+    const res = await fetch(`${API_URL}/analytics/verimlilik?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<VerimlilikResponse>(res);
+}
+
+export interface CapacityScheduleDefaults {
+    workDaysPerWeek: number;
+    netHoursPerDay: number;
+    hoursPerPersonWeek: number;
+    description: string;
+}
+
+export interface CapacityWeekRow {
+    mainStepKey: string;
+    label: string;
+    headcount: number;
+    normalHours: number;
+    overtimeHours: number;
+    targetCount: number;
+}
+
+export interface CapacityWeekResponse {
+    productType: string;
+    weekStart: string;
+    hoursPerPersonWeek: number;
+    rows: CapacityWeekRow[];
+}
+
+export async function getCapacityDefaults(): Promise<CapacityScheduleDefaults> {
+    const res = await fetch(`${API_URL}/capacity/defaults`, { credentials: 'include', cache: 'no-store' });
+    return handleResponse<CapacityScheduleDefaults>(res);
+}
+
+export async function getCapacityWeek(
+    type: VerimlilikProductType,
+    weekStart: string
+): Promise<CapacityWeekResponse> {
+    const q = new URLSearchParams({ type, weekStart });
+    const res = await fetch(`${API_URL}/capacity/week?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<CapacityWeekResponse>(res);
+}
+
+export async function putCapacityWeek(body: {
+    productType: VerimlilikProductType;
+    weekStart: string;
+    mainStepKey: string;
+    headcount: number;
+    normalHours: number;
+    overtimeHours: number;
+}): Promise<Record<string, unknown>> {
+    const res = await fetch(`${API_URL}/capacity/week`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<Record<string, unknown>>(res);
+}
+
+export async function deleteCapacityWeek(
+    type: VerimlilikProductType,
+    weekStart: string,
+    mainStepKey: string
+): Promise<void> {
+    const q = new URLSearchParams({ type, weekStart, mainStepKey });
+    const res = await fetch(`${API_URL}/capacity/week?${q.toString()}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    await handleResponse(res);
+}
+
+export async function postAiInsight(body: {
+    type: VerimlilikProductType;
+    from: string;
+    to: string;
+}): Promise<{ text: string; model: string }> {
+    const res = await fetch(`${API_URL}/analytics/ai-insight`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<{ text: string; model: string }>(res);
+}
+
+export interface SearchHit {
+    productType: 'DAMPER' | 'DORSE' | 'SASI';
+    id: number;
+    imalatNo: number | null;
+    musteri: string | null;
+    sasiNo?: string | null;
+}
+
+export interface SearchResponse {
+    q: string;
+    dampers: SearchHit[];
+    dorses: SearchHit[];
+    sasis: SearchHit[];
+}
+
+export async function getSearch(q: string): Promise<SearchResponse> {
+    const params = new URLSearchParams({ q });
+    const res = await fetch(`${API_URL}/search?${params.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<SearchResponse>(res);
+}
+
+export interface AuditLogRow {
+    id: number;
+    userId: number | null;
+    username: string | null;
+    action: string;
+    productType: string;
+    productId: number;
+    summary: string | null;
+    details: unknown;
+    createdAt: string;
+    user?: { username: string; fullName: string } | null;
+}
+
+export interface AuditLogsResponse {
+    rows: AuditLogRow[];
+    total: number;
+    limit: number;
+    skip: number;
+}
+
+export async function getAuditLogs(params?: {
+    limit?: number;
+    skip?: number;
+    productType?: string;
+    productId?: number;
+}): Promise<AuditLogsResponse> {
+    const q = new URLSearchParams();
+    if (params?.limit != null) q.set('limit', String(params.limit));
+    if (params?.skip != null) q.set('skip', String(params.skip));
+    if (params?.productType) q.set('productType', params.productType);
+    if (params?.productId != null) q.set('productId', String(params.productId));
+    const res = await fetch(`${API_URL}/audit-logs?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<AuditLogsResponse>(res);
+}
+
+export interface StaleProductsResponse {
+    days: number;
+    cutoff: string;
+    dampers: Array<{ productType: 'DAMPER'; id: number; imalatNo: number | null; musteri: string; updatedAt: string }>;
+    dorses: Array<{ productType: 'DORSE'; id: number; imalatNo: number | null; musteri: string; updatedAt: string }>;
+    sasis: Array<{
+        productType: 'SASI';
+        id: number;
+        imalatNo: number | null;
+        musteri: string | null;
+        sasiNo: string | null;
+        updatedAt: string;
+    }>;
+}
+
+export async function getStaleProducts(days = 14): Promise<StaleProductsResponse> {
+    const res = await fetch(`${API_URL}/analytics/stale-products?days=${days}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<StaleProductsResponse>(res);
+}
+
+export async function putCapacityTarget(body: {
+    productType: VerimlilikProductType;
+    weekStart: string;
+    mainStepKey: string;
+    targetCount: number;
+}): Promise<Record<string, unknown>> {
+    const res = await fetch(`${API_URL}/capacity/target`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<Record<string, unknown>>(res);
+}
+
+export async function deleteCapacityTarget(
+    type: VerimlilikProductType,
+    weekStart: string,
+    mainStepKey: string
+): Promise<void> {
+    const q = new URLSearchParams({ type, weekStart, mainStepKey });
+    const res = await fetch(`${API_URL}/capacity/target?${q.toString()}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    await handleResponse(res);
 }
 
 export async function getDorses(): Promise<Dorse[]> {

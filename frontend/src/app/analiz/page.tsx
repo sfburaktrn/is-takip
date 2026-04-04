@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
+import AuthGuard from '@/components/AuthGuard';
 import { getStats, type Stats, type StepStats, API_URL, getSasis } from '@/lib/api';
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
@@ -14,7 +16,8 @@ import {
     PauseCircle,
     Loader2,
     Inbox,
-    Clock
+    Clock,
+    Gauge
 } from 'lucide-react';
 
 interface CompanyDist {
@@ -222,6 +225,7 @@ export default function Analiz() {
     ] : [];
 
     return (
+        <AuthGuard>
         <>
             <Sidebar />
             <main className="main-content">
@@ -296,6 +300,30 @@ export default function Analiz() {
                             Şasiler
                         </button>
                     </div>
+
+                    <Link
+                        href="/verimlilik"
+                        className="card"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '14px 18px',
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            border: '1px solid #e2e8f0',
+                            maxWidth: '720px',
+                        }}
+                    >
+                        <Gauge size={22} style={{ color: 'var(--primary, #022347)', flexShrink: 0 }} />
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: '14px', color: '#1e293b' }}>Verimlilik sayfası</div>
+                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                Bu sayfa anlık durumu gösterir. Üretime girişi kayıtlı ürünlerde bölüm tamamlanma
+                                trendi, kapasite ve (isteğe bağlı) AI özeti için Verimlilik&apos;e geçin.
+                            </div>
+                        </div>
+                    </Link>
                 </header>
 
                 {loading ? (
@@ -708,7 +736,8 @@ export default function Analiz() {
                     </>
                 )
                 }
-            </main >
+            </main>
         </>
+        </AuthGuard>
     );
 }

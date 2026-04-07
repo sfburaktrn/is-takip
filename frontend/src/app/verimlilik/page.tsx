@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
@@ -33,6 +33,63 @@ function toExclusiveEndIso(dayStr: string): string {
 function startOfDayIso(dayStr: string): string {
     const d = new Date(dayStr + 'T00:00:00');
     return d.toISOString();
+}
+
+function cell(label: string, value: ReactNode) {
+    return (
+        <div>
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
+            <div className="font-medium text-slate-900 text-sm tabular-nums">{value}</div>
+        </div>
+    );
+}
+
+function VerimlilikStepMobileCard({ row }: { row: VerimlilikResponse['steps'][number] }) {
+    const deltaPct =
+        row.deltaPercent === null && row.previous === 0 && row.current > 0
+            ? '—'
+            : row.deltaPercent !== null
+              ? `${row.deltaPercent}%`
+              : '—';
+    return (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="font-semibold text-slate-900 text-sm border-b border-slate-100 pb-2 mb-3">{row.label}</div>
+            <div className="grid grid-cols-2 gap-3">
+                {cell('Adet', row.current)}
+                {cell('Önceki', row.previous)}
+                {cell(
+                    'Fark',
+                    <span className={row.delta >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                        {row.delta >= 0 ? '+' : ''}
+                        {row.delta}
+                    </span>
+                )}
+                {cell('Δ%', deltaPct)}
+                {cell('Hedef', row.targetInPeriod != null ? row.targetInPeriod : '—')}
+                {cell(
+                    'Sapma',
+                    row.targetVariance != null ? (
+                        <span className={row.targetVariance >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                            {row.targetVariance >= 0 ? '+' : ''}
+                            {row.targetVariance}
+                        </span>
+                    ) : (
+                        '—'
+                    )
+                )}
+                {cell('Kişi~', row.avgHeadcountInPeriod != null ? row.avgHeadcountInPeriod : '—')}
+                {cell('Norm. saat', row.capacityNormalHours != null ? row.capacityNormalHours : '—')}
+                {cell('Mesai', row.capacityOvertimeHours != null ? row.capacityOvertimeHours : '—')}
+                {cell('Top. saat', row.capacityTotalHours != null ? row.capacityTotalHours : '—')}
+                {cell(
+                    'Verim',
+                    row.efficiency != null
+                        ? row.efficiency.toLocaleString('tr-TR', { maximumFractionDigits: 4 })
+                        : '—'
+                )}
+            </div>
+        </div>
+    );
 }
 
 export default function VerimlilikPage() {
@@ -144,97 +201,96 @@ export default function VerimlilikPage() {
         <AuthGuard>
             <>
             <Sidebar />
-            <main className="main-content">
+            <main className="main-content analytics-page">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
-                        <div>
+                    <div className="flex flex-col lg:flex-row w-full justify-between items-stretch lg:items-start gap-4">
+                        <div className="min-w-0 flex-1">
                             <h1 className="header-title">
-                                <Gauge size={32} style={{ display: 'inline', marginRight: '12px' }} />
+                                <Gauge size={32} className="inline mr-2 sm:mr-3 align-middle shrink-0" />
                                 Verimlilik
                             </h1>
-                            <p className="header-subtitle">
+                            <p className="header-subtitle max-w-3xl">
                                 Üretime girişi kayıtlı yeni damper, dorse ve şasilerde bölüm tamamlanma adetleri
                                 (Son kontrol / muayene / teslimat damperde; dorse son kontrol hariç; şaside tüm ana
                                 bölümler).
                             </p>
                         </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                            <button type="button" className="btn btn-primary" onClick={load} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <RefreshCcw size={16} /> Yenile
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 w-full lg:w-auto shrink-0">
+                            <button
+                                type="button"
+                                className="btn btn-primary analytics-touch-target justify-center text-sm px-3 sm:px-4"
+                                onClick={load}
+                            >
+                                <RefreshCcw size={16} className="shrink-0" /> <span className="truncate">Yenile</span>
                             </button>
                             <button
                                 type="button"
-                                className="btn btn-secondary"
+                                className="btn btn-secondary analytics-touch-target justify-center text-sm px-3 sm:px-4"
                                 onClick={() => setShowHelp(true)}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                                 title="Bu sayfa nasıl çalışır?"
                             >
-                                <HelpCircle size={16} /> Yardım
+                                <HelpCircle size={16} className="shrink-0" /> Yardım
                             </button>
                             {data && !loading && (
                                 <button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    className="btn btn-secondary analytics-touch-target justify-center text-sm px-3 sm:px-4 col-span-2 sm:col-span-1"
                                     onClick={downloadCsv}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                                 >
-                                    <Download size={16} /> CSV indir
+                                    <Download size={16} className="shrink-0" /> CSV
                                 </button>
                             )}
                             {isAdmin && (
                                 <button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    className="btn btn-secondary analytics-touch-target justify-center text-sm px-3 sm:px-4 col-span-2 sm:col-span-1"
                                     onClick={runAi}
                                     disabled={aiLoading}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                                 >
                                     {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                    AI özeti
+                                    AI
                                 </button>
                             )}
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
-                        <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px' }}>
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end w-full">
+                        <div className="flex gap-1 sm:gap-2 bg-[var(--card)] p-1 rounded-lg border border-slate-200/80 w-full sm:w-auto justify-between sm:justify-start">
                             {(['DAMPER', 'DORSE', 'SASI'] as const).map(t => (
                                 <button
                                     key={t}
                                     type="button"
                                     onClick={() => setProductType(t)}
-                                    style={{
-                                        padding: '8px 16px',
-                                        borderRadius: '6px',
-                                        border: 'none',
-                                        background: productType === t ? 'var(--primary)' : 'transparent',
-                                        color: productType === t ? 'white' : 'var(--muted)',
-                                        fontWeight: 500,
-                                        cursor: 'pointer',
-                                    }}
+                                    className={`analytics-touch-target flex-1 sm:flex-none rounded-md px-3 sm:px-4 text-sm font-medium transition-colors ${
+                                        productType === t
+                                            ? 'bg-[var(--primary)] text-white shadow-sm'
+                                            : 'text-slate-600 hover:bg-slate-100'
+                                    }`}
                                 >
                                     {t === 'DAMPER' ? 'Damper' : t === 'DORSE' ? 'Dorse' : 'Şasi'}
                                 </button>
                             ))}
                         </div>
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--muted)' }}>
-                            Başlangıç
-                            <input
-                                type="date"
-                                value={fromDay}
-                                onChange={e => setFromDay(e.target.value)}
-                                style={{ padding: '8px', borderRadius: '6px', border: '1px solid var(--border, #e2e8f0)' }}
-                            />
-                        </label>
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--muted)' }}>
-                            Bitiş
-                            <input
-                                type="date"
-                                value={toDay}
-                                onChange={e => setToDay(e.target.value)}
-                                style={{ padding: '8px', borderRadius: '6px', border: '1px solid var(--border, #e2e8f0)' }}
-                            />
-                        </label>
+                        <div className="grid grid-cols-2 gap-3 flex-1 min-w-0 sm:max-w-md">
+                            <label className="flex flex-col gap-1 text-xs text-slate-500 min-w-0">
+                                Başlangıç
+                                <input
+                                    type="date"
+                                    value={fromDay}
+                                    onChange={e => setFromDay(e.target.value)}
+                                    className="min-h-11 px-2 sm:px-3 rounded-lg border border-slate-200 text-sm w-full bg-white"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1 text-xs text-slate-500 min-w-0">
+                                Bitiş
+                                <input
+                                    type="date"
+                                    value={toDay}
+                                    onChange={e => setToDay(e.target.value)}
+                                    className="min-h-11 px-2 sm:px-3 rounded-lg border border-slate-200 text-sm w-full bg-white"
+                                />
+                            </label>
+                        </div>
                     </div>
                 </header>
 
@@ -248,28 +304,26 @@ export default function VerimlilikPage() {
                     </div>
                 ) : data ? (
                     <>
-                        <div className="card" style={{ padding: '16px 20px', marginBottom: '16px', fontSize: '14px', color: 'var(--muted)' }}>
-                            <strong style={{ color: 'var(--foreground, #0f172a)' }}>T0 kaydı olan ürün sayısı:</strong>{' '}
+                        <div className="card p-4 sm:p-5 mb-4 text-sm text-slate-600 leading-relaxed">
+                            <strong className="text-slate-900">T0 kaydı olan ürün sayısı:</strong>{' '}
                             {data.trackedProductCountWithT0}. Önceki dönem:{' '}
                             {new Date(data.previousFrom).toLocaleDateString('tr-TR')} —{' '}
                             {new Date(data.previousTo).toLocaleDateString('tr-TR')} (aynı uzunluk).
                             {data.scheduleDefaults && (
-                                <div style={{ marginTop: '10px', fontSize: '13px' }}>
-                                    <strong style={{ color: '#334155' }}>Çalışma varsayımı:</strong> Haftada{' '}
+                                <div className="mt-2.5 text-xs sm:text-[13px]">
+                                    <strong className="text-slate-700">Çalışma varsayımı:</strong> Haftada{' '}
                                     {data.scheduleDefaults.workDaysPerWeek} gün, günde {data.scheduleDefaults.netHoursPerDay} net
-                                    saat → kişi başı {data.scheduleDefaults.hoursPerPersonWeek} saat. Kapasite girmek için{' '}
-                                    <Link href="/kapasite" style={{ color: 'var(--primary, #022347)', fontWeight: 600 }}>
+                                    saat → kişi başı {data.scheduleDefaults.hoursPerPersonWeek} saat. Kapasite:{' '}
+                                    <Link href="/kapasite" className="text-[var(--primary)] font-semibold underline-offset-2 hover:underline">
                                         Bölüm kapasitesi
                                     </Link>
                                     .
                                 </div>
                             )}
-                            <div style={{ marginTop: '8px', fontSize: '13px' }}>
+                            <div className="mt-2 text-xs sm:text-[13px] hidden sm:block">
                                 Grafikteki adetler, seçilen aralıkta tamamlanan bölüm olaylarının{' '}
-                                <code>adet</code> toplamıdır. Kapasite ve hedef değerleri, aralığa denk gelen haftalar için
-                                orantılı toplanır. Hedef, Bölüm kapasitesi sayfasındaki &quot;Hedef adet&quot; alanından
-                                girilir. Eski kayıtlar (T0 yok) bu raporda yer almaz; ürün veritabanındaki kayıtlar
-                                silinmez.
+                                <code className="text-xs bg-slate-100 px-1 rounded">adet</code> toplamıdır. Kapasite ve hedef,
+                                aralığa denk haftalar için orantılı toplanır. T0 olmayan kayıtlar raporda yoktur.
                             </div>
                         </div>
 
@@ -290,93 +344,104 @@ export default function VerimlilikPage() {
                             </div>
                         )}
 
-                        <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
-                            <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 700 }}>Dönem karşılaştırması</h3>
-                            <div style={{ width: '100%', height: 380 }}>
-                                <ResponsiveContainer>
-                                    <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 60 }}>
+                        <div className="card p-4 sm:p-6 mb-4 sm:mb-6">
+                            <h3 className="mb-3 sm:mb-4 text-base font-bold text-slate-900">Dönem karşılaştırması</h3>
+                            <div className="w-full h-[260px] sm:h-[320px] md:h-[380px] min-h-[220px] -mx-1 sm:mx-0">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={80} />
-                                        <YAxis allowDecimals={false} />
-                                        <Tooltip />
-                                        <Legend />
-                                        <Bar dataKey="secilen" name="Seçilen dönem" fill="#022347" radius={[4, 4, 0, 0]} />
-                                        <Bar dataKey="onceki" name="Önceki dönem" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                                        <XAxis
+                                            dataKey="name"
+                                            tick={{ fontSize: 9 }}
+                                            interval={0}
+                                            angle={-35}
+                                            textAnchor="end"
+                                            height={72}
+                                        />
+                                        <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={36} />
+                                        <Tooltip contentStyle={{ fontSize: 12 }} />
+                                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                                        <Bar dataKey="secilen" name="Seçilen dönem" fill="#022347" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                                        <Bar dataKey="onceki" name="Önceki dönem" fill="#94a3b8" radius={[3, 3, 0, 0]} maxBarSize={28} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
 
-                        <div className="card" style={{ padding: '0', overflow: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '1100px' }}>
+                        <div className="md:hidden space-y-3 pb-6">
+                            {data.steps.map(row => (
+                                <VerimlilikStepMobileCard key={row.mainStepKey} row={row} />
+                            ))}
+                        </div>
+
+                        <div className="card hidden md:block p-0 overflow-x-auto">
+                            <table className="w-full border-collapse text-xs lg:text-[13px] min-w-[1000px]">
                                 <thead>
-                                    <tr style={{ background: 'rgba(2,35,71,0.06)', textAlign: 'left' }}>
-                                        <th style={{ padding: '12px 16px' }}>Bölüm</th>
-                                        <th style={{ padding: '12px 16px' }}>Adet</th>
-                                        <th style={{ padding: '12px 16px' }}>Önceki</th>
-                                        <th style={{ padding: '12px 16px' }}>Fark</th>
-                                        <th style={{ padding: '12px 16px' }}>Δ%</th>
-                                        <th style={{ padding: '12px 16px' }} title="Dönemle örtüşen haftaların hedef toplamı">
+                                    <tr className="bg-[rgba(2,35,71,0.06)] text-left">
+                                        <th className="p-2 lg:p-3 xl:px-4 sticky left-0 bg-slate-100/95 z-[1] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Bölüm</th>
+                                        <th className="p-2 lg:p-3 xl:px-4">Adet</th>
+                                        <th className="p-2 lg:p-3 xl:px-4">Önceki</th>
+                                        <th className="p-2 lg:p-3 xl:px-4">Fark</th>
+                                        <th className="p-2 lg:p-3 xl:px-4">Δ%</th>
+                                        <th className="p-2 lg:p-3 xl:px-4" title="Dönemle örtüşen haftaların hedef toplamı">
                                             Hedef
                                         </th>
-                                        <th style={{ padding: '12px 16px' }} title="Gerçekleşen − hedef">
+                                        <th className="p-2 lg:p-3 xl:px-4" title="Gerçekleşen − hedef">
                                             Sapma
                                         </th>
-                                        <th style={{ padding: '12px 16px' }} title="Ortalama kişi (kapasite girildiyse)">Kişi~</th>
-                                        <th style={{ padding: '12px 16px' }}>Norm. saat</th>
-                                        <th style={{ padding: '12px 16px' }}>Mesai</th>
-                                        <th style={{ padding: '12px 16px' }}>Top. saat</th>
-                                        <th style={{ padding: '12px 16px' }} title="Tamamlanan adet / toplam saat">Verim</th>
+                                        <th className="p-2 lg:p-3 xl:px-4" title="Ortalama kişi (kapasite girildiyse)">Kişi~</th>
+                                        <th className="p-2 lg:p-3 xl:px-4">Norm. saat</th>
+                                        <th className="p-2 lg:p-3 xl:px-4">Mesai</th>
+                                        <th className="p-2 lg:p-3 xl:px-4">Top. saat</th>
+                                        <th className="p-2 lg:p-3 xl:px-4" title="Tamamlanan adet / toplam saat">Verim</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {data.steps.map(row => (
-                                        <tr key={row.mainStepKey} style={{ borderTop: '1px solid #e2e8f0' }}>
-                                            <td style={{ padding: '12px 16px', fontWeight: 500 }}>{row.label}</td>
-                                            <td style={{ padding: '12px 16px' }}>{row.current}</td>
-                                            <td style={{ padding: '12px 16px' }}>{row.previous}</td>
-                                            <td style={{ padding: '12px 16px', color: row.delta >= 0 ? '#059669' : '#dc2626' }}>
+                                        <tr key={row.mainStepKey} className="border-t border-slate-200">
+                                            <td className="p-2 lg:p-3 xl:px-4 font-medium sticky left-0 bg-white z-[1] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">{row.label}</td>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">{row.current}</td>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">{row.previous}</td>
+                                            <td className={`p-2 lg:p-3 xl:px-4 tabular-nums ${row.delta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                                 {row.delta >= 0 ? '+' : ''}
                                                 {row.delta}
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">
                                                 {row.deltaPercent === null && row.previous === 0 && row.current > 0
                                                     ? '—'
                                                     : row.deltaPercent !== null
                                                       ? `${row.deltaPercent}%`
                                                       : '—'}
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">
                                                 {row.targetInPeriod != null ? row.targetInPeriod : '—'}
                                             </td>
                                             <td
-                                                style={{
-                                                    padding: '12px 16px',
-                                                    color:
-                                                        row.targetVariance == null
-                                                            ? undefined
-                                                            : row.targetVariance >= 0
-                                                              ? '#059669'
-                                                              : '#dc2626',
-                                                }}
+                                                className={`p-2 lg:p-3 xl:px-4 tabular-nums ${
+                                                    row.targetVariance == null
+                                                        ? ''
+                                                        : row.targetVariance >= 0
+                                                          ? 'text-emerald-600'
+                                                          : 'text-red-600'
+                                                }`}
                                             >
                                                 {row.targetVariance != null
                                                     ? `${row.targetVariance >= 0 ? '+' : ''}${row.targetVariance}`
                                                     : '—'}
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">
                                                 {row.avgHeadcountInPeriod != null ? row.avgHeadcountInPeriod : '—'}
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">
                                                 {row.capacityNormalHours != null ? row.capacityNormalHours : '—'}
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">
                                                 {row.capacityOvertimeHours != null ? row.capacityOvertimeHours : '—'}
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">
                                                 {row.capacityTotalHours != null ? row.capacityTotalHours : '—'}
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td className="p-2 lg:p-3 xl:px-4 tabular-nums">
                                                 {row.efficiency != null ? row.efficiency.toLocaleString('tr-TR', { maximumFractionDigits: 4 }) : '—'}
                                             </td>
                                         </tr>
@@ -402,16 +467,7 @@ export default function VerimlilikPage() {
                                 onClick={() => setShowHelp(false)}
                             >
                                 <div
-                                    className="card"
-                                    style={{
-                                        maxWidth: '520px',
-                                        width: '100%',
-                                        padding: '24px',
-                                        position: 'relative',
-                                        fontSize: '14px',
-                                        lineHeight: 1.55,
-                                        color: '#334155',
-                                    }}
+                                    className="card max-h-[85vh] overflow-y-auto w-full max-w-[520px] p-5 sm:p-6 relative text-sm leading-relaxed text-slate-600"
                                     onClick={e => e.stopPropagation()}
                                 >
                                     <button

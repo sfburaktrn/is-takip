@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./analytics-responsive.css";
 import { AuthProvider } from "@/lib/AuthContext";
 
 export const metadata: Metadata = {

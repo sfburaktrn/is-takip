@@ -24,6 +24,120 @@ function mondayOfDateInput(isoDay: string): string {
     return d.toISOString().slice(0, 10);
 }
 
+type KapasiteRowProps = {
+    r: CapacityWeekRow;
+    hoursPerPerson: number;
+    savingKey: string | null;
+    updateRow: (mainStepKey: string, patch: Partial<CapacityWeekRow>) => void;
+    applyStandardHours: (mainStepKey: string) => void;
+    saveRow: (mainStepKey: string) => Promise<void>;
+    clearRow: (mainStepKey: string) => Promise<void>;
+    saveTargetRow: (mainStepKey: string) => Promise<void>;
+    clearTargetRow: (mainStepKey: string) => Promise<void>;
+};
+
+function KapasiteMobileCard(p: KapasiteRowProps) {
+    const { r, hoursPerPerson, savingKey, updateRow, applyStandardHours, saveRow, clearRow, saveTargetRow, clearTargetRow } = p;
+    return (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-5 max-lg:space-y-6 max-lg:py-6">
+            <div className="font-semibold text-slate-900 text-sm border-b border-slate-100 pb-3 max-lg:pb-4">{r.label}</div>
+            <label className="block text-xs text-slate-500">
+                Kişi sayısı
+                <input
+                    type="number"
+                    min={0}
+                    value={r.headcount}
+                    onChange={e => updateRow(r.mainStepKey, { headcount: parseInt(e.target.value, 10) || 0 })}
+                    className="mt-1 w-full min-h-11 px-3 rounded-lg border border-slate-200 text-base"
+                />
+            </label>
+            <div>
+                <label className="block text-xs text-slate-500 mb-1">Normal saat (toplam)</label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={r.normalHours}
+                        onChange={e => updateRow(r.mainStepKey, { normalHours: parseFloat(e.target.value) || 0 })}
+                        className="w-full sm:max-w-[140px] min-h-11 px-3 rounded-lg border border-slate-200 text-base"
+                    />
+                    <button
+                        type="button"
+                        className="btn btn-secondary text-xs py-2.5 px-3 analytics-touch-target shrink-0"
+                        onClick={() => applyStandardHours(r.mainStepKey)}
+                        title={`Kişi × ${hoursPerPerson} saat`}
+                    >
+                        <Sparkles size={14} className="inline mr-1" />
+                        {hoursPerPerson}h/kişi
+                    </button>
+                </div>
+            </div>
+            <label className="block text-xs text-slate-500">
+                Mesai saat
+                <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={r.overtimeHours}
+                    onChange={e => updateRow(r.mainStepKey, { overtimeHours: parseFloat(e.target.value) || 0 })}
+                    className="mt-1 w-full min-h-11 px-3 rounded-lg border border-slate-200 text-base"
+                />
+            </label>
+            <div>
+                <label className="block text-xs text-slate-500 mb-1">Hedef adet</label>
+                <div className="flex flex-wrap gap-2 items-center">
+                    <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={r.targetCount}
+                        onChange={e => updateRow(r.mainStepKey, { targetCount: parseInt(e.target.value, 10) || 0 })}
+                        className="min-h-11 w-24 px-3 rounded-lg border border-slate-200 text-base"
+                    />
+                    <button
+                        type="button"
+                        className="btn btn-secondary text-xs py-2.5 px-3 flex-1 min-w-[120px] sm:flex-none analytics-touch-target"
+                        disabled={savingKey === `t-${r.mainStepKey}`}
+                        onClick={() => saveTargetRow(r.mainStepKey)}
+                    >
+                        {savingKey === `t-${r.mainStepKey}` ? <Loader2 size={14} className="animate-spin" /> : null}
+                        Hedef kaydet
+                    </button>
+                    <button
+                        type="button"
+                        title="Hedefi sil"
+                        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white"
+                        disabled={savingKey === `t-${r.mainStepKey}`}
+                        onClick={() => clearTargetRow(r.mainStepKey)}
+                    >
+                        <Trash2 size={16} />
+                    </button>
+                </div>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-4 mt-1 border-t border-slate-100 max-lg:pt-5 max-lg:gap-3">
+                <button
+                    type="button"
+                    className="btn btn-primary flex-1 min-w-[140px] analytics-touch-target justify-center py-2.5"
+                    disabled={savingKey === r.mainStepKey}
+                    onClick={() => saveRow(r.mainStepKey)}
+                >
+                    {savingKey === r.mainStepKey ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Kaydet
+                </button>
+                <button
+                    type="button"
+                    className="btn btn-secondary flex-1 min-w-[100px] analytics-touch-target justify-center py-2.5"
+                    disabled={savingKey === r.mainStepKey}
+                    onClick={() => clearRow(r.mainStepKey)}
+                >
+                    <Trash2 size={16} /> Sil
+                </button>
+            </div>
+        </div>
+    );
+}
+
 export default function KapasitePage() {
     const [productType, setProductType] = useState<VerimlilikProductType>('DAMPER');
     const [weekInput, setWeekInput] = useState(() => mondayOfDateInput(new Date().toISOString().slice(0, 10)));
@@ -139,51 +253,41 @@ export default function KapasitePage() {
     return (
         <AuthGuard requireAdmin>
             <Sidebar />
-            <main className="main-content">
+            <main className="main-content analytics-page">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
-                        <div>
+                    <div className="flex flex-col lg:flex-row w-full justify-between items-stretch lg:items-start gap-4">
+                        <div className="min-w-0 flex-1">
                             <h1 className="header-title">
-                                <Users size={32} style={{ display: 'inline', marginRight: '12px' }} />
+                                <Users size={32} className="inline mr-2 sm:mr-3 align-middle shrink-0" />
                                 Bölüm kapasitesi
                             </h1>
-                            <p className="header-subtitle">
+                            <p className="header-subtitle max-w-3xl">
                                 Haftalık kişi sayısı, çalışma saatleri ve isteğe bağlı hedef adet — Verimlilik
                                 raporunda verim ve hedef sapması bu verilerle hesaplanır.
                             </p>
                         </div>
-                        <Link href="/verimlilik" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <Link
+                            href="/verimlilik"
+                            className="btn btn-secondary analytics-touch-target justify-center shrink-0 w-full lg:w-auto inline-flex items-center gap-2"
+                        >
                             <Gauge size={18} />
                             Verimlilik raporu
                         </Link>
                     </div>
 
-                    <div
-                        className="card"
-                        style={{
-                            padding: '14px 18px',
-                            fontSize: '13px',
-                            color: 'var(--muted)',
-                            maxWidth: '960px',
-                            lineHeight: 1.55,
-                        }}
-                    >
-                        <strong style={{ color: '#334155' }}>Varsayılan çalışma:</strong> Pazartesi–Cumartesi 09:00–17:30
+                    <div className="card p-3 sm:p-4 text-xs sm:text-[13px] text-slate-600 max-w-full lg:max-w-[960px] leading-relaxed max-lg:mb-2">
+                        <strong className="text-slate-700">Varsayılan çalışma:</strong> Pazartesi–Cumartesi 09:00–17:30
                         (TR), 12:30–13:30 mola → kişi başı haftalık <strong>{hoursPerPerson}</strong> net saat. Mesaiyi
                         ayrı girin; normal saati değiştirmek için hücreyi düzenleyin veya &quot;{hoursPerPerson}h/kişi&quot; ile
                         kişi sayısından doldurun.
-                        {scheduleDesc && (
-                            <span style={{ display: 'block', marginTop: '8px', fontSize: '12px' }}>{scheduleDesc}</span>
-                        )}
+                        {scheduleDesc && <span className="block mt-2 text-[11px] sm:text-xs text-slate-500">{scheduleDesc}</span>}
                     </div>
                 </header>
 
                 {message && (
                     <div
+                        className="max-lg:mb-6 mb-4 rounded-lg px-4 py-3"
                         style={{
-                            padding: '12px 16px',
-                            marginBottom: '16px',
-                            borderRadius: '8px',
                             background: message.type === 'ok' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
                             color: message.type === 'ok' ? '#166534' : '#991b1b',
                         }}
@@ -192,39 +296,35 @@ export default function KapasitePage() {
                     </div>
                 )}
 
-                <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
-                        <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px' }}>
+                <div className="card p-4 sm:p-5 mb-6 sm:mb-5 max-lg:mb-8">
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end">
+                        <div className="flex gap-1 sm:gap-2 bg-[var(--card)] p-1 rounded-lg border border-slate-200/80 w-full sm:w-auto justify-between sm:justify-start">
                             {(['DAMPER', 'DORSE', 'SASI'] as const).map(t => (
                                 <button
                                     key={t}
                                     type="button"
                                     onClick={() => setProductType(t)}
-                                    style={{
-                                        padding: '8px 16px',
-                                        borderRadius: '6px',
-                                        border: 'none',
-                                        background: productType === t ? 'var(--primary)' : 'transparent',
-                                        color: productType === t ? 'white' : 'var(--muted)',
-                                        fontWeight: 500,
-                                        cursor: 'pointer',
-                                    }}
+                                    className={`analytics-touch-target flex-1 sm:flex-none rounded-md px-3 sm:px-4 text-sm font-medium transition-colors ${
+                                        productType === t
+                                            ? 'bg-[var(--primary)] text-white shadow-sm'
+                                            : 'text-slate-600 hover:bg-slate-100'
+                                    }`}
                                 >
                                     {t === 'DAMPER' ? 'Damper' : t === 'DORSE' ? 'Dorse' : 'Şasi'}
                                 </button>
                             ))}
                         </div>
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--muted)' }}>
-                            Hafta (takvimden gün seçin; Pazartesiye hizalanır)
+                        <label className="flex flex-col gap-1 text-xs text-slate-500 flex-1 min-w-[200px]">
+                            Hafta (takvim; Pazartesiye hizalanır)
                             <input
                                 type="date"
                                 value={weekInput}
                                 onChange={e => setWeekInput(e.target.value)}
-                                style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                                className="min-h-11 px-3 rounded-lg border border-slate-200 text-base w-full max-w-xs bg-white"
                             />
                         </label>
-                        <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                            Kayıt haftası: <strong>{weekStart}</strong>
+                        <div className="text-sm text-slate-600 py-1 sm:pb-2">
+                            Kayıt haftası: <strong className="text-slate-900">{weekStart}</strong>
                         </div>
                     </div>
                 </div>
@@ -234,8 +334,25 @@ export default function KapasitePage() {
                         <Loader2 className="animate-spin" size={40} />
                     </div>
                 ) : (
-                    <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', minWidth: '720px' }}>
+                    <>
+                        <div className="lg:hidden flex flex-col gap-6 sm:gap-8 pb-10 pt-1">
+                            {rows.map(r => (
+                                <KapasiteMobileCard
+                                    key={r.mainStepKey}
+                                    r={r}
+                                    hoursPerPerson={hoursPerPerson}
+                                    savingKey={savingKey}
+                                    updateRow={updateRow}
+                                    applyStandardHours={applyStandardHours}
+                                    saveRow={saveRow}
+                                    clearRow={clearRow}
+                                    saveTargetRow={saveTargetRow}
+                                    clearTargetRow={clearTargetRow}
+                                />
+                            ))}
+                        </div>
+                        <div className="card hidden lg:block p-0 overflow-x-auto">
+                        <table className="w-full border-collapse text-sm min-w-[720px]">
                             <thead>
                                 <tr style={{ background: 'rgba(2,35,71,0.06)', textAlign: 'left' }}>
                                     <th style={{ padding: '12px 16px' }}>Bölüm</th>
@@ -367,6 +484,7 @@ export default function KapasitePage() {
                             </tbody>
                         </table>
                     </div>
+                    </>
                 )}
             </main>
         </AuthGuard>

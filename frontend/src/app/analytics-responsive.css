@@ -1,0 +1,30 @@
+/* Verimlilik, Bölüm kapasitesi, İşlem kayıtları — tablet & telefon */
+
+.analytics-page .analytics-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 1023px) {
+  .analytics-page .header-title {
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+
+  .analytics-page .header-subtitle {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 639px) {
+  .analytics-page .header-title {
+    font-size: 1.2rem;
+  }
+
+  .analytics-page .header-title svg {
+    width: 26px;
+    height: 26px;
+  }
+}

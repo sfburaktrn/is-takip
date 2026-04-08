@@ -1,0 +1,7 @@
+{
+  "name": "is-takip-1",
+  "private": true,
+  "scripts": {
+    "test": "npm run test --prefix test"
+  }
+}

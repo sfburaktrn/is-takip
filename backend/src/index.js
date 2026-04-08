@@ -6,7 +6,10 @@ const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient, Prisma } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma =
+    process.env.MOCK_PRISMA === '1'
+        ? require('../test-support/prismaMock.js')
+        : new PrismaClient();
 
 /** SQL LIKE/ILIKE özel karakterlerini kaçır */
 function escapeSqlLikePattern(q) {
@@ -173,14 +176,17 @@ app.use(session({
     }
 }));
 
-// Rate Limiter - Login brute force koruması
-const loginLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 saat
-    max: 10, // IP başına 10 deneme
-    message: { error: 'Çok fazla giriş denemesi. Lütfen 1 saat sonra tekrar deneyin.' },
-    standardHeaders: true,
-    legacyHeaders: false,
-});
+// Rate Limiter - Login brute force koruması (API testlerinde MOCK_PRISMA ile kapatılır)
+const loginLimiter =
+    process.env.DISABLE_RATE_LIMIT === '1'
+        ? (req, res, next) => next()
+        : rateLimit({
+              windowMs: 60 * 60 * 1000, // 1 saat
+              max: 10, // IP başına 10 deneme
+              message: { error: 'Çok fazla giriş denemesi. Lütfen 1 saat sonra tekrar deneyin.' },
+              standardHeaders: true,
+              legacyHeaders: false,
+          });
 
 // Auth Middleware - Giriş kontrolü
 const requireAuth = (req, res, next) => {
@@ -2614,4 +2620,8 @@ async function startServer() {
     });
 }
 
-startServer();
+module.exports = { app, prisma, startServer };
+
+if (require.main === module) {
+    startServer();
+}

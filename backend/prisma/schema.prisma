@@ -240,3 +240,30 @@ model WeeklyStepTarget {
   @@unique([productType, mainStepKey, weekStart])
   @@index([productType, weekStart])
 }
+
+/// Teklif Takip → İmalat Takip: onaylı teklif özeti (Damper/Dorse satırlarına dokunmaz).
+model ProposalIngest {
+  id                 Int       @id @default(autoincrement())
+  sourceProposalId   String    @unique @map("source_proposal_id")
+  companyName        String    @map("company_name")
+  proposalDate       DateTime  @map("proposal_date")
+  quantity           Float
+  equipment          String?
+  vehicle            String?
+  volume             String?
+  thickness          String?
+  deliveryDate       DateTime? @map("delivery_date")
+  contactPerson      String?   @map("contact_person")
+  notes              String?   @db.Text
+  ownerEmail         String?   @map("owner_email")
+  pushedAt           DateTime  @map("pushed_at")
+  pushedBy           String?   @map("pushed_by")
+  approvalLoggedAt   DateTime? @map("approval_logged_at")
+  imalataAlindi      Boolean   @default(false) @map("imalata_alindi")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([pushedAt])
+  @@index([imalataAlindi])
+  @@map("proposal_ingest")
+}

@@ -572,6 +572,59 @@ export async function getVerimlilik(
     return handleResponse<VerimlilikResponse>(res);
 }
 
+/** Teklif Takip'ten gelen onaylı teklif özeti. */
+export interface ProposalIngestRow {
+    id: number;
+    sourceProposalId: string;
+    companyName: string;
+    proposalDate: string;
+    quantity: number;
+    equipment: string | null;
+    vehicle: string | null;
+    volume: string | null;
+    thickness: string | null;
+    deliveryDate: string | null;
+    contactPerson: string | null;
+    notes: string | null;
+    ownerEmail: string | null;
+    pushedAt: string;
+    pushedBy: string | null;
+    approvalLoggedAt: string | null;
+    imalataAlindi: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export async function getProposalIngestList(limit = 300): Promise<ProposalIngestRow[]> {
+    const q = new URLSearchParams({ limit: String(limit) });
+    const res = await fetch(`${API_URL}/integrations/teklif-takip/proposals?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<ProposalIngestRow[]>(res);
+}
+
+export async function patchProposalIngest(id: number, imalataAlindi: boolean): Promise<ProposalIngestRow> {
+    const res = await fetch(`${API_URL}/integrations/teklif-takip/proposals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ imalataAlindi }),
+    });
+    return handleResponse<ProposalIngestRow>(res);
+}
+
+export async function deleteProposalIngest(id: number): Promise<void> {
+    const res = await fetch(`${API_URL}/integrations/teklif-takip/proposals/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`API Error: ${res.status} ${res.statusText} - ${text.substring(0, 500)}`);
+    }
+}
+
 export interface CapacityScheduleDefaults {
     workDaysPerWeek: number;
     netHoursPerDay: number;

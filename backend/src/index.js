@@ -207,6 +207,51 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
+/** Teklif Takip sunucu-sunucu ingest: Bearer IMALAT_INGEST_SECRET (oturum kullanılmaz). */
+function requireTeklifIngestSecret(req, res, next) {
+    const secret = process.env.IMALAT_INGEST_SECRET;
+    if (!secret || String(secret).trim() === '') {
+        return res.status(503).json({ error: 'Entegrasyon yapılandırılmamış' });
+    }
+    const h = req.headers.authorization;
+    if (!h || typeof h !== 'string' || !h.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Yetkisiz' });
+    }
+    const token = h.slice(7).trim();
+    if (token !== secret) {
+        return res.status(401).json({ error: 'Yetkisiz' });
+    }
+    next();
+}
+
+function strOrNull(v) {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    return s === '' ? null : s;
+}
+
+function parseRequiredIsoDate(val, field) {
+    if (val === null || val === undefined || val === '') {
+        return { ok: false, error: `${field} zorunlu` };
+    }
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) {
+        return { ok: false, error: `${field} geçersiz tarih` };
+    }
+    return { ok: true, date: d };
+}
+
+function parseOptionalIsoDate(val) {
+    if (val === null || val === undefined || val === '') {
+        return { ok: true, date: null };
+    }
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) {
+        return { ok: false, error: 'Geçersiz tarih' };
+    }
+    return { ok: true, date: d };
+}
+
 // Step group definitions - which sub-steps belong to which main step
 const STEP_GROUPS = {
     kesimBukum: {
@@ -2532,6 +2577,151 @@ app.get('/api/analytics/verimlilik', requireAuth, async (req, res) => {
             error: `Verimlilik verisi alınamadı.${hint}`,
             code: error.code || undefined
         });
+    }
+});
+
+/** Teklif Takip → İmalat Takip: onaylı teklif özeti (Damper/Dorse/Şasi kayıtlarına dokunmaz). */
+app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, async (req, res) => {
+    try {
+        const b = req.body;
+        if (!b || typeof b !== 'object' || Array.isArray(b)) {
+            return res.status(400).json({ error: 'Geçersiz gövde' });
+        }
+        const sourceProposalId = strOrNull(b.sourceProposalId);
+        if (!sourceProposalId) {
+            return res.status(400).json({ error: 'sourceProposalId zorunlu' });
+        }
+        const companyName = strOrNull(b.companyName);
+        if (!companyName) {
+            return res.status(400).json({ error: 'companyName zorunlu' });
+        }
+        const pd = parseRequiredIsoDate(b.proposalDate, 'proposalDate');
+        if (!pd.ok) return res.status(400).json({ error: pd.error });
+        const qn = Number(b.quantity);
+        if (!Number.isFinite(qn)) {
+            return res.status(400).json({ error: 'quantity sayısal olmalı' });
+        }
+        const pushed = parseRequiredIsoDate(b.pushedAt, 'pushedAt');
+        if (!pushed.ok) return res.status(400).json({ error: pushed.error });
+
+        let deliveryDate = null;
+        if (b.deliveryDate !== null && b.deliveryDate !== undefined && b.deliveryDate !== '') {
+            const dd = parseOptionalIsoDate(b.deliveryDate);
+            if (!dd.ok) return res.status(400).json({ error: 'deliveryDate geçersiz' });
+            deliveryDate = dd.date;
+        }
+        let approvalLoggedAt = null;
+        if (b.approvalLoggedAt !== null && b.approvalLoggedAt !== undefined && b.approvalLoggedAt !== '') {
+            const ad = parseOptionalIsoDate(b.approvalLoggedAt);
+            if (!ad.ok) return res.status(400).json({ error: 'approvalLoggedAt geçersiz' });
+            approvalLoggedAt = ad.date;
+        }
+
+        const row = await prisma.proposalIngest.upsert({
+            where: { sourceProposalId },
+            create: {
+                sourceProposalId,
+                companyName,
+                proposalDate: pd.date,
+                quantity: qn,
+                equipment: strOrNull(b.equipment),
+                vehicle: strOrNull(b.vehicle),
+                volume: strOrNull(b.volume),
+                thickness: strOrNull(b.thickness),
+                deliveryDate,
+                contactPerson: strOrNull(b.contactPerson),
+                notes: strOrNull(b.notes),
+                ownerEmail: strOrNull(b.ownerEmail),
+                pushedAt: pushed.date,
+                pushedBy: strOrNull(b.pushedBy),
+                approvalLoggedAt
+            },
+            update: {
+                companyName,
+                proposalDate: pd.date,
+                quantity: qn,
+                equipment: strOrNull(b.equipment),
+                vehicle: strOrNull(b.vehicle),
+                volume: strOrNull(b.volume),
+                thickness: strOrNull(b.thickness),
+                deliveryDate,
+                contactPerson: strOrNull(b.contactPerson),
+                notes: strOrNull(b.notes),
+                ownerEmail: strOrNull(b.ownerEmail),
+                pushedAt: pushed.date,
+                pushedBy: strOrNull(b.pushedBy),
+                approvalLoggedAt
+            }
+        });
+        res.status(200).json({ ok: true, id: row.id });
+    } catch (error) {
+        console.error('teklif-takip ingest:', error);
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması eksik olabilir: npx prisma migrate deploy'
+                : '';
+        res.status(500).json({ error: `Kayıt işlenemedi.${hint}` });
+    }
+});
+
+app.get('/api/integrations/teklif-takip/proposals', requireAuth, async (req, res) => {
+    try {
+        let limit = parseInt(String(req.query.limit || ''), 10);
+        if (!Number.isFinite(limit) || limit < 1) limit = 300;
+        if (limit > 500) limit = 500;
+        const rows = await prisma.proposalIngest.findMany({
+            orderBy: [{ imalataAlindi: 'asc' }, { pushedAt: 'desc' }],
+            take: limit
+        });
+        res.json(rows);
+    } catch (error) {
+        console.error('teklif-takip proposals:', error);
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması eksik olabilir: npx prisma migrate deploy'
+                : '';
+        res.status(500).json({ error: `Liste alınamadı.${hint}` });
+    }
+});
+
+app.patch('/api/integrations/teklif-takip/proposals/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const { imalataAlindi } = req.body || {};
+        if (typeof imalataAlindi !== 'boolean') {
+            return res.status(400).json({ error: 'imalataAlindi (boolean) gerekli' });
+        }
+        const row = await prisma.proposalIngest.update({
+            where: { id },
+            data: { imalataAlindi }
+        });
+        res.json(row);
+    } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        console.error('teklif-takip patch proposal:', error);
+        res.status(500).json({ error: 'Güncellenemedi' });
+    }
+});
+
+app.delete('/api/integrations/teklif-takip/proposals/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        await prisma.proposalIngest.delete({ where: { id } });
+        res.status(204).send();
+    } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        console.error('teklif-takip delete proposal:', error);
+        res.status(500).json({ error: 'Silinemedi' });
     }
 });
 

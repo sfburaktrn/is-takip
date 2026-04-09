@@ -13,6 +13,7 @@ import {
     Building2,
     LineChart,
     Gauge,
+    Briefcase,
     Settings,
     FileText,
     Menu,
@@ -78,6 +79,7 @@ export default function Sidebar() {
         { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
         { href: '/analiz', label: 'Analiz', icon: LineChart },
         { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
+        { href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
     ];
 
     const adminMenuItems = [

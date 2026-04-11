@@ -591,6 +591,9 @@ export interface ProposalIngestRow {
     pushedBy: string | null;
     approvalLoggedAt: string | null;
     imalataAlindi: boolean;
+    teknikPdfUrl: string | null;
+    manufacturingNot: string | null;
+    manufacturingAciliyet: 'Normal' | 'Acil' | 'Çok Acil' | null;
     createdAt: string;
     updatedAt: string;
 }

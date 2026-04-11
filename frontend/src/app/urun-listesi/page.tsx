@@ -1966,7 +1966,9 @@ function UrunListesiContent() {
                                                                 </div>
                                                             </div>
                                                             <input
-                                                                type="number"
+                                                                type="text"
+                                                                inputMode="numeric"
+                                                                autoComplete="off"
                                                                 className="input"
                                                                 style={{
                                                                     width: '100px',
@@ -1976,10 +1978,11 @@ function UrunListesiContent() {
                                                                     height: '34px'
                                                                 }}
                                                                 placeholder="İmalat No"
-                                                                value={damper.imalatNo ?? ''}
+                                                                value={damper.imalatNo != null ? String(damper.imalatNo) : ''}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 onChange={async (e) => {
-                                                                    const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                                                    const digits = e.target.value.replace(/\D/g, '');
+                                                                    const newImalatNo = digits === '' ? null : parseInt(digits, 10);
                                                                     const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
                                                                     setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
                                                                 }}
@@ -2352,11 +2355,22 @@ function UrunListesiContent() {
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.imalatNo}</div>
                                                             </div>
-                                                            <input type="number" className="input" style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }} value={sasi.imalatNo || ''} onChange={async (e) => {
-                                                                const val = e.target.value ? parseInt(e.target.value) : null;
-                                                                const updated = await updateSasi(sasi.id, { imalatNo: val });
-                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
-                                                            }} onClick={e => e.stopPropagation()} />
+                                                            <input
+                                                                type="text"
+                                                                inputMode="numeric"
+                                                                autoComplete="off"
+                                                                className="input"
+                                                                style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }}
+                                                                placeholder="No"
+                                                                value={sasi.imalatNo != null ? String(sasi.imalatNo) : ''}
+                                                                onChange={async (e) => {
+                                                                    const digits = e.target.value.replace(/\D/g, '');
+                                                                    const val = digits === '' ? null : parseInt(digits, 10);
+                                                                    const updated = await updateSasi(sasi.id, { imalatNo: val });
+                                                                    setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                                }}
+                                                                onClick={e => e.stopPropagation()}
+                                                            />
                                                         </div>
 
 
@@ -2529,21 +2543,24 @@ function UrunListesiContent() {
                                                                 </div>
                                                             </div>
                                                             <input
-                                                                type="number"
+                                                                type="text"
+                                                                inputMode="numeric"
+                                                                autoComplete="off"
                                                                 className="input"
-                                                                style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
-                                                                placeholder="İmalat No"
-                                                                value={dorse.imalatNo ?? ''}
+                                                                style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                                placeholder="No"
+                                                                value={dorse.imalatNo != null ? String(dorse.imalatNo) : ''}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 onChange={async (e) => {
-                                                                    const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                                                    const digits = e.target.value.replace(/\D/g, '');
+                                                                    const newImalatNo = digits === '' ? null : parseInt(digits, 10);
                                                                     const updated = await updateDorse(dorse.id, { imalatNo: newImalatNo });
                                                                     setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                                                                 }}
                                                             />
                                                         </div>
 
-                                                        {/* Şasi No */}
+                                                        {/* Silindir */}
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
@@ -2555,24 +2572,59 @@ function UrunListesiContent() {
                                                             gap: '12px'
                                                         }}>
                                                             <div>
-                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
-                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.sasiNo ? 'var(--muted)' : 'var(--foreground)' }}>
-                                                                    {dorse.sasiNo ?? 'Girilmedi'}
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>SİLİNDİR</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {dorse.silindir || '-'}
                                                                 </div>
                                                             </div>
                                                             <input
                                                                 type="text"
                                                                 className="input"
                                                                 style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
-                                                                placeholder="Şasi No"
-                                                                value={dorse.sasiNo ?? ''}
+                                                                placeholder="Silindir"
+                                                                value={dorse.silindir ?? ''}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 onChange={async (e) => {
-                                                                    const newSasiNo = e.target.value;
-                                                                    const updated = await updateDorse(dorse.id, { sasiNo: newSasiNo });
+                                                                    const newSilindir = e.target.value;
+                                                                    const updated = await updateDorse(dorse.id, { silindir: newSilindir });
                                                                     setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                                                                 }}
                                                             />
+                                                        </div>
+
+                                                        {/* Malzeme Cinsi */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MALZEME CİNSİ</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {dorse.malzemeCinsi || '-'}
+                                                                </div>
+                                                            </div>
+                                                            <select
+                                                                className="select"
+                                                                style={{ width: '100px', padding: '6px 10px', fontSize: '12px', height: '34px' }}
+                                                                value={dorse.malzemeCinsi ?? ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newMalzemeCinsi = e.target.value;
+                                                                    const updated = await updateDorse(dorse.id, { malzemeCinsi: newMalzemeCinsi });
+                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                }}
+                                                            >
+                                                                <option value="">Seçiniz</option>
+                                                                {dropdowns?.malzemeCinsi.map(m => (
+                                                                    <option key={m} value={m}>{m}</option>
+                                                                ))}
+                                                            </select>
                                                         </div>
 
                                                         {/* Kalınlık */}
@@ -2588,57 +2640,20 @@ function UrunListesiContent() {
                                                         }}>
                                                             <div>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>KALINLIK</div>
-                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.kalinlik ? 'var(--muted)' : 'var(--foreground)' }}>
-                                                                    {dorse.kalinlik ?? 'Girilmedi'}
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {dorse.kalinlik || '-'}
                                                                 </div>
                                                             </div>
                                                             <input
                                                                 type="text"
                                                                 className="input"
-                                                                style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                                style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
                                                                 placeholder="Kalınlık"
                                                                 value={dorse.kalinlik ?? ''}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 onChange={async (e) => {
                                                                     const newKalinlik = e.target.value;
                                                                     const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
-                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
-                                                                }}
-                                                            />
-                                                        </div>
-
-                                                        {/* Renk - Düzenlenebilir */}
-                                                        <div style={{
-                                                            background: 'var(--card-bg-secondary)',
-                                                            padding: '12px 16px',
-                                                            borderRadius: '10px',
-                                                            border: '1px solid var(--border)',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            gap: '12px'
-                                                        }}>
-                                                            <div>
-                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
-                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: dorse.renk ? 'var(--foreground)' : 'var(--muted)' }}>
-                                                                    {dorse.renk || 'Girilmedi'}
-                                                                </div>
-                                                            </div>
-                                                            <input
-                                                                type="text"
-                                                                className="input"
-                                                                style={{
-                                                                    width: '100px',
-                                                                    padding: '6px 10px',
-                                                                    fontSize: '13px',
-                                                                    height: '34px'
-                                                                }}
-                                                                placeholder="Renk"
-                                                                value={dorse.renk || ''}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
-                                                                    const newRenk = e.target.value;
-                                                                    const updated = await updateDorse(dorse.id, { renk: newRenk });
                                                                     setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                                                                 }}
                                                             />
@@ -2671,13 +2686,24 @@ function UrunListesiContent() {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <button
-                                                                className="btn btn-primary"
-                                                                onClick={(e) => { e.stopPropagation(); openLinkModal(dorse); }}
-                                                                style={{ fontSize: '13px', padding: '8px 16px' }}
-                                                            >
-                                                                {dorse.sasi ? <><LinkIcon size={14} /> Şasiyi Değiştir</> : <><LinkIcon size={14} /> Şasi Bağla</>}
-                                                            </button>
+                                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                                <button
+                                                                    className="btn btn-primary"
+                                                                    onClick={(e) => { e.stopPropagation(); openLinkModal(dorse); }}
+                                                                    style={{ fontSize: '13px', padding: '8px 16px' }}
+                                                                >
+                                                                    {dorse.sasi ? <><LinkIcon size={14} /> Şasiyi Değiştir</> : <><LinkIcon size={14} /> Şasi Bağla</>}
+                                                                </button>
+                                                                {dorse.sasi && (
+                                                                    <button
+                                                                        className="btn btn-danger"
+                                                                        onClick={(e) => { e.stopPropagation(); handleUnlinkSasi(dorse.id); }}
+                                                                        style={{ fontSize: '13px', padding: '8px 16px' }}
+                                                                    >
+                                                                        <X size={14} /> Şasiyi Kaldır
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </div>
 
                                                         {/* Çekici Durumu */}
@@ -2693,7 +2719,7 @@ function UrunListesiContent() {
                                                             <div>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ÇEKİCİ DURUMU</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                    {dorse.cekiciGeldiMi ? 'Çekici Fabrikada' : 'Çekici Gelmedi'}
+                                                                    {dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}
                                                                 </div>
                                                             </div>
                                                             <div
@@ -2742,6 +2768,43 @@ function UrunListesiContent() {
                                                                     onClick={(e) => e.stopPropagation()}
                                                                 />
                                                             </div>
+                                                        </div>
+
+                                                        {/* Renk */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: dorse.renk ? 'var(--foreground)' : 'var(--muted)' }}>
+                                                                    {dorse.renk || 'Girilmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                className="input"
+                                                                style={{
+                                                                    width: '100px',
+                                                                    padding: '6px 10px',
+                                                                    fontSize: '13px',
+                                                                    height: '34px'
+                                                                }}
+                                                                placeholder="Renk"
+                                                                value={dorse.renk || ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={async (e) => {
+                                                                    const newRenk = e.target.value;
+                                                                    const updated = await updateDorse(dorse.id, { renk: newRenk });
+                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                }}
+                                                            />
                                                         </div>
 
                                                         {/* Tarih */}
@@ -2953,7 +3016,9 @@ function UrunListesiContent() {
                                                             </div>
                                                         </div>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            autoComplete="off"
                                                             className="input"
                                                             style={{
                                                                 width: '100px',
@@ -2963,10 +3028,11 @@ function UrunListesiContent() {
                                                                 height: '34px'
                                                             }}
                                                             placeholder="İmalat No"
-                                                            value={damper.imalatNo ?? ''}
+                                                            value={damper.imalatNo != null ? String(damper.imalatNo) : ''}
                                                             onClick={(e) => e.stopPropagation()}
                                                             onChange={async (e) => {
-                                                                const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                                                const digits = e.target.value.replace(/\D/g, '');
+                                                                const newImalatNo = digits === '' ? null : parseInt(digits, 10);
                                                                 const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
                                                                 setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
                                                             }}
@@ -3310,11 +3376,22 @@ function UrunListesiContent() {
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.imalatNo}</div>
                                                         </div>
-                                                        <input type="number" className="input" style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }} value={sasi.imalatNo || ''} onChange={async (e) => {
-                                                            const val = e.target.value ? parseInt(e.target.value) : null;
-                                                            const updated = await updateSasi(sasi.id, { imalatNo: val });
-                                                            setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
-                                                        }} onClick={e => e.stopPropagation()} />
+                                                        <input
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            autoComplete="off"
+                                                            className="input"
+                                                            style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }}
+                                                            placeholder="No"
+                                                            value={sasi.imalatNo != null ? String(sasi.imalatNo) : ''}
+                                                            onChange={async (e) => {
+                                                                const digits = e.target.value.replace(/\D/g, '');
+                                                                const val = digits === '' ? null : parseInt(digits, 10);
+                                                                const updated = await updateSasi(sasi.id, { imalatNo: val });
+                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                            }}
+                                                            onClick={e => e.stopPropagation()}
+                                                        />
                                                     </div>
 
 
@@ -3494,21 +3571,24 @@ function UrunListesiContent() {
                                                             </div>
                                                         </div>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            autoComplete="off"
                                                             className="input"
-                                                            style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
-                                                            placeholder="İmalat No"
-                                                            value={dorse.imalatNo ?? ''}
+                                                            style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                            placeholder="No"
+                                                            value={dorse.imalatNo != null ? String(dorse.imalatNo) : ''}
                                                             onClick={(e) => e.stopPropagation()}
                                                             onChange={async (e) => {
-                                                                const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                                                const digits = e.target.value.replace(/\D/g, '');
+                                                                const newImalatNo = digits === '' ? null : parseInt(digits, 10);
                                                                 const updated = await updateDorse(dorse.id, { imalatNo: newImalatNo });
                                                                 setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                                                             }}
                                                         />
                                                     </div>
 
-                                                    {/* Şasi No */}
+                                                    {/* Silindir */}
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
@@ -3520,24 +3600,59 @@ function UrunListesiContent() {
                                                         gap: '12px'
                                                     }}>
                                                         <div>
-                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
-                                                            <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.sasiNo ? 'var(--muted)' : 'var(--foreground)' }}>
-                                                                {dorse.sasiNo ?? 'Girilmedi'}
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>SİLİNDİR</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                {dorse.silindir || '-'}
                                                             </div>
                                                         </div>
                                                         <input
                                                             type="text"
                                                             className="input"
                                                             style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
-                                                            placeholder="Şasi No"
-                                                            value={dorse.sasiNo ?? ''}
+                                                            placeholder="Silindir"
+                                                            value={dorse.silindir ?? ''}
                                                             onClick={(e) => e.stopPropagation()}
                                                             onChange={async (e) => {
-                                                                const newSasiNo = e.target.value;
-                                                                const updated = await updateDorse(dorse.id, { sasiNo: newSasiNo });
+                                                                const newSilindir = e.target.value;
+                                                                const updated = await updateDorse(dorse.id, { silindir: newSilindir });
                                                                 setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                                                             }}
                                                         />
+                                                    </div>
+
+                                                    {/* Malzeme Cinsi */}
+                                                    <div style={{
+                                                        background: 'var(--card-bg-secondary)',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '12px'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MALZEME CİNSİ</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                {dorse.malzemeCinsi || '-'}
+                                                            </div>
+                                                        </div>
+                                                        <select
+                                                            className="select"
+                                                            style={{ width: '100px', padding: '6px 10px', fontSize: '12px', height: '34px' }}
+                                                            value={dorse.malzemeCinsi ?? ''}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onChange={async (e) => {
+                                                                const newMalzemeCinsi = e.target.value;
+                                                                const updated = await updateDorse(dorse.id, { malzemeCinsi: newMalzemeCinsi });
+                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                            }}
+                                                        >
+                                                            <option value="">Seçiniz</option>
+                                                            {dropdowns?.malzemeCinsi.map(m => (
+                                                                <option key={m} value={m}>{m}</option>
+                                                            ))}
+                                                        </select>
                                                     </div>
 
                                                     {/* Kalınlık */}
@@ -3553,14 +3668,14 @@ function UrunListesiContent() {
                                                     }}>
                                                         <div>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>KALINLIK</div>
-                                                            <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.kalinlik ? 'var(--muted)' : 'var(--foreground)' }}>
-                                                                {dorse.kalinlik ?? 'Girilmedi'}
+                                                            <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                {dorse.kalinlik || '-'}
                                                             </div>
                                                         </div>
                                                         <input
                                                             type="text"
                                                             className="input"
-                                                            style={{ width: '100px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                                            style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
                                                             placeholder="Kalınlık"
                                                             value={dorse.kalinlik ?? ''}
                                                             onClick={(e) => e.stopPropagation()}
@@ -3632,7 +3747,7 @@ function UrunListesiContent() {
                                                         <div>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ÇEKİCİ DURUMU</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                {dorse.cekiciGeldiMi ? 'Çekici Fabrikada' : 'Çekici Gelmedi'}
+                                                                {dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}
                                                             </div>
                                                         </div>
                                                         <div
@@ -3681,6 +3796,43 @@ function UrunListesiContent() {
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
                                                         </div>
+                                                    </div>
+
+                                                    {/* Renk */}
+                                                    <div style={{
+                                                        background: 'var(--card-bg-secondary)',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '12px'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500, color: dorse.renk ? 'var(--foreground)' : 'var(--muted)' }}>
+                                                                {dorse.renk || 'Girilmedi'}
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            className="input"
+                                                            style={{
+                                                                width: '100px',
+                                                                padding: '6px 10px',
+                                                                fontSize: '13px',
+                                                                height: '34px'
+                                                            }}
+                                                            placeholder="Renk"
+                                                            value={dorse.renk || ''}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onChange={async (e) => {
+                                                                const newRenk = e.target.value;
+                                                                const updated = await updateDorse(dorse.id, { renk: newRenk });
+                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                            }}
+                                                        />
                                                     </div>
 
                                                     {/* Tarih */}

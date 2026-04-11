@@ -82,8 +82,10 @@ export default function Sidebar() {
         { href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
     ];
 
-    const adminMenuItems = [
-        { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
+    const kapasiteMenuItem = { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users };
+    const KapasiteSidebarIcon = kapasiteMenuItem.icon;
+
+    const adminOnlyMenuItems = [
         { href: '/islem-kayitlari', label: 'İşlem kayıtları', icon: History },
         { href: '/ayarlar', label: 'Ayarlar', icon: Settings },
         { href: '/giris-loglari', label: 'Giriş Logları', icon: FileText },
@@ -262,7 +264,7 @@ export default function Sidebar() {
                         </Link>
                     ))}
 
-                    {isAdmin && (
+                    {user && (
                         <>
                             <div style={{
                                 padding: '10px 10px 4px',
@@ -275,18 +277,28 @@ export default function Sidebar() {
                             }}>
                                 YÖNETİM
                             </div>
-                            {adminMenuItems.map((item) => (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
-                                    onClick={() => setIsOpen(false)}
-                                    suppressHydrationWarning
-                                >
-                                    <item.icon size={20} />
-                                    <span>{item.label}</span>
-                                </Link>
-                            ))}
+                            <Link
+                                href={kapasiteMenuItem.href}
+                                className={`sidebar-item ${pathname === kapasiteMenuItem.href ? 'active' : ''}`}
+                                onClick={() => setIsOpen(false)}
+                                suppressHydrationWarning
+                            >
+                                <KapasiteSidebarIcon size={20} />
+                                <span>{kapasiteMenuItem.label}</span>
+                            </Link>
+                            {isAdmin &&
+                                adminOnlyMenuItems.map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
+                                        onClick={() => setIsOpen(false)}
+                                        suppressHydrationWarning
+                                    >
+                                        <item.icon size={20} />
+                                        <span>{item.label}</span>
+                                    </Link>
+                                ))}
                         </>
                     )}
                 </nav>

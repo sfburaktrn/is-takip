@@ -258,10 +258,13 @@ model ProposalIngest {
   ownerEmail         String?   @map("owner_email")
   pushedAt           DateTime  @map("pushed_at")
   pushedBy           String?   @map("pushed_by")
-  approvalLoggedAt   DateTime? @map("approval_logged_at")
-  imalataAlindi      Boolean   @default(false) @map("imalata_alindi")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  approvalLoggedAt       DateTime? @map("approval_logged_at")
+  imalataAlindi          Boolean   @default(false) @map("imalata_alindi")
+  teknikPdfUrl           String?   @map("teknik_pdf_url")
+  manufacturingNot       String?   @map("manufacturing_not") @db.Text
+  manufacturingAciliyet  String?   @map("manufacturing_aciliyet")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   @@index([pushedAt])
   @@index([imalataAlindi])

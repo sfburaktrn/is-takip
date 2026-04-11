@@ -1653,7 +1653,9 @@ function DashboardContent() {
                                 </div>
                               </div>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="off"
                                 className="input"
                                 style={{
                                   width: '100px',
@@ -1663,10 +1665,11 @@ function DashboardContent() {
                                   height: '34px'
                                 }}
                                 placeholder="İmalat No"
-                                value={damper.imalatNo ?? ''}
+                                value={damper.imalatNo != null ? String(damper.imalatNo) : ''}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={async (e) => {
-                                  const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                  const digits = e.target.value.replace(/\D/g, '');
+                                  const newImalatNo = digits === '' ? null : parseInt(digits, 10);
                                   const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
                                   setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
                                 }}
@@ -2058,14 +2061,17 @@ function DashboardContent() {
                                 </div>
                               </div>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="off"
                                 className="input"
                                 style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
                                 placeholder="No"
-                                value={dorse.imalatNo ?? ''}
+                                value={dorse.imalatNo != null ? String(dorse.imalatNo) : ''}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={async (e) => {
-                                  const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
+                                  const digits = e.target.value.replace(/\D/g, '');
+                                  const newImalatNo = digits === '' ? null : parseInt(digits, 10);
                                   const updated = await updateDorse(dorse.id, { imalatNo: newImalatNo });
                                   setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
                                 }}
@@ -2477,11 +2483,11 @@ function DashboardContent() {
                             borderRadius: '6px',
                             fontSize: '12px'
                           }}>
-                            ŞASİ
+                            {sasi.tampon || '-'}
                           </span>
                         </div>
                         <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                          {sasi.tampon} | {sasi.dingil}
+                          {sasi.sasiNo || '-'} | {sasi.dingil || '-'}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
@@ -2503,108 +2509,165 @@ function DashboardContent() {
                             paddingBottom: '20px',
                             borderBottom: '1px solid var(--border)'
                           }}>
-                            {/* İmalat No */}
+                            {/* Şasi no (imalat no) */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
                               borderRadius: '10px',
-                              border: !sasi.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
+                              border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '12px'
+                              justifyContent: 'space-between'
                             }}>
                               <div>
                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
-                                <div style={{ fontSize: '14px', fontWeight: 500, color: !sasi.imalatNo ? 'var(--warning)' : 'var(--foreground)' }}>
-                                  {sasi.imalatNo ?? 'Girilmedi'}
-                                </div>
+                                <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.imalatNo}</div>
                               </div>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="off"
                                 className="input"
-                                style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
+                                style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }}
                                 placeholder="No"
-                                value={sasi.imalatNo ?? ''}
+                                value={sasi.imalatNo != null ? String(sasi.imalatNo) : ''}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={async (e) => {
-                                  const newImalatNo = e.target.value ? parseInt(e.target.value) : null;
-                                  const updated = await updateSasi(sasi.id, { imalatNo: newImalatNo });
+                                  const digits = e.target.value.replace(/\D/g, '');
+                                  const val = digits === '' ? null : parseInt(digits, 10);
+                                  const updated = await updateSasi(sasi.id, { imalatNo: val });
                                   setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
                                 }}
                               />
                             </div>
 
+                            {/* Müşteri */}
+                            <div style={{
+                              background: 'var(--card-bg-secondary)',
+                              padding: '12px 16px',
+                              borderRadius: '10px',
+                              border: '1px solid var(--border)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}>
+                              <div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MÜŞTERİ / İSİM</div>
+                                <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.musteri}</div>
+                              </div>
+                              <input
+                                type="text"
+                                className="input"
+                                style={{ width: '120px', padding: '4px', fontSize: '13px' }}
+                                value={sasi.musteri || ''}
+                                onChange={async (e) => {
+                                  const updated = await updateSasi(sasi.id, { musteri: e.target.value });
+                                  setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="İsim Giriniz"
+                              />
+                            </div>
 
-                            {/* Dingil & Tampon */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                              <div style={{
-                                background: 'var(--card-bg-secondary)',
-                                padding: '12px 16px',
-                                borderRadius: '10px',
-                                border: '1px solid var(--border)',
-                              }}>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
-                                <select
-                                  className="select"
-                                  style={{
-                                    width: '100%',
-                                    padding: '4px',
-                                    fontSize: '13px',
-                                    background: 'var(--card-bg-secondary)',
-                                    border: 'none',
-                                    color: 'var(--foreground)'
-                                  }}
-                                  value={sasi.dingil || ''}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={async (e) => {
-                                    const updated = await updateSasi(sasi.id, { dingil: e.target.value });
-                                    setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
-                                  }}
-                                >
-                                  <option style={{ color: 'black' }} value="">Seçiniz</option>
-                                  <option style={{ color: 'black' }} value="TRAX">TRAX</option>
-                                  <option style={{ color: 'black' }} value="BPW">BPW</option>
-                                </select>
+                            {/* Tampon */}
+                            <div style={{
+                              background: 'var(--card-bg-secondary)',
+                              padding: '12px 16px',
+                              borderRadius: '10px',
+                              border: '1px solid var(--border)'
+                            }}>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
+                              <select
+                                className="select"
+                                style={{
+                                  width: '100%',
+                                  padding: '4px',
+                                  fontSize: '13px',
+                                  background: 'var(--card-bg-secondary)',
+                                  border: 'none',
+                                  color: 'var(--foreground)'
+                                }}
+                                value={sasi.tampon || ''}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={async (e) => {
+                                  const updated = await updateSasi(sasi.id, { tampon: e.target.value });
+                                  setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                }}
+                              >
+                                <option style={{ color: 'black' }} value="">Seçiniz</option>
+                                <option style={{ color: 'black' }} value="Kırma Tampon">KIRMA</option>
+                                <option style={{ color: 'black' }} value="Sabit Tampon">SABİT</option>
+                              </select>
+                            </div>
+
+                            {/* Dingil */}
+                            <div style={{
+                              background: 'var(--card-bg-secondary)',
+                              padding: '12px 16px',
+                              borderRadius: '10px',
+                              border: '1px solid var(--border)'
+                            }}>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
+                              <select
+                                className="select"
+                                style={{
+                                  width: '100%',
+                                  padding: '4px',
+                                  fontSize: '13px',
+                                  background: 'var(--card-bg-secondary)',
+                                  border: 'none',
+                                  color: 'var(--foreground)'
+                                }}
+                                value={sasi.dingil || ''}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={async (e) => {
+                                  const updated = await updateSasi(sasi.id, { dingil: e.target.value });
+                                  setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                }}
+                              >
+                                <option style={{ color: 'black' }} value="">Seçiniz</option>
+                                <option style={{ color: 'black' }} value="TRAX">TRAX</option>
+                                <option style={{ color: 'black' }} value="BPW">BPW</option>
+                              </select>
+                            </div>
+
+                            {/* Tarih */}
+                            <div style={{
+                              background: 'var(--card-bg-secondary)',
+                              padding: '12px 16px',
+                              borderRadius: '10px',
+                              border: '1px solid var(--border)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}>
+                              <div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TARİH</div>
+                                <div style={{ fontSize: '13px' }}>{sasi.createdAt ? new Date(sasi.createdAt).toLocaleDateString() : '-'}</div>
                               </div>
-                              <div style={{
-                                background: 'var(--card-bg-secondary)',
-                                padding: '12px 16px',
-                                borderRadius: '10px',
-                                border: '1px solid var(--border)',
-                              }}>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
-                                <select
-                                  className="select"
-                                  style={{
-                                    width: '100%',
-                                    padding: '4px',
-                                    fontSize: '13px',
-                                    background: 'var(--card-bg-secondary)',
-                                    border: 'none',
-                                    color: 'var(--foreground)'
-                                  }}
-                                  value={sasi.tampon || ''}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={async (e) => {
-                                    const updated = await updateSasi(sasi.id, { tampon: e.target.value });
+                              <input
+                                type="date"
+                                className="input"
+                                style={{ width: '110px', padding: '4px', fontSize: '12px' }}
+                                onChange={async (e) => {
+                                  if (e.target.value) {
+                                    const updated = await updateSasi(sasi.id, { createdAt: new Date(e.target.value).toISOString() });
                                     setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
-                                  }}
-                                >
-                                  <option style={{ color: 'black' }} value="">Seçiniz</option>
-                                  <option style={{ color: 'black' }} value="Kırma Tampon">KIRMA</option>
-                                  <option style={{ color: 'black' }} value="Sabit Tampon">SABİT</option>
-                                </select>
-                              </div>
+                                  }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
                             </div>
                           </div>
 
                           {/* Sasi Steps */}
                           {SASI_STEP_GROUPS.map((group) => {
+                            const status = sasi[group.statusKey as keyof Sasi] as string;
                             return (
                               <div key={group.key} className="step-group">
                                 <div className="step-group-title">
                                   {group.name}
+                                  {getStatusBadge(status)}
                                 </div>
                                 <div className="step-items">
                                   {group.subSteps.map((step) => {

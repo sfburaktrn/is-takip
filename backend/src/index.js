@@ -2296,7 +2296,7 @@ app.get('/api/capacity/week', requireAuth, async (req, res) => {
     }
 });
 
-app.put('/api/capacity/week', requireAdmin, async (req, res) => {
+app.put('/api/capacity/week', requireAuth, async (req, res) => {
     try {
         const { productType, weekStart, mainStepKey, headcount, normalHours, overtimeHours } = req.body;
         if (!productType || !weekStart || !mainStepKey) {
@@ -2339,7 +2339,7 @@ app.put('/api/capacity/week', requireAdmin, async (req, res) => {
     }
 });
 
-app.delete('/api/capacity/week', requireAdmin, async (req, res) => {
+app.delete('/api/capacity/week', requireAuth, async (req, res) => {
     try {
         const { type, weekStart, mainStepKey } = req.query;
         const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
@@ -2360,7 +2360,7 @@ app.delete('/api/capacity/week', requireAdmin, async (req, res) => {
     }
 });
 
-app.put('/api/capacity/target', requireAdmin, async (req, res) => {
+app.put('/api/capacity/target', requireAuth, async (req, res) => {
     try {
         const { productType, weekStart, mainStepKey, targetCount } = req.body;
         if (!productType || !weekStart || !mainStepKey) {
@@ -2395,7 +2395,7 @@ app.put('/api/capacity/target', requireAdmin, async (req, res) => {
     }
 });
 
-app.delete('/api/capacity/target', requireAdmin, async (req, res) => {
+app.delete('/api/capacity/target', requireAuth, async (req, res) => {
     try {
         const { type, weekStart, mainStepKey } = req.query;
         const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
@@ -2617,6 +2617,12 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
             approvalLoggedAt = ad.date;
         }
 
+        const teknikPdfUrl = strOrNull(b.teknikPdfUrl);
+        const manufacturingNot = strOrNull(b.manufacturingNot);
+        const rawAciliyet = strOrNull(b.manufacturingAciliyet);
+        const VALID_ACILIYET = ['Normal', 'Acil', 'Çok Acil'];
+        const manufacturingAciliyet = rawAciliyet && VALID_ACILIYET.includes(rawAciliyet) ? rawAciliyet : null;
+
         const row = await prisma.proposalIngest.upsert({
             where: { sourceProposalId },
             create: {
@@ -2634,7 +2640,10 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
                 ownerEmail: strOrNull(b.ownerEmail),
                 pushedAt: pushed.date,
                 pushedBy: strOrNull(b.pushedBy),
-                approvalLoggedAt
+                approvalLoggedAt,
+                teknikPdfUrl,
+                manufacturingNot,
+                manufacturingAciliyet
             },
             update: {
                 companyName,
@@ -2650,7 +2659,10 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
                 ownerEmail: strOrNull(b.ownerEmail),
                 pushedAt: pushed.date,
                 pushedBy: strOrNull(b.pushedBy),
-                approvalLoggedAt
+                approvalLoggedAt,
+                teknikPdfUrl,
+                manufacturingNot,
+                manufacturingAciliyet
             }
         });
         res.status(200).json({ ok: true, id: row.id });

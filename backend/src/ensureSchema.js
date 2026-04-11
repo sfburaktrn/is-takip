@@ -105,6 +105,9 @@ const STATEMENTS = [
     `CREATE INDEX IF NOT EXISTS "proposal_ingest_pushed_at_idx" ON "proposal_ingest"("pushed_at" DESC)`,
     `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "imalata_alindi" BOOLEAN NOT NULL DEFAULT false`,
     `CREATE INDEX IF NOT EXISTS "proposal_ingest_imalata_alindi_idx" ON "proposal_ingest"("imalata_alindi")`,
+    `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "teknik_pdf_url" TEXT`,
+    `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "manufacturing_not" TEXT`,
+    `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "manufacturing_aciliyet" TEXT`,
 ];
 
 async function ensureDatabaseSchema() {

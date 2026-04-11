@@ -10,14 +10,12 @@ import {
     Loader2,
     Calendar,
     User,
-    Clock,
-    Monitor
+    Clock
 } from 'lucide-react';
 
 interface LoginLog {
     id: number;
     loginAt: string;
-    ipAddress: string | null;
     user: {
         username: string;
         fullName: string;
@@ -157,11 +155,6 @@ export default function GirisLoglariPage() {
                                                         <div style={{ fontWeight: 600, fontSize: '14px', color: '#86efac', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                                                             <Clock size={14} /> {formatTime(log.loginAt)}
                                                         </div>
-                                                        {log.ipAddress && (
-                                                            <div style={{ color: 'var(--muted)', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                                                                <Monitor size={12} /> {log.ipAddress}
-                                                            </div>
-                                                        )}
                                                     </div>
                                                 </div>
                                             ))}

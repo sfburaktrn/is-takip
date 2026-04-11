@@ -418,7 +418,7 @@ export default function KapasitePage() {
                 </div>
 
                 {/* Bilgi */}
-                <div className="mb-12 flex gap-4 rounded-2xl border border-amber-200/50 bg-gradient-to-r from-amber-50/90 to-orange-50/40 p-5 sm:mb-14 sm:p-6 shadow-sm">
+                <div className="mb-20 flex gap-4 rounded-2xl border border-amber-200/50 bg-gradient-to-r from-amber-50/90 to-orange-50/40 p-5 sm:mb-24 sm:p-6 shadow-sm">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
                         <Lightbulb size={22} />
                     </span>
@@ -452,9 +452,9 @@ export default function KapasitePage() {
                 )}
 
                 {/* Araç çubuğu — tablodan ayrışması için alt boşluk geniş */}
-                <div className="mb-16 rounded-2xl border border-slate-200/80 bg-white p-5 pt-7 shadow-md shadow-slate-200/25 sm:mb-20 sm:p-6 sm:pt-8">
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch lg:justify-between">
-                        <div className="w-full space-y-4 rounded-2xl border border-slate-100/80 bg-slate-50/55 p-5 pt-6 sm:p-6">
+                <div className="mb-16 rounded-2xl border border-slate-200/80 bg-white p-6 pt-10 shadow-md shadow-slate-200/25 sm:mb-20 sm:p-7 sm:pt-12">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:justify-between">
+                        <div className="w-full space-y-4 rounded-2xl border border-slate-100/80 bg-slate-50/55 p-5 pt-8 sm:p-6 sm:pt-8">
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Ürün türü</span>
                             <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-100/90 p-1.5 ring-1 ring-slate-200/60">
                                 {productTabs.map(({ type, label, icon: Icon }) => (
@@ -474,7 +474,7 @@ export default function KapasitePage() {
                                 ))}
                             </div>
                         </div>
-                        <div className="grid w-full grid-cols-1 gap-4 rounded-2xl border border-slate-100/80 bg-slate-50/55 p-5 pt-6 sm:grid-cols-[minmax(200px,1fr)_auto] sm:items-end sm:p-6 lg:w-auto lg:shrink-0">
+                        <div className="grid w-full grid-cols-1 gap-4 rounded-2xl border border-slate-100/80 bg-slate-50/55 p-5 pt-8 sm:grid-cols-[minmax(200px,1fr)_auto] sm:items-end sm:p-6 sm:pt-8 lg:w-auto lg:shrink-0">
                             <label className="flex min-w-[200px] flex-1 flex-col gap-1.5">
                                 <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
                                     <CalendarDays size={14} className="text-[var(--primary)]" />

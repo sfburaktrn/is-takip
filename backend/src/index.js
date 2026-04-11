@@ -675,12 +675,14 @@ app.get('/api/login-logs', requireAdmin, async (req, res) => {
         const { limit = 100 } = req.query;
 
         const logs = await prisma.loginLog.findMany({
-            include: {
+            select: {
+                id: true,
+                loginAt: true,
                 user: {
                     select: {
                         username: true,
-                        fullName: true
-                    }
+                        fullName: true,
+                    },
                 }
             },
             orderBy: { loginAt: 'desc' },

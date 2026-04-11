@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
-import { API_URL } from '@/lib/api';
+import { API_URL, apiFetch } from '@/lib/api';
 import {
     Settings,
     CheckCircle,
@@ -40,7 +40,7 @@ export default function AyarlarPage() {
 
     const fetchUsers = async () => {
         try {
-            const res = await fetch(`${API_URL}/users`, { credentials: 'include' });
+            const res = await apiFetch(`${API_URL}/users`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setUsers(data);
@@ -56,7 +56,7 @@ export default function AyarlarPage() {
         e.preventDefault();
         setError('');
         try {
-            const res = await fetch(`${API_URL}/users`, {
+            const res = await apiFetch(`${API_URL}/users`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -87,7 +87,7 @@ export default function AyarlarPage() {
             if (formData.password) updateData.password = formData.password;
             updateData.isAdmin = formData.isAdmin;
 
-            const res = await fetch(`${API_URL}/users/${selectedUser.id}`, {
+            const res = await apiFetch(`${API_URL}/users/${selectedUser.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -112,7 +112,7 @@ export default function AyarlarPage() {
     const handleDeleteUser = async (userId: number) => {
         if (!confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) return;
         try {
-            const res = await fetch(`${API_URL}/users/${userId}`, {
+            const res = await apiFetch(`${API_URL}/users/${userId}`, {
                 method: 'DELETE',
                 credentials: 'include'
             });

@@ -19,7 +19,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-import { API_URL } from './api';
+import { API_URL, apiFetch } from './api';
 
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const checkAuth = async () => {
         try {
-            const response = await fetch(`${API_URL}/auth/me`, {
+            const response = await apiFetch(`${API_URL}/auth/me`, {
                 credentials: 'include'
             });
 
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const login = async (username: string, password: string) => {
         try {
-            const response = await fetch(`${API_URL}/auth/login`, {
+            const response = await apiFetch(`${API_URL}/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = async () => {
         try {
-            await fetch(`${API_URL}/auth/logout`, {
+            await apiFetch(`${API_URL}/auth/logout`, {
                 method: 'POST',
                 credentials: 'include'
             });

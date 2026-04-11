@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
-import { getStats, type Stats, type StepStats, API_URL, getSasis } from '@/lib/api';
+import { getStats, type Stats, type StepStats, API_URL, apiFetch, getSasis } from '@/lib/api';
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
 } from 'recharts';
@@ -106,9 +106,9 @@ export default function Analiz() {
 
             const [statsData, stepStatsRes, companyDistRes, activityRes] = await Promise.all([
                 getStats(productType),
-                fetch(`${API_URL}/analytics/step-stats${query}`, fetchOptions).then(r => r.json()),
-                fetch(`${API_URL}/analytics/company-distribution${query}`, fetchOptions).then(r => r.json()),
-                fetch(`${API_URL}/analytics/recent-activity${query}`, fetchOptions).then(r => r.json())
+                apiFetch(`${API_URL}/analytics/step-stats${query}`, fetchOptions).then(r => r.json()),
+                apiFetch(`${API_URL}/analytics/company-distribution${query}`, fetchOptions).then(r => r.json()),
+                apiFetch(`${API_URL}/analytics/recent-activity${query}`, fetchOptions).then(r => r.json())
             ]);
 
             if (productType === 'SASI') {

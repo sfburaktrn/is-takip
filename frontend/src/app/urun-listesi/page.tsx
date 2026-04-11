@@ -30,6 +30,7 @@ import { saveAs } from 'file-saver';
 import ExcelJS from 'exceljs';
 
 import { trIncludes, trStartsWithStok } from '@/lib/trSearch';
+import { useDebouncedPersist, applyServerRowIfFieldMatches } from '@/lib/useDebouncedPersist';
 import {
     getStats,
     getDampers,
@@ -90,6 +91,7 @@ function UrunListesiContent() {
     const [linkSearchTerm, setLinkSearchTerm] = useState('');
     const [availableSasis, setAvailableSasis] = useState<Sasi[]>([]);
     const [linkLoading, setLinkLoading] = useState(false);
+    const { schedule: persistLater, flush: persistNow } = useDebouncedPersist();
 
     // Damper Form State
     const [formData, setFormData] = useState({
@@ -368,20 +370,59 @@ function UrunListesiContent() {
         }
     };
 
-    const handleStepToggle = async (id: number, stepKey: string, currentValue: boolean, type: ProductType) => {
-        try {
-            if (type === 'DAMPER') {
-                const updated = await updateDamper(id, { [stepKey]: !currentValue });
-                setDampers(prev => prev.map(d => d.id === id ? updated : d));
-            } else if (type === 'DORSE') {
-                const updated = await updateDorse(id, { [stepKey]: !currentValue });
-                setDorses(prev => prev.map(d => d.id === id ? updated : d));
-            } else {
-                const updated = await updateSasi(id, { [stepKey]: !currentValue });
-                setSasis(prev => prev.map(s => s.id === id ? updated : s));
-            }
-        } catch (error) {
-            console.error('Error updating step:', error);
+    const handleStepToggle = (id: number, stepKey: string, currentValue: boolean, type: ProductType) => {
+        const next = !currentValue;
+        if (type === 'DAMPER') {
+            setDampers(prev =>
+                prev.map(d => (d.id === id ? ({ ...d, [stepKey]: next } as Damper) : d))
+            );
+            void (async () => {
+                try {
+                    const updated = await updateDamper(id, { [stepKey]: next });
+                    setDampers(prev =>
+                        applyServerRowIfFieldMatches(prev, id, stepKey as keyof Damper, next, updated)
+                    );
+                } catch (error) {
+                    console.error('Error updating step:', error);
+                    setDampers(prev =>
+                        prev.map(d => (d.id === id ? ({ ...d, [stepKey]: currentValue } as Damper) : d))
+                    );
+                }
+            })();
+        } else if (type === 'DORSE') {
+            setDorses(prev =>
+                prev.map(d => (d.id === id ? ({ ...d, [stepKey]: next } as Dorse) : d))
+            );
+            void (async () => {
+                try {
+                    const updated = await updateDorse(id, { [stepKey]: next });
+                    setDorses(prev =>
+                        applyServerRowIfFieldMatches(prev, id, stepKey as keyof Dorse, next, updated)
+                    );
+                } catch (error) {
+                    console.error('Error updating step:', error);
+                    setDorses(prev =>
+                        prev.map(d => (d.id === id ? ({ ...d, [stepKey]: currentValue } as Dorse) : d))
+                    );
+                }
+            })();
+        } else {
+            setSasis(prev =>
+                prev.map(s => (s.id === id ? ({ ...s, [stepKey]: next } as Sasi) : s))
+            );
+            void (async () => {
+                try {
+                    const updated = await updateSasi(id, { [stepKey]: next });
+                    setSasis(prev =>
+                        applyServerRowIfFieldMatches(prev, id, stepKey as keyof Sasi, next, updated)
+                    );
+                } catch (error) {
+                    console.error('Error updating step:', error);
+                    setSasis(prev =>
+                        prev.map(s => (s.id === id ? ({ ...s, [stepKey]: currentValue } as Sasi) : s))
+                    );
+                }
+            })();
         }
     };
 
@@ -1980,12 +2021,21 @@ function UrunListesiContent() {
                                                                 placeholder="İmalat No"
                                                                 value={damper.imalatNo != null ? String(damper.imalatNo) : ''}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const digits = e.target.value.replace(/\D/g, '');
                                                                     const newImalatNo = digits === '' ? null : parseInt(digits, 10);
-                                                                    const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
-                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    setDampers(prev =>
+                                                                        prev.map(d => (d.id === damper.id ? { ...d, imalatNo: newImalatNo } : d))
+                                                                    );
+                                                                    const key = `damper-${damper.id}-imalatNo`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
+                                                                        setDampers(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'imalatNo', newImalatNo, updated)
+                                                                        );
+                                                                    });
                                                                 }}
+                                                                onBlur={() => void persistNow(`damper-${damper.id}-imalatNo`)}
                                                             />
                                                         </div>
 
@@ -2018,11 +2068,20 @@ function UrunListesiContent() {
                                                                 placeholder="Şasi No"
                                                                 value={damper.sasiNo || ''}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const newSasiNo = e.target.value;
-                                                                    const updated = await updateDamper(damper.id, { sasiNo: newSasiNo });
-                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    setDampers(prev =>
+                                                                        prev.map(d => (d.id === damper.id ? { ...d, sasiNo: newSasiNo } : d))
+                                                                    );
+                                                                    const key = `damper-${damper.id}-sasiNo`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDamper(damper.id, { sasiNo: newSasiNo });
+                                                                        setDampers(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'sasiNo', newSasiNo, updated)
+                                                                        );
+                                                                    });
                                                                 }}
+                                                                onBlur={() => void persistNow(`damper-${damper.id}-sasiNo`)}
                                                             />
                                                         </div>
 
@@ -2044,10 +2103,9 @@ function UrunListesiContent() {
                                                             </div>
                                                             <div
                                                                 className={`step-toggle ${damper.aracGeldiMi ? 'active' : ''}`}
-                                                                onClick={async (e) => {
+                                                                onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    const updated = await updateDamper(damper.id, { aracGeldiMi: !damper.aracGeldiMi });
-                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    handleStepToggle(damper.id, 'aracGeldiMi', damper.aracGeldiMi, 'DAMPER');
                                                                 }}
                                                                 style={{ transform: 'scale(1.1)' }}
                                                                 title="Değiştirmek için tıklayın"
@@ -2068,7 +2126,7 @@ function UrunListesiContent() {
                                                             <div>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                    {damper.adet || 1}
+                                                                    {damper.adet > 0 ? damper.adet : '–'}
                                                                 </div>
                                                             </div>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2083,13 +2141,43 @@ function UrunListesiContent() {
                                                                         textAlign: 'center',
                                                                         height: '32px'
                                                                     }}
-                                                                    value={damper.adet || 1}
-                                                                    onChange={async (e) => {
-                                                                        const newAdet = parseInt(e.target.value);
-                                                                        if (newAdet > 0) {
-                                                                            const updated = await updateDamper(damper.id, { adet: newAdet });
-                                                                            setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    value={damper.adet > 0 ? String(damper.adet) : ''}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const raw = e.target.value;
+                                                                        const key = `damper-${damper.id}-adet`;
+                                                                        if (raw === '') {
+                                                                            setDampers(prev =>
+                                                                                prev.map(d => (d.id === damper.id ? { ...d, adet: 0 } : d))
+                                                                            );
+                                                                            persistLater(key, async () => {
+                                                                                const updated = await updateDamper(damper.id, { adet: 1 });
+                                                                                setDampers(prev =>
+                                                                                    applyServerRowIfFieldMatches(prev, damper.id, 'adet', 0, updated)
+                                                                                );
+                                                                            });
+                                                                            return;
                                                                         }
+                                                                        const newAdet = parseInt(raw, 10);
+                                                                        if (Number.isNaN(newAdet) || newAdet < 1) return;
+                                                                        const snap = newAdet;
+                                                                        setDampers(prev =>
+                                                                            prev.map(d => (d.id === damper.id ? { ...d, adet: newAdet } : d))
+                                                                        );
+                                                                        persistLater(key, async () => {
+                                                                            const updated = await updateDamper(damper.id, { adet: newAdet });
+                                                                            setDampers(prev =>
+                                                                                applyServerRowIfFieldMatches(prev, damper.id, 'adet', snap, updated)
+                                                                            );
+                                                                        });
+                                                                    }}
+                                                                    onBlur={() => {
+                                                                        void persistNow(`damper-${damper.id}-adet`);
+                                                                        setDampers(prev =>
+                                                                            prev.map(d =>
+                                                                                d.id === damper.id && d.adet < 1 ? { ...d, adet: 1 } : d
+                                                                            )
+                                                                        );
                                                                     }}
                                                                     onClick={(e) => e.stopPropagation()}
                                                                 />
@@ -2125,11 +2213,20 @@ function UrunListesiContent() {
                                                                 placeholder="Renk"
                                                                 value={damper.renk || ''}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const newRenk = e.target.value;
-                                                                    const updated = await updateDamper(damper.id, { renk: newRenk });
-                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    setDampers(prev =>
+                                                                        prev.map(d => (d.id === damper.id ? { ...d, renk: newRenk } : d))
+                                                                    );
+                                                                    const key = `damper-${damper.id}-renk`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDamper(damper.id, { renk: newRenk });
+                                                                        setDampers(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'renk', newRenk, updated)
+                                                                        );
+                                                                    });
                                                                 }}
+                                                                onBlur={() => void persistNow(`damper-${damper.id}-renk`)}
                                                             />
                                                         </div>
 
@@ -2171,13 +2268,16 @@ function UrunListesiContent() {
                                                                     zIndex: 10
                                                                 }}
                                                                 title="Tarihi Düzenle"
-                                                                onChange={async (e) => {
-                                                                    if (e.target.value) {
-                                                                        const updated = await updateDamper(damper.id, {
-                                                                            createdAt: new Date(e.target.value).toISOString()
-                                                                        });
-                                                                        setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
-                                                                    }
+                                                                onChange={(e) => {
+                                                                    if (!e.target.value) return;
+                                                                    const iso = new Date(e.target.value).toISOString();
+                                                                    setDampers(prev =>
+                                                                        prev.map(d => (d.id === damper.id ? { ...d, createdAt: iso } : d))
+                                                                    );
+                                                                    void (async () => {
+                                                                        const updated = await updateDamper(damper.id, { createdAt: iso });
+                                                                        setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                    })();
                                                                 }}
                                                             />
                                                             <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -2223,9 +2323,12 @@ function UrunListesiContent() {
                                                                     className="select"
                                                                     style={{ width: '120px', padding: '6px 10px', fontSize: '12px' }}
                                                                     value={damper.kurumMuayenesi}
-                                                                    onChange={async (e) => {
-                                                                        const updated = await updateDamper(damper.id, { kurumMuayenesi: e.target.value });
-                                                                        setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    onChange={(e) => {
+                                                                        const v = e.target.value;
+                                                                        void (async () => {
+                                                                            const updated = await updateDamper(damper.id, { kurumMuayenesi: v });
+                                                                            setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                        })();
                                                                     }}
                                                                 >
                                                                     {dropdowns?.kurumMuayenesi.map(v => (
@@ -2239,9 +2342,12 @@ function UrunListesiContent() {
                                                                     className="select"
                                                                     style={{ width: '140px', padding: '6px 10px', fontSize: '12px' }}
                                                                     value={damper.dmoMuayenesi}
-                                                                    onChange={async (e) => {
-                                                                        const updated = await updateDamper(damper.id, { dmoMuayenesi: e.target.value });
-                                                                        setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                    onChange={(e) => {
+                                                                        const v = e.target.value;
+                                                                        void (async () => {
+                                                                            const updated = await updateDamper(damper.id, { dmoMuayenesi: v });
+                                                                            setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                        })();
                                                                     }}
                                                                 >
                                                                     {dropdowns?.dmoMuayenesi.map(v => (
@@ -2363,12 +2469,21 @@ function UrunListesiContent() {
                                                                 style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }}
                                                                 placeholder="No"
                                                                 value={sasi.imalatNo != null ? String(sasi.imalatNo) : ''}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const digits = e.target.value.replace(/\D/g, '');
                                                                     const val = digits === '' ? null : parseInt(digits, 10);
-                                                                    const updated = await updateSasi(sasi.id, { imalatNo: val });
-                                                                    setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                                    setSasis(prev =>
+                                                                        prev.map(s => (s.id === sasi.id ? { ...s, imalatNo: val } : s))
+                                                                    );
+                                                                    const key = `sasi-${sasi.id}-imalatNo`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateSasi(sasi.id, { imalatNo: val });
+                                                                        setSasis(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, sasi.id, 'imalatNo', val, updated)
+                                                                        );
+                                                                    });
                                                                 }}
+                                                                onBlur={() => void persistNow(`sasi-${sasi.id}-imalatNo`)}
                                                                 onClick={e => e.stopPropagation()}
                                                             />
                                                         </div>
@@ -2380,18 +2495,30 @@ function UrunListesiContent() {
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MÜŞTERİ / İSİM</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.musteri}</div>
                                                             </div>
-                                                            <input type="text" className="input" style={{ width: '120px', padding: '4px', fontSize: '13px' }} value={sasi.musteri || ''} onChange={async (e) => {
-                                                                const updated = await updateSasi(sasi.id, { musteri: e.target.value });
-                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
-                                                            }} onClick={e => e.stopPropagation()} placeholder="İsim Giriniz" />
+                                                            <input type="text" className="input" style={{ width: '120px', padding: '4px', fontSize: '13px' }} value={sasi.musteri || ''} onChange={(e) => {
+                                                                const v = e.target.value;
+                                                                setSasis(prev =>
+                                                                    prev.map(s => (s.id === sasi.id ? { ...s, musteri: v } : s))
+                                                                );
+                                                                const key = `sasi-${sasi.id}-musteri`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateSasi(sasi.id, { musteri: v });
+                                                                    setSasis(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, sasi.id, 'musteri', v, updated)
+                                                                    );
+                                                                });
+                                                            }} onBlur={() => void persistNow(`sasi-${sasi.id}-musteri`)} onClick={e => e.stopPropagation()} placeholder="İsim Giriniz" />
                                                         </div>
 
                                                         {/* TAMPON */}
                                                         <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
-                                                            <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.tampon || ''} onChange={async (e) => {
-                                                                const updated = await updateSasi(sasi.id, { tampon: e.target.value });
-                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                            <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.tampon || ''} onChange={(e) => {
+                                                                const v = e.target.value;
+                                                                void (async () => {
+                                                                    const updated = await updateSasi(sasi.id, { tampon: v });
+                                                                    setSasis(prev => prev.map(s => (s.id === sasi.id ? updated : s)));
+                                                                })();
                                                             }} onClick={e => e.stopPropagation()}>
                                                                 <option style={{ color: 'black' }} value="">Seçiniz</option>
                                                                 <option style={{ color: 'black' }} value="Kırma Tampon">KIRMA</option>
@@ -2402,9 +2529,12 @@ function UrunListesiContent() {
                                                         {/* DINGIL */}
                                                         <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
-                                                            <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.dingil || ''} onChange={async (e) => {
-                                                                const updated = await updateSasi(sasi.id, { dingil: e.target.value });
-                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                            <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.dingil || ''} onChange={(e) => {
+                                                                const v = e.target.value;
+                                                                void (async () => {
+                                                                    const updated = await updateSasi(sasi.id, { dingil: v });
+                                                                    setSasis(prev => prev.map(s => (s.id === sasi.id ? updated : s)));
+                                                                })();
                                                             }} onClick={e => e.stopPropagation()}>
                                                                 <option style={{ color: 'black' }} value="">Seçiniz</option>
                                                                 <option style={{ color: 'black' }} value="TRAX">TRAX</option>
@@ -2418,11 +2548,16 @@ function UrunListesiContent() {
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TARİH</div>
                                                                 <div style={{ fontSize: '13px' }}>{sasi.createdAt ? new Date(sasi.createdAt).toLocaleDateString() : '-'}</div>
                                                             </div>
-                                                            <input type="date" className="input" style={{ width: '110px', padding: '4px', fontSize: '12px' }} onChange={async (e) => {
-                                                                if (e.target.value) {
-                                                                    const updated = await updateSasi(sasi.id, { createdAt: new Date(e.target.value).toISOString() });
-                                                                    setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
-                                                                }
+                                                            <input type="date" className="input" style={{ width: '110px', padding: '4px', fontSize: '12px' }} onChange={(e) => {
+                                                                if (!e.target.value) return;
+                                                                const iso = new Date(e.target.value).toISOString();
+                                                                setSasis(prev =>
+                                                                    prev.map(s => (s.id === sasi.id ? { ...s, createdAt: iso } : s))
+                                                                );
+                                                                void (async () => {
+                                                                    const updated = await updateSasi(sasi.id, { createdAt: iso });
+                                                                    setSasis(prev => prev.map(s => (s.id === sasi.id ? updated : s)));
+                                                                })();
                                                             }} onClick={e => e.stopPropagation()} />
                                                         </div>
 
@@ -2551,12 +2686,21 @@ function UrunListesiContent() {
                                                                 placeholder="No"
                                                                 value={dorse.imalatNo != null ? String(dorse.imalatNo) : ''}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const digits = e.target.value.replace(/\D/g, '');
                                                                     const newImalatNo = digits === '' ? null : parseInt(digits, 10);
-                                                                    const updated = await updateDorse(dorse.id, { imalatNo: newImalatNo });
-                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                    setDorses(prev =>
+                                                                        prev.map(d => (d.id === dorse.id ? { ...d, imalatNo: newImalatNo } : d))
+                                                                    );
+                                                                    const key = `dorse-${dorse.id}-imalatNo`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDorse(dorse.id, { imalatNo: newImalatNo });
+                                                                        setDorses(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, dorse.id, 'imalatNo', newImalatNo, updated)
+                                                                        );
+                                                                    });
                                                                 }}
+                                                                onBlur={() => void persistNow(`dorse-${dorse.id}-imalatNo`)}
                                                             />
                                                         </div>
 
@@ -2584,11 +2728,20 @@ function UrunListesiContent() {
                                                                 placeholder="Silindir"
                                                                 value={dorse.silindir ?? ''}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const newSilindir = e.target.value;
-                                                                    const updated = await updateDorse(dorse.id, { silindir: newSilindir });
-                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                    setDorses(prev =>
+                                                                        prev.map(d => (d.id === dorse.id ? { ...d, silindir: newSilindir } : d))
+                                                                    );
+                                                                    const key = `dorse-${dorse.id}-silindir`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDorse(dorse.id, { silindir: newSilindir });
+                                                                        setDorses(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, dorse.id, 'silindir', newSilindir, updated)
+                                                                        );
+                                                                    });
                                                                 }}
+                                                                onBlur={() => void persistNow(`dorse-${dorse.id}-silindir`)}
                                                             />
                                                         </div>
 
@@ -2614,10 +2767,12 @@ function UrunListesiContent() {
                                                                 style={{ width: '100px', padding: '6px 10px', fontSize: '12px', height: '34px' }}
                                                                 value={dorse.malzemeCinsi ?? ''}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const newMalzemeCinsi = e.target.value;
-                                                                    const updated = await updateDorse(dorse.id, { malzemeCinsi: newMalzemeCinsi });
-                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                    void (async () => {
+                                                                        const updated = await updateDorse(dorse.id, { malzemeCinsi: newMalzemeCinsi });
+                                                                        setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                                    })();
                                                                 }}
                                                             >
                                                                 <option value="">Seçiniz</option>
@@ -2651,11 +2806,20 @@ function UrunListesiContent() {
                                                                 placeholder="Kalınlık"
                                                                 value={dorse.kalinlik ?? ''}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const newKalinlik = e.target.value;
-                                                                    const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
-                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                    setDorses(prev =>
+                                                                        prev.map(d => (d.id === dorse.id ? { ...d, kalinlik: newKalinlik } : d))
+                                                                    );
+                                                                    const key = `dorse-${dorse.id}-kalinlik`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
+                                                                        setDorses(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, dorse.id, 'kalinlik', newKalinlik, updated)
+                                                                        );
+                                                                    });
                                                                 }}
+                                                                onBlur={() => void persistNow(`dorse-${dorse.id}-kalinlik`)}
                                                             />
                                                         </div>
 
@@ -2724,10 +2888,9 @@ function UrunListesiContent() {
                                                             </div>
                                                             <div
                                                                 className={`step-toggle ${dorse.cekiciGeldiMi ? 'active' : ''}`}
-                                                                onClick={async (e) => {
+                                                                onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    const updated = await updateDorse(dorse.id, { cekiciGeldiMi: !dorse.cekiciGeldiMi });
-                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                    handleStepToggle(dorse.id, 'cekiciGeldiMi', dorse.cekiciGeldiMi, 'DORSE');
                                                                 }}
                                                                 style={{ transform: 'scale(1.1)' }}
                                                                 title="Değiştirmek için tıklayın"
@@ -2748,7 +2911,7 @@ function UrunListesiContent() {
                                                             <div>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                    {dorse.adet || 1}
+                                                                    {dorse.adet > 0 ? dorse.adet : '–'}
                                                                 </div>
                                                             </div>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2757,13 +2920,43 @@ function UrunListesiContent() {
                                                                     className="input"
                                                                     min="1"
                                                                     style={{ width: '60px', padding: '4px 8px', fontSize: '13px', textAlign: 'center', height: '32px' }}
-                                                                    value={dorse.adet || 1}
-                                                                    onChange={async (e) => {
-                                                                        const newAdet = parseInt(e.target.value);
-                                                                        if (newAdet > 0) {
-                                                                            const updated = await updateDorse(dorse.id, { adet: newAdet });
-                                                                            setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                    value={dorse.adet > 0 ? String(dorse.adet) : ''}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const raw = e.target.value;
+                                                                        const key = `dorse-${dorse.id}-adet`;
+                                                                        if (raw === '') {
+                                                                            setDorses(prev =>
+                                                                                prev.map(d => (d.id === dorse.id ? { ...d, adet: 0 } : d))
+                                                                            );
+                                                                            persistLater(key, async () => {
+                                                                                const updated = await updateDorse(dorse.id, { adet: 1 });
+                                                                                setDorses(prev =>
+                                                                                    applyServerRowIfFieldMatches(prev, dorse.id, 'adet', 0, updated)
+                                                                                );
+                                                                            });
+                                                                            return;
                                                                         }
+                                                                        const newAdet = parseInt(raw, 10);
+                                                                        if (Number.isNaN(newAdet) || newAdet < 1) return;
+                                                                        const snap = newAdet;
+                                                                        setDorses(prev =>
+                                                                            prev.map(d => (d.id === dorse.id ? { ...d, adet: newAdet } : d))
+                                                                        );
+                                                                        persistLater(key, async () => {
+                                                                            const updated = await updateDorse(dorse.id, { adet: newAdet });
+                                                                            setDorses(prev =>
+                                                                                applyServerRowIfFieldMatches(prev, dorse.id, 'adet', snap, updated)
+                                                                            );
+                                                                        });
+                                                                    }}
+                                                                    onBlur={() => {
+                                                                        void persistNow(`dorse-${dorse.id}-adet`);
+                                                                        setDorses(prev =>
+                                                                            prev.map(d =>
+                                                                                d.id === dorse.id && d.adet < 1 ? { ...d, adet: 1 } : d
+                                                                            )
+                                                                        );
                                                                     }}
                                                                     onClick={(e) => e.stopPropagation()}
                                                                 />
@@ -2799,11 +2992,20 @@ function UrunListesiContent() {
                                                                 placeholder="Renk"
                                                                 value={dorse.renk || ''}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                onChange={async (e) => {
+                                                                onChange={(e) => {
                                                                     const newRenk = e.target.value;
-                                                                    const updated = await updateDorse(dorse.id, { renk: newRenk });
-                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                    setDorses(prev =>
+                                                                        prev.map(d => (d.id === dorse.id ? { ...d, renk: newRenk } : d))
+                                                                    );
+                                                                    const key = `dorse-${dorse.id}-renk`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDorse(dorse.id, { renk: newRenk });
+                                                                        setDorses(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, dorse.id, 'renk', newRenk, updated)
+                                                                        );
+                                                                    });
                                                                 }}
+                                                                onBlur={() => void persistNow(`dorse-${dorse.id}-renk`)}
                                                             />
                                                         </div>
 
@@ -2832,13 +3034,16 @@ function UrunListesiContent() {
                                                                 className="input"
                                                                 style={{ padding: '4px 8px', fontSize: '12px', width: '40px', height: '30px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'transparent', cursor: 'pointer', opacity: 0, position: 'absolute', right: '16px', zIndex: 10 }}
                                                                 title="Tarihi Düzenle"
-                                                                onChange={async (e) => {
-                                                                    if (e.target.value) {
-                                                                        const updated = await updateDorse(dorse.id, {
-                                                                            createdAt: new Date(e.target.value).toISOString()
-                                                                        });
-                                                                        setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
-                                                                    }
+                                                                onChange={(e) => {
+                                                                    if (!e.target.value) return;
+                                                                    const iso = new Date(e.target.value).toISOString();
+                                                                    setDorses(prev =>
+                                                                        prev.map(d => (d.id === dorse.id ? { ...d, createdAt: iso } : d))
+                                                                    );
+                                                                    void (async () => {
+                                                                        const updated = await updateDorse(dorse.id, { createdAt: iso });
+                                                                        setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                                    })();
                                                                 }}
                                                             />
                                                             <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -2869,9 +3074,14 @@ function UrunListesiContent() {
                                                                                         style={{ width: '130px', padding: '4px 8px', fontSize: '12px' }}
                                                                                         value={currentValue || ''}
                                                                                         onClick={(e) => e.stopPropagation()}
-                                                                                        onChange={async (e) => {
-                                                                                            const updated = await updateDorse(dorse.id, { [step.key]: e.target.value });
-                                                                                            setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                                        onChange={(e) => {
+                                                                                            const v = e.target.value;
+                                                                                            void (async () => {
+                                                                                                const updated = await updateDorse(dorse.id, { [step.key]: v });
+                                                                                                setDorses(prev =>
+                                                                                                    applyServerRowIfFieldMatches(prev, dorse.id, step.key as keyof Dorse, v, updated)
+                                                                                                );
+                                                                                            })();
                                                                                         }}
                                                                                     >
                                                                                         <option value="">Seçiniz</option>
@@ -3030,12 +3240,21 @@ function UrunListesiContent() {
                                                             placeholder="İmalat No"
                                                             value={damper.imalatNo != null ? String(damper.imalatNo) : ''}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            onChange={async (e) => {
+                                                            onChange={(e) => {
                                                                 const digits = e.target.value.replace(/\D/g, '');
                                                                 const newImalatNo = digits === '' ? null : parseInt(digits, 10);
-                                                                const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
-                                                                setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                setDampers(prev =>
+                                                                    prev.map(d => (d.id === damper.id ? { ...d, imalatNo: newImalatNo } : d))
+                                                                );
+                                                                const key = `damper-${damper.id}-imalatNo`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateDamper(damper.id, { imalatNo: newImalatNo });
+                                                                    setDampers(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, damper.id, 'imalatNo', newImalatNo, updated)
+                                                                    );
+                                                                });
                                                             }}
+                                                            onBlur={() => void persistNow(`damper-${damper.id}-imalatNo`)}
                                                         />
                                                     </div>
 
@@ -3068,11 +3287,20 @@ function UrunListesiContent() {
                                                             placeholder="Şasi No"
                                                             value={damper.sasiNo || ''}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            onChange={async (e) => {
+                                                            onChange={(e) => {
                                                                 const newSasiNo = e.target.value;
-                                                                const updated = await updateDamper(damper.id, { sasiNo: newSasiNo });
-                                                                setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                setDampers(prev =>
+                                                                    prev.map(d => (d.id === damper.id ? { ...d, sasiNo: newSasiNo } : d))
+                                                                );
+                                                                const key = `damper-${damper.id}-sasiNo`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateDamper(damper.id, { sasiNo: newSasiNo });
+                                                                    setDampers(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, damper.id, 'sasiNo', newSasiNo, updated)
+                                                                    );
+                                                                });
                                                             }}
+                                                            onBlur={() => void persistNow(`damper-${damper.id}-sasiNo`)}
                                                         />
                                                     </div>
 
@@ -3094,10 +3322,9 @@ function UrunListesiContent() {
                                                         </div>
                                                         <div
                                                             className={`step-toggle ${damper.aracGeldiMi ? 'active' : ''}`}
-                                                            onClick={async (e) => {
+                                                            onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                const updated = await updateDamper(damper.id, { aracGeldiMi: !damper.aracGeldiMi });
-                                                                setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                handleStepToggle(damper.id, 'aracGeldiMi', damper.aracGeldiMi, 'DAMPER');
                                                             }}
                                                             style={{ transform: 'scale(1.1)' }}
                                                             title="Değiştirmek için tıklayın"
@@ -3118,7 +3345,7 @@ function UrunListesiContent() {
                                                         <div>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                {damper.adet || 1}
+                                                                {damper.adet > 0 ? damper.adet : '–'}
                                                             </div>
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3133,13 +3360,43 @@ function UrunListesiContent() {
                                                                     textAlign: 'center',
                                                                     height: '32px'
                                                                 }}
-                                                                value={damper.adet || 1}
-                                                                onChange={async (e) => {
-                                                                    const newAdet = parseInt(e.target.value);
-                                                                    if (newAdet > 0) {
-                                                                        const updated = await updateDamper(damper.id, { adet: newAdet });
-                                                                        setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                value={damper.adet > 0 ? String(damper.adet) : ''}
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const raw = e.target.value;
+                                                                    const key = `damper-${damper.id}-adet`;
+                                                                    if (raw === '') {
+                                                                        setDampers(prev =>
+                                                                            prev.map(d => (d.id === damper.id ? { ...d, adet: 0 } : d))
+                                                                        );
+                                                                        persistLater(key, async () => {
+                                                                            const updated = await updateDamper(damper.id, { adet: 1 });
+                                                                            setDampers(prev =>
+                                                                                applyServerRowIfFieldMatches(prev, damper.id, 'adet', 0, updated)
+                                                                            );
+                                                                        });
+                                                                        return;
                                                                     }
+                                                                    const newAdet = parseInt(raw, 10);
+                                                                    if (Number.isNaN(newAdet) || newAdet < 1) return;
+                                                                    const snap = newAdet;
+                                                                    setDampers(prev =>
+                                                                        prev.map(d => (d.id === damper.id ? { ...d, adet: newAdet } : d))
+                                                                    );
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDamper(damper.id, { adet: newAdet });
+                                                                        setDampers(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'adet', snap, updated)
+                                                                        );
+                                                                    });
+                                                                }}
+                                                                onBlur={() => {
+                                                                    void persistNow(`damper-${damper.id}-adet`);
+                                                                    setDampers(prev =>
+                                                                        prev.map(d =>
+                                                                            d.id === damper.id && d.adet < 1 ? { ...d, adet: 1 } : d
+                                                                        )
+                                                                    );
                                                                 }}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
@@ -3184,13 +3441,16 @@ function UrunListesiContent() {
                                                                 zIndex: 10
                                                             }}
                                                             title="Tarihi Düzenle"
-                                                            onChange={async (e) => {
-                                                                if (e.target.value) {
-                                                                    const updated = await updateDamper(damper.id, {
-                                                                        createdAt: new Date(e.target.value).toISOString()
-                                                                    });
-                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
-                                                                }
+                                                            onChange={(e) => {
+                                                                if (!e.target.value) return;
+                                                                const iso = new Date(e.target.value).toISOString();
+                                                                setDampers(prev =>
+                                                                    prev.map(d => (d.id === damper.id ? { ...d, createdAt: iso } : d))
+                                                                );
+                                                                void (async () => {
+                                                                    const updated = await updateDamper(damper.id, { createdAt: iso });
+                                                                    setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                })();
                                                             }}
                                                         />
                                                         <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -3236,9 +3496,12 @@ function UrunListesiContent() {
                                                                 className="select"
                                                                 style={{ width: '120px', padding: '6px 10px', fontSize: '12px' }}
                                                                 value={damper.kurumMuayenesi}
-                                                                onChange={async (e) => {
-                                                                    const updated = await updateDamper(damper.id, { kurumMuayenesi: e.target.value });
-                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                onChange={(e) => {
+                                                                    const v = e.target.value;
+                                                                    void (async () => {
+                                                                        const updated = await updateDamper(damper.id, { kurumMuayenesi: v });
+                                                                        setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                    })();
                                                                 }}
                                                             >
                                                                 {dropdowns?.kurumMuayenesi.map(v => (
@@ -3252,9 +3515,12 @@ function UrunListesiContent() {
                                                                 className="select"
                                                                 style={{ width: '140px', padding: '6px 10px', fontSize: '12px' }}
                                                                 value={damper.dmoMuayenesi}
-                                                                onChange={async (e) => {
-                                                                    const updated = await updateDamper(damper.id, { dmoMuayenesi: e.target.value });
-                                                                    setDampers(prev => prev.map(d => d.id === damper.id ? updated : d));
+                                                                onChange={(e) => {
+                                                                    const v = e.target.value;
+                                                                    void (async () => {
+                                                                        const updated = await updateDamper(damper.id, { dmoMuayenesi: v });
+                                                                        setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                    })();
                                                                 }}
                                                             >
                                                                 {dropdowns?.dmoMuayenesi.map(v => (
@@ -3384,12 +3650,21 @@ function UrunListesiContent() {
                                                             style={{ width: '80px', padding: '4px', fontSize: '13px', textAlign: 'center' }}
                                                             placeholder="No"
                                                             value={sasi.imalatNo != null ? String(sasi.imalatNo) : ''}
-                                                            onChange={async (e) => {
+                                                            onChange={(e) => {
                                                                 const digits = e.target.value.replace(/\D/g, '');
                                                                 const val = digits === '' ? null : parseInt(digits, 10);
-                                                                const updated = await updateSasi(sasi.id, { imalatNo: val });
-                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                                setSasis(prev =>
+                                                                    prev.map(s => (s.id === sasi.id ? { ...s, imalatNo: val } : s))
+                                                                );
+                                                                const key = `sasi-${sasi.id}-imalatNo`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateSasi(sasi.id, { imalatNo: val });
+                                                                    setSasis(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, sasi.id, 'imalatNo', val, updated)
+                                                                    );
+                                                                });
                                                             }}
+                                                            onBlur={() => void persistNow(`sasi-${sasi.id}-imalatNo`)}
                                                             onClick={e => e.stopPropagation()}
                                                         />
                                                     </div>
@@ -3401,18 +3676,30 @@ function UrunListesiContent() {
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MÜŞTERİ / İSİM</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.musteri}</div>
                                                         </div>
-                                                        <input type="text" className="input" style={{ width: '120px', padding: '4px', fontSize: '13px' }} value={sasi.musteri || ''} onChange={async (e) => {
-                                                            const updated = await updateSasi(sasi.id, { musteri: e.target.value });
-                                                            setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
-                                                        }} onClick={e => e.stopPropagation()} placeholder="İsim Giriniz" />
+                                                        <input type="text" className="input" style={{ width: '120px', padding: '4px', fontSize: '13px' }} value={sasi.musteri || ''} onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            setSasis(prev =>
+                                                                prev.map(s => (s.id === sasi.id ? { ...s, musteri: v } : s))
+                                                            );
+                                                            const key = `sasi-${sasi.id}-musteri`;
+                                                            persistLater(key, async () => {
+                                                                const updated = await updateSasi(sasi.id, { musteri: v });
+                                                                setSasis(prev =>
+                                                                    applyServerRowIfFieldMatches(prev, sasi.id, 'musteri', v, updated)
+                                                                );
+                                                            });
+                                                        }} onBlur={() => void persistNow(`sasi-${sasi.id}-musteri`)} onClick={e => e.stopPropagation()} placeholder="İsim Giriniz" />
                                                     </div>
 
                                                     {/* TAMPON */}
                                                     <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                                                         <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
-                                                        <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.tampon || ''} onChange={async (e) => {
-                                                            const updated = await updateSasi(sasi.id, { tampon: e.target.value });
-                                                            setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                        <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.tampon || ''} onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            void (async () => {
+                                                                const updated = await updateSasi(sasi.id, { tampon: v });
+                                                                setSasis(prev => prev.map(s => (s.id === sasi.id ? updated : s)));
+                                                            })();
                                                         }} onClick={e => e.stopPropagation()}>
                                                             <option style={{ color: 'black' }} value="">Seçiniz</option>
                                                             <option style={{ color: 'black' }} value="Kırma Tampon">KIRMA</option>
@@ -3423,9 +3710,12 @@ function UrunListesiContent() {
                                                     {/* DINGIL */}
                                                     <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                                                         <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
-                                                        <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.dingil || ''} onChange={async (e) => {
-                                                            const updated = await updateSasi(sasi.id, { dingil: e.target.value });
-                                                            setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
+                                                        <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.dingil || ''} onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            void (async () => {
+                                                                const updated = await updateSasi(sasi.id, { dingil: v });
+                                                                setSasis(prev => prev.map(s => (s.id === sasi.id ? updated : s)));
+                                                            })();
                                                         }} onClick={e => e.stopPropagation()}>
                                                             <option style={{ color: 'black' }} value="">Seçiniz</option>
                                                             <option style={{ color: 'black' }} value="TRAX">TRAX</option>
@@ -3439,11 +3729,16 @@ function UrunListesiContent() {
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TARİH</div>
                                                             <div style={{ fontSize: '13px' }}>{sasi.createdAt ? new Date(sasi.createdAt).toLocaleDateString() : '-'}</div>
                                                         </div>
-                                                        <input type="date" className="input" style={{ width: '110px', padding: '4px', fontSize: '12px' }} onChange={async (e) => {
-                                                            if (e.target.value) {
-                                                                const updated = await updateSasi(sasi.id, { createdAt: new Date(e.target.value).toISOString() });
-                                                                setSasis(prev => prev.map(s => s.id === sasi.id ? updated : s));
-                                                            }
+                                                        <input type="date" className="input" style={{ width: '110px', padding: '4px', fontSize: '12px' }} onChange={(e) => {
+                                                            if (!e.target.value) return;
+                                                            const iso = new Date(e.target.value).toISOString();
+                                                            setSasis(prev =>
+                                                                prev.map(s => (s.id === sasi.id ? { ...s, createdAt: iso } : s))
+                                                            );
+                                                            void (async () => {
+                                                                const updated = await updateSasi(sasi.id, { createdAt: iso });
+                                                                setSasis(prev => prev.map(s => (s.id === sasi.id ? updated : s)));
+                                                            })();
                                                         }} onClick={e => e.stopPropagation()} />
                                                     </div>
 
@@ -3579,12 +3874,21 @@ function UrunListesiContent() {
                                                             placeholder="No"
                                                             value={dorse.imalatNo != null ? String(dorse.imalatNo) : ''}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            onChange={async (e) => {
+                                                            onChange={(e) => {
                                                                 const digits = e.target.value.replace(/\D/g, '');
                                                                 const newImalatNo = digits === '' ? null : parseInt(digits, 10);
-                                                                const updated = await updateDorse(dorse.id, { imalatNo: newImalatNo });
-                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                setDorses(prev =>
+                                                                    prev.map(d => (d.id === dorse.id ? { ...d, imalatNo: newImalatNo } : d))
+                                                                );
+                                                                const key = `dorse-${dorse.id}-imalatNo`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateDorse(dorse.id, { imalatNo: newImalatNo });
+                                                                    setDorses(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, dorse.id, 'imalatNo', newImalatNo, updated)
+                                                                    );
+                                                                });
                                                             }}
+                                                            onBlur={() => void persistNow(`dorse-${dorse.id}-imalatNo`)}
                                                         />
                                                     </div>
 
@@ -3612,11 +3916,20 @@ function UrunListesiContent() {
                                                             placeholder="Silindir"
                                                             value={dorse.silindir ?? ''}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            onChange={async (e) => {
+                                                            onChange={(e) => {
                                                                 const newSilindir = e.target.value;
-                                                                const updated = await updateDorse(dorse.id, { silindir: newSilindir });
-                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                setDorses(prev =>
+                                                                    prev.map(d => (d.id === dorse.id ? { ...d, silindir: newSilindir } : d))
+                                                                );
+                                                                const key = `dorse-${dorse.id}-silindir`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateDorse(dorse.id, { silindir: newSilindir });
+                                                                    setDorses(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, dorse.id, 'silindir', newSilindir, updated)
+                                                                    );
+                                                                });
                                                             }}
+                                                            onBlur={() => void persistNow(`dorse-${dorse.id}-silindir`)}
                                                         />
                                                     </div>
 
@@ -3642,10 +3955,12 @@ function UrunListesiContent() {
                                                             style={{ width: '100px', padding: '6px 10px', fontSize: '12px', height: '34px' }}
                                                             value={dorse.malzemeCinsi ?? ''}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            onChange={async (e) => {
+                                                            onChange={(e) => {
                                                                 const newMalzemeCinsi = e.target.value;
-                                                                const updated = await updateDorse(dorse.id, { malzemeCinsi: newMalzemeCinsi });
-                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                void (async () => {
+                                                                    const updated = await updateDorse(dorse.id, { malzemeCinsi: newMalzemeCinsi });
+                                                                    setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                                })();
                                                             }}
                                                         >
                                                             <option value="">Seçiniz</option>
@@ -3679,11 +3994,20 @@ function UrunListesiContent() {
                                                             placeholder="Kalınlık"
                                                             value={dorse.kalinlik ?? ''}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            onChange={async (e) => {
+                                                            onChange={(e) => {
                                                                 const newKalinlik = e.target.value;
-                                                                const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
-                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                setDorses(prev =>
+                                                                    prev.map(d => (d.id === dorse.id ? { ...d, kalinlik: newKalinlik } : d))
+                                                                );
+                                                                const key = `dorse-${dorse.id}-kalinlik`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateDorse(dorse.id, { kalinlik: newKalinlik });
+                                                                    setDorses(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, dorse.id, 'kalinlik', newKalinlik, updated)
+                                                                    );
+                                                                });
                                                             }}
+                                                            onBlur={() => void persistNow(`dorse-${dorse.id}-kalinlik`)}
                                                         />
                                                     </div>
 
@@ -3752,10 +4076,9 @@ function UrunListesiContent() {
                                                         </div>
                                                         <div
                                                             className={`step-toggle ${dorse.cekiciGeldiMi ? 'active' : ''}`}
-                                                            onClick={async (e) => {
+                                                            onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                const updated = await updateDorse(dorse.id, { cekiciGeldiMi: !dorse.cekiciGeldiMi });
-                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                handleStepToggle(dorse.id, 'cekiciGeldiMi', dorse.cekiciGeldiMi, 'DORSE');
                                                             }}
                                                             style={{ transform: 'scale(1.1)' }}
                                                             title="Değiştirmek için tıklayın"
@@ -3776,7 +4099,7 @@ function UrunListesiContent() {
                                                         <div>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                {dorse.adet || 1}
+                                                                {dorse.adet > 0 ? dorse.adet : '–'}
                                                             </div>
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3785,13 +4108,43 @@ function UrunListesiContent() {
                                                                 className="input"
                                                                 min="1"
                                                                 style={{ width: '60px', padding: '4px 8px', fontSize: '13px', textAlign: 'center', height: '32px' }}
-                                                                value={dorse.adet || 1}
-                                                                onChange={async (e) => {
-                                                                    const newAdet = parseInt(e.target.value);
-                                                                    if (newAdet > 0) {
-                                                                        const updated = await updateDorse(dorse.id, { adet: newAdet });
-                                                                        setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                value={dorse.adet > 0 ? String(dorse.adet) : ''}
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const raw = e.target.value;
+                                                                    const key = `dorse-${dorse.id}-adet`;
+                                                                    if (raw === '') {
+                                                                        setDorses(prev =>
+                                                                            prev.map(d => (d.id === dorse.id ? { ...d, adet: 0 } : d))
+                                                                        );
+                                                                        persistLater(key, async () => {
+                                                                            const updated = await updateDorse(dorse.id, { adet: 1 });
+                                                                            setDorses(prev =>
+                                                                                applyServerRowIfFieldMatches(prev, dorse.id, 'adet', 0, updated)
+                                                                            );
+                                                                        });
+                                                                        return;
                                                                     }
+                                                                    const newAdet = parseInt(raw, 10);
+                                                                    if (Number.isNaN(newAdet) || newAdet < 1) return;
+                                                                    const snap = newAdet;
+                                                                    setDorses(prev =>
+                                                                        prev.map(d => (d.id === dorse.id ? { ...d, adet: newAdet } : d))
+                                                                    );
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDorse(dorse.id, { adet: newAdet });
+                                                                        setDorses(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, dorse.id, 'adet', snap, updated)
+                                                                        );
+                                                                    });
+                                                                }}
+                                                                onBlur={() => {
+                                                                    void persistNow(`dorse-${dorse.id}-adet`);
+                                                                    setDorses(prev =>
+                                                                        prev.map(d =>
+                                                                            d.id === dorse.id && d.adet < 1 ? { ...d, adet: 1 } : d
+                                                                        )
+                                                                    );
                                                                 }}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
@@ -3827,11 +4180,20 @@ function UrunListesiContent() {
                                                             placeholder="Renk"
                                                             value={dorse.renk || ''}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            onChange={async (e) => {
+                                                            onChange={(e) => {
                                                                 const newRenk = e.target.value;
-                                                                const updated = await updateDorse(dorse.id, { renk: newRenk });
-                                                                setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                setDorses(prev =>
+                                                                    prev.map(d => (d.id === dorse.id ? { ...d, renk: newRenk } : d))
+                                                                );
+                                                                const key = `dorse-${dorse.id}-renk`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateDorse(dorse.id, { renk: newRenk });
+                                                                    setDorses(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, dorse.id, 'renk', newRenk, updated)
+                                                                    );
+                                                                });
                                                             }}
+                                                            onBlur={() => void persistNow(`dorse-${dorse.id}-renk`)}
                                                         />
                                                     </div>
 
@@ -3860,13 +4222,16 @@ function UrunListesiContent() {
                                                             className="input"
                                                             style={{ padding: '4px 8px', fontSize: '12px', width: '40px', height: '30px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'transparent', cursor: 'pointer', opacity: 0, position: 'absolute', right: '16px', zIndex: 10 }}
                                                             title="Tarihi Düzenle"
-                                                            onChange={async (e) => {
-                                                                if (e.target.value) {
-                                                                    const updated = await updateDorse(dorse.id, {
-                                                                        createdAt: new Date(e.target.value).toISOString()
-                                                                    });
-                                                                    setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
-                                                                }
+                                                            onChange={(e) => {
+                                                                if (!e.target.value) return;
+                                                                const iso = new Date(e.target.value).toISOString();
+                                                                setDorses(prev =>
+                                                                    prev.map(d => (d.id === dorse.id ? { ...d, createdAt: iso } : d))
+                                                                );
+                                                                void (async () => {
+                                                                    const updated = await updateDorse(dorse.id, { createdAt: iso });
+                                                                    setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                                })();
                                                             }}
                                                         />
                                                         <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -3897,9 +4262,14 @@ function UrunListesiContent() {
                                                                                     style={{ width: '130px', padding: '4px 8px', fontSize: '12px' }}
                                                                                     value={currentValue || ''}
                                                                                     onClick={(e) => e.stopPropagation()}
-                                                                                    onChange={async (e) => {
-                                                                                        const updated = await updateDorse(dorse.id, { [step.key]: e.target.value });
-                                                                                        setDorses(prev => prev.map(d => d.id === dorse.id ? updated : d));
+                                                                                    onChange={(e) => {
+                                                                                        const v = e.target.value;
+                                                                                        void (async () => {
+                                                                                            const updated = await updateDorse(dorse.id, { [step.key]: v });
+                                                                                            setDorses(prev =>
+                                                                                                applyServerRowIfFieldMatches(prev, dorse.id, step.key as keyof Dorse, v, updated)
+                                                                                            );
+                                                                                        })();
                                                                                     }}
                                                                                 >
                                                                                     <option value="">Seçiniz</option>

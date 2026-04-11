@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
-import { API_URL } from '@/lib/api';
+import { API_URL, apiFetch } from '@/lib/api';
 import {
     FileText,
     ClipboardList,
@@ -32,7 +32,7 @@ export default function GirisLoglariPage() {
 
     const fetchLogs = async () => {
         try {
-            const res = await fetch(`${API_URL}/login-logs?limit=200`, { credentials: 'include' });
+            const res = await apiFetch(`${API_URL}/login-logs?limit=200`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setLogs(data);

@@ -249,19 +249,49 @@ async function handleResponse<T>(res: Response): Promise<T> {
     return res.json();
 }
 
+/** Uyku sonrası proxy/container uyanırken gelen 502/503/504 ve geçici ağ kopmaları */
+const RETRYABLE_HTTP = new Set([408, 429, 502, 503, 504]);
+const MAX_API_ATTEMPTS = 5;
+const API_RETRY_BASE_MS = 550;
+
+function sleep(ms: number) {
+    return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+export async function apiFetch(input: string | URL, init?: RequestInit): Promise<Response> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_API_ATTEMPTS; attempt++) {
+        try {
+            const res = await fetch(input, init);
+            if (res.ok || !RETRYABLE_HTTP.has(res.status)) {
+                return res;
+            }
+            await res.text().catch(() => {});
+            lastError = new Error(`HTTP ${res.status}`);
+        } catch (e) {
+            lastError = e;
+        }
+        if (attempt < MAX_API_ATTEMPTS - 1) {
+            const backoff = API_RETRY_BASE_MS * Math.pow(1.65, attempt) + Math.random() * 300;
+            await sleep(backoff);
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
 // API Functions
 export async function getDampers(): Promise<Damper[]> {
-    const res = await fetch(`${API_URL}/dampers`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/dampers`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Damper[]>(res);
 }
 
 export async function getDamper(id: number): Promise<Damper> {
-    const res = await fetch(`${API_URL}/dampers/${id}`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/dampers/${id}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Damper>(res);
 }
 
 export async function createDamper(data: Partial<Damper>): Promise<Damper> {
-    const res = await fetch(`${API_URL}/dampers`, {
+    const res = await apiFetch(`${API_URL}/dampers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -271,7 +301,7 @@ export async function createDamper(data: Partial<Damper>): Promise<Damper> {
 }
 
 export async function updateDamper(id: number, data: Partial<Damper>): Promise<Damper> {
-    const res = await fetch(`${API_URL}/dampers/${id}`, {
+    const res = await apiFetch(`${API_URL}/dampers/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -281,7 +311,7 @@ export async function updateDamper(id: number, data: Partial<Damper>): Promise<D
 }
 
 export async function deleteDamper(id: number): Promise<void> {
-    const res = await fetch(`${API_URL}/dampers/${id}`, {
+    const res = await apiFetch(`${API_URL}/dampers/${id}`, {
         method: 'DELETE',
         credentials: 'include',
     });
@@ -289,32 +319,32 @@ export async function deleteDamper(id: number): Promise<void> {
 }
 
 export async function getDampersSummary(): Promise<DamperSummary[]> {
-    const res = await fetch(`${API_URL}/dampers-summary`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/dampers-summary`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<DamperSummary[]>(res);
 }
 
 export async function getDorsesSummary(): Promise<DorseSummary[]> {
-    const res = await fetch(`${API_URL}/dorses-summary`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/dorses-summary`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<DorseSummary[]>(res);
 }
 
 export async function getStats(type: 'DAMPER' | 'DORSE' | 'SASI' = 'DAMPER'): Promise<Stats> {
-    const res = await fetch(`${API_URL}/stats?type=${type}`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/stats?type=${type}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Stats>(res);
 }
 
 export async function getDropdowns(): Promise<Dropdowns> {
-    const res = await fetch(`${API_URL}/dropdowns`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/dropdowns`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Dropdowns>(res);
 }
 
 export async function getCompanySummary(type: 'DAMPER' | 'DORSE' | 'SASI' = 'DAMPER'): Promise<CompanySummary[]> {
-    const res = await fetch(`${API_URL}/company-summary?type=${type}`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/company-summary?type=${type}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<CompanySummary[]>(res);
 }
 
 export async function deleteCompanyM3Group(companyName: string, m3: string, type: 'DAMPER' | 'DORSE' = 'DAMPER'): Promise<void> {
-    const res = await fetch(`${API_URL}/company-m3`, {
+    const res = await apiFetch(`${API_URL}/company-m3`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -565,7 +595,7 @@ export async function getVerimlilik(
     toIso: string
 ): Promise<VerimlilikResponse> {
     const q = new URLSearchParams({ type, from: fromIso, to: toIso });
-    const res = await fetch(`${API_URL}/analytics/verimlilik?${q.toString()}`, {
+    const res = await apiFetch(`${API_URL}/analytics/verimlilik?${q.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
     });
@@ -600,7 +630,7 @@ export interface ProposalIngestRow {
 
 export async function getProposalIngestList(limit = 300): Promise<ProposalIngestRow[]> {
     const q = new URLSearchParams({ limit: String(limit) });
-    const res = await fetch(`${API_URL}/integrations/teklif-takip/proposals?${q.toString()}`, {
+    const res = await apiFetch(`${API_URL}/integrations/teklif-takip/proposals?${q.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
     });
@@ -608,7 +638,7 @@ export async function getProposalIngestList(limit = 300): Promise<ProposalIngest
 }
 
 export async function patchProposalIngest(id: number, imalataAlindi: boolean): Promise<ProposalIngestRow> {
-    const res = await fetch(`${API_URL}/integrations/teklif-takip/proposals/${id}`, {
+    const res = await apiFetch(`${API_URL}/integrations/teklif-takip/proposals/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -618,7 +648,7 @@ export async function patchProposalIngest(id: number, imalataAlindi: boolean): P
 }
 
 export async function deleteProposalIngest(id: number): Promise<void> {
-    const res = await fetch(`${API_URL}/integrations/teklif-takip/proposals/${id}`, {
+    const res = await apiFetch(`${API_URL}/integrations/teklif-takip/proposals/${id}`, {
         method: 'DELETE',
         credentials: 'include',
     });
@@ -652,7 +682,7 @@ export interface CapacityWeekResponse {
 }
 
 export async function getCapacityDefaults(): Promise<CapacityScheduleDefaults> {
-    const res = await fetch(`${API_URL}/capacity/defaults`, { credentials: 'include', cache: 'no-store' });
+    const res = await apiFetch(`${API_URL}/capacity/defaults`, { credentials: 'include', cache: 'no-store' });
     return handleResponse<CapacityScheduleDefaults>(res);
 }
 
@@ -661,7 +691,7 @@ export async function getCapacityWeek(
     weekStart: string
 ): Promise<CapacityWeekResponse> {
     const q = new URLSearchParams({ type, weekStart });
-    const res = await fetch(`${API_URL}/capacity/week?${q.toString()}`, {
+    const res = await apiFetch(`${API_URL}/capacity/week?${q.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
     });
@@ -676,7 +706,7 @@ export async function putCapacityWeek(body: {
     normalHours: number;
     overtimeHours: number;
 }): Promise<Record<string, unknown>> {
-    const res = await fetch(`${API_URL}/capacity/week`, {
+    const res = await apiFetch(`${API_URL}/capacity/week`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -691,7 +721,7 @@ export async function deleteCapacityWeek(
     mainStepKey: string
 ): Promise<void> {
     const q = new URLSearchParams({ type, weekStart, mainStepKey });
-    const res = await fetch(`${API_URL}/capacity/week?${q.toString()}`, {
+    const res = await apiFetch(`${API_URL}/capacity/week?${q.toString()}`, {
         method: 'DELETE',
         credentials: 'include',
     });
@@ -703,7 +733,7 @@ export async function postAiInsight(body: {
     from: string;
     to: string;
 }): Promise<{ text: string; model: string }> {
-    const res = await fetch(`${API_URL}/analytics/ai-insight`, {
+    const res = await apiFetch(`${API_URL}/analytics/ai-insight`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -729,7 +759,7 @@ export interface SearchResponse {
 
 export async function getSearch(q: string): Promise<SearchResponse> {
     const params = new URLSearchParams({ q });
-    const res = await fetch(`${API_URL}/search?${params.toString()}`, {
+    const res = await apiFetch(`${API_URL}/search?${params.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
     });
@@ -767,7 +797,7 @@ export async function getAuditLogs(params?: {
     if (params?.skip != null) q.set('skip', String(params.skip));
     if (params?.productType) q.set('productType', params.productType);
     if (params?.productId != null) q.set('productId', String(params.productId));
-    const res = await fetch(`${API_URL}/audit-logs?${q.toString()}`, {
+    const res = await apiFetch(`${API_URL}/audit-logs?${q.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
     });
@@ -790,7 +820,7 @@ export interface StaleProductsResponse {
 }
 
 export async function getStaleProducts(days = 14): Promise<StaleProductsResponse> {
-    const res = await fetch(`${API_URL}/analytics/stale-products?days=${days}`, {
+    const res = await apiFetch(`${API_URL}/analytics/stale-products?days=${days}`, {
         credentials: 'include',
         cache: 'no-store',
     });
@@ -803,7 +833,7 @@ export async function putCapacityTarget(body: {
     mainStepKey: string;
     targetCount: number;
 }): Promise<Record<string, unknown>> {
-    const res = await fetch(`${API_URL}/capacity/target`, {
+    const res = await apiFetch(`${API_URL}/capacity/target`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -818,7 +848,7 @@ export async function deleteCapacityTarget(
     mainStepKey: string
 ): Promise<void> {
     const q = new URLSearchParams({ type, weekStart, mainStepKey });
-    const res = await fetch(`${API_URL}/capacity/target?${q.toString()}`, {
+    const res = await apiFetch(`${API_URL}/capacity/target?${q.toString()}`, {
         method: 'DELETE',
         credentials: 'include',
     });
@@ -826,12 +856,12 @@ export async function deleteCapacityTarget(
 }
 
 export async function getDorses(): Promise<Dorse[]> {
-    const res = await fetch(`${API_URL}/dorses`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/dorses`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Dorse[]>(res);
 }
 
 export async function createDorse(data: Partial<Dorse>): Promise<Dorse> {
-    const res = await fetch(`${API_URL}/dorses`, {
+    const res = await apiFetch(`${API_URL}/dorses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -841,7 +871,7 @@ export async function createDorse(data: Partial<Dorse>): Promise<Dorse> {
 }
 
 export async function updateDorse(id: number, data: Partial<Dorse>): Promise<Dorse> {
-    const res = await fetch(`${API_URL}/dorses/${id}`, {
+    const res = await apiFetch(`${API_URL}/dorses/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -851,7 +881,7 @@ export async function updateDorse(id: number, data: Partial<Dorse>): Promise<Dor
 }
 
 export async function deleteDorse(id: number): Promise<void> {
-    const res = await fetch(`${API_URL}/dorses/${id}`, {
+    const res = await apiFetch(`${API_URL}/dorses/${id}`, {
         method: 'DELETE',
         credentials: 'include',
     });
@@ -860,17 +890,17 @@ export async function deleteDorse(id: number): Promise<void> {
 
 export async function getSasis(unlinkedOnly = false): Promise<Sasi[]> {
     const url = unlinkedOnly ? `${API_URL}/sasis?unlinkedOnly=true` : `${API_URL}/sasis`;
-    const res = await fetch(url, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(url, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Sasi[]>(res);
 }
 
 export async function getSasi(id: number): Promise<Sasi> {
-    const res = await fetch(`${API_URL}/sasis/${id}`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/sasis/${id}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Sasi>(res);
 }
 
 export async function createSasi(data: Partial<Sasi>): Promise<Sasi> {
-    const res = await fetch(`${API_URL}/sasis`, {
+    const res = await apiFetch(`${API_URL}/sasis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -880,7 +910,7 @@ export async function createSasi(data: Partial<Sasi>): Promise<Sasi> {
 }
 
 export async function updateSasi(id: number, data: Partial<Sasi>): Promise<Sasi> {
-    const res = await fetch(`${API_URL}/sasis/${id}`, {
+    const res = await apiFetch(`${API_URL}/sasis/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -890,7 +920,7 @@ export async function updateSasi(id: number, data: Partial<Sasi>): Promise<Sasi>
 }
 
 export async function deleteSasi(id: number): Promise<void> {
-    const res = await fetch(`${API_URL}/sasis/${id}`, {
+    const res = await apiFetch(`${API_URL}/sasis/${id}`, {
         method: 'DELETE',
         credentials: 'include',
     });
@@ -898,12 +928,12 @@ export async function deleteSasi(id: number): Promise<void> {
 }
 
 export async function getDorse(id: number): Promise<Dorse> {
-    const res = await fetch(`${API_URL}/dorses/${id}`, { cache: 'no-store', credentials: 'include' });
+    const res = await apiFetch(`${API_URL}/dorses/${id}`, { cache: 'no-store', credentials: 'include' });
     return handleResponse<Dorse>(res);
 }
 
 export async function linkSasi(dorseId: number, sasiId: number): Promise<Dorse> {
-    const res = await fetch(`${API_URL}/dorses/${dorseId}/link-sasi`, {
+    const res = await apiFetch(`${API_URL}/dorses/${dorseId}/link-sasi`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -913,7 +943,7 @@ export async function linkSasi(dorseId: number, sasiId: number): Promise<Dorse> 
 }
 
 export async function unlinkSasi(dorseId: number): Promise<Dorse> {
-    const res = await fetch(`${API_URL}/dorses/${dorseId}/link-sasi`, {
+    const res = await apiFetch(`${API_URL}/dorses/${dorseId}/link-sasi`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

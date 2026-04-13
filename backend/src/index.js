@@ -410,7 +410,20 @@ function omitProductionStartedFromUpdate(body) {
     return rest;
 }
 
-const AUDIT_SKIP_KEYS = new Set(['updatedAt', 'createdAt']);
+/** İstek gövdesinden Prisma güncellemesi; cardNote uzunluğu sınırlanır, boş string null olur */
+function prepareProductUpdateData(body) {
+    const data = omitProductionStartedFromUpdate(body);
+    if (!data || typeof data !== 'object') return data;
+    if (Object.prototype.hasOwnProperty.call(data, 'cardNote')) {
+        const v = data.cardNote;
+        if (v === '' || v === undefined || v === null) data.cardNote = null;
+        else if (typeof v === 'string') data.cardNote = v.slice(0, 8000);
+        else delete data.cardNote;
+    }
+    return data;
+}
+
+const AUDIT_SKIP_KEYS = new Set(['updatedAt', 'createdAt', 'cardNote']);
 
 function serializeAuditValue(v) {
     if (v === null || v === undefined) return v;
@@ -805,7 +818,7 @@ app.put('/api/dampers/:id', requireAuth, async (req, res) => {
         }
         const damper = await prisma.damper.update({
             where: { id: idNum },
-            data: omitProductionStartedFromUpdate(req.body)
+            data: prepareProductUpdateData(req.body)
         });
         await syncStepCompletionEvents(prisma, 'DAMPER', damper.id, before, damper, getDamperTrackedStatus);
         const changes = collectFieldChanges(before, damper);
@@ -979,7 +992,7 @@ app.put('/api/sasis/:id', requireAuth, async (req, res) => {
         }
         const sasi = await prisma.sasi.update({
             where: { id: idNum },
-            data: omitProductionStartedFromUpdate(req.body)
+            data: prepareProductUpdateData(req.body)
         });
         await syncStepCompletionEvents(prisma, 'SASI', sasi.id, before, sasi, getSasiTrackedStatus);
         const sasiChanges = collectFieldChanges(before, sasi);
@@ -1378,12 +1391,13 @@ app.get('/api/dropdowns', async (req, res) => {
     try {
         const dropdowns = {
             aracGeldiMi: ['EVET', 'HAYIR'],
-            tip: ['HAVUZ DAMPER', 'HAVUZ DAMPER + HİDROLİK KAPAK', 'KÖŞELİ DAMPER', 'Ahşap Kasa', 'Lambiri Kasa', '3 Yöne Devirme Damper'],
+            tip: ['HAVUZ DAMPER', 'HAVUZ DAMPER + HİDROLİK KAPAK', 'KÖŞELİ DAMPER', 'Ahşap Kasa', 'Lambiri Kasa', '3 Yöne Devirme Damper', 'Karla Mücadele'],
             malzemeCinsi: ['HARDOX', 'ST52'],
             aracMarka: ['FORD', 'MERCEDES', 'MAN', 'MBT 3342'],
             model: ['3545 D', '3345 K', '1833', '2533 D', '4145 D', '41440'],
             kurumMuayenesi: ['YOK', 'YAPILDI'],
-            dmoMuayenesi: ['MUAYENE YOK', 'YAPILDI']
+            dmoMuayenesi: ['MUAYENE YOK', 'YAPILDI'],
+            dorseFren: ['Wabco', 'Knorr']
         };
         res.json(dropdowns);
     } catch (error) {
@@ -1975,7 +1989,7 @@ app.put('/api/dorses/:id', requireAuth, async (req, res) => {
         }
         const dorse = await prisma.dorse.update({
             where: { id: idNum },
-            data: omitProductionStartedFromUpdate(req.body)
+            data: prepareProductUpdateData(req.body)
         });
         await syncStepCompletionEvents(prisma, 'DORSE', dorse.id, before, dorse, getDorseTrackedStatus);
         const dorseChanges = collectFieldChanges(before, dorse);
@@ -2736,6 +2750,232 @@ app.delete('/api/integrations/teklif-takip/proposals/:id', requireAuth, async (r
         }
         console.error('teklif-takip delete proposal:', error);
         res.status(500).json({ error: 'Silinemedi' });
+    }
+});
+
+/** Onaylı teklif üretim planı: bölüm şablonları (Damper/Dorse). */
+app.get('/api/planning/meta', requireAuth, (req, res) => {
+    const type = req.query.type === 'DORSE' ? 'DORSE' : 'DAMPER';
+    const keys = TRACKED_MAIN_STEPS[type] || [];
+    const labels = STEP_LABELS[type] || {};
+    res.json({
+        productType: type,
+        steps: keys.map((mainStepKey) => ({
+            mainStepKey,
+            label: labels[mainStepKey] || mainStepKey
+        }))
+    });
+});
+
+/** İmalata alınmış onaylı teklifler (Mevcut işlerde "İmalata alındı" açık) + plan segmentleri. */
+app.get('/api/planning/proposals', requireAuth, async (req, res) => {
+    try {
+        let limit = parseInt(String(req.query.limit || ''), 10);
+        if (!Number.isFinite(limit) || limit < 1) limit = 300;
+        if (limit > 500) limit = 500;
+        const rows = await prisma.proposalIngest.findMany({
+            where: {
+                approvalLoggedAt: { not: null },
+                imalataAlindi: true
+            },
+            orderBy: [{ pushedAt: 'desc' }],
+            take: limit,
+            include: { planSegments: { orderBy: { id: 'asc' } } }
+        });
+        res.json(rows);
+    } catch (error) {
+        console.error('planning proposals:', error);
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması eksik olabilir: npx prisma migrate deploy'
+                : '';
+        res.status(500).json({ error: `Planlama listesi alınamadı.${hint}` });
+    }
+});
+
+function proposalPlanDeadline(row) {
+    if (row.targetDeliveryDate) return new Date(row.targetDeliveryDate);
+    const segs = row.planSegments || [];
+    if (!segs.length) return null;
+    let maxT = 0;
+    for (const s of segs) {
+        const t = new Date(s.plannedEnd).getTime();
+        if (t > maxT) maxT = t;
+    }
+    return maxT > 0 ? new Date(maxT) : null;
+}
+
+/** Yaklaşan / geciken plan hedefleri (imalata alınmış kuyruk). */
+app.get('/api/planning/alerts', requireAuth, async (req, res) => {
+    try {
+        let soonDays = parseInt(String(req.query.soonDays || '3'), 10);
+        if (!Number.isFinite(soonDays) || soonDays < 1) soonDays = 3;
+        if (soonDays > 30) soonDays = 30;
+        const rows = await prisma.proposalIngest.findMany({
+            where: {
+                approvalLoggedAt: { not: null },
+                imalataAlindi: true
+            },
+            include: { planSegments: true }
+        });
+        const now = new Date();
+        const soonEnd = new Date(now.getTime() + soonDays * 24 * 60 * 60 * 1000);
+        const overdue = [];
+        const dueSoon = [];
+        for (const r of rows) {
+            const dl = proposalPlanDeadline(r);
+            if (!dl) continue;
+            const item = {
+                id: r.id,
+                companyName: r.companyName,
+                deadline: dl.toISOString(),
+                planningProductType: r.planningProductType,
+                imalataAlindi: r.imalataAlindi
+            };
+            if (dl.getTime() < now.getTime()) {
+                overdue.push(item);
+            } else if (dl.getTime() <= soonEnd.getTime()) {
+                dueSoon.push(item);
+            }
+        }
+        res.json({ overdue, dueSoon, soonDays });
+    } catch (error) {
+        console.error('planning alerts:', error);
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' npx prisma migrate deploy'
+                : '';
+        res.status(500).json({ error: `Uyarılar alınamadı.${hint}` });
+    }
+});
+
+app.put('/api/planning/proposals/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const existing = await prisma.proposalIngest.findUnique({ where: { id } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        if (!existing.approvalLoggedAt) {
+            return res.status(400).json({ error: 'Yalnızca onaylı teklifler planlanabilir' });
+        }
+        if (!existing.imalataAlindi) {
+            return res.status(400).json({
+                error: 'Önce Mevcut işler sayfasında bu teklif için "İmalata alındı" seçeneğini açın'
+            });
+        }
+
+        const b = req.body || {};
+        const data = {};
+
+        if (Object.prototype.hasOwnProperty.call(b, 'planningProductType')) {
+            const v = b.planningProductType;
+            if (v !== null && v !== 'DAMPER' && v !== 'DORSE') {
+                return res.status(400).json({ error: 'planningProductType null, DAMPER veya DORSE olmalı' });
+            }
+            data.planningProductType = v;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(b, 'expectedDeliveryDays')) {
+            if (b.expectedDeliveryDays === null || b.expectedDeliveryDays === '') {
+                data.expectedDeliveryDays = null;
+            } else {
+                const n = parseInt(String(b.expectedDeliveryDays), 10);
+                if (!Number.isFinite(n) || n < 0 || n > 3650) {
+                    return res.status(400).json({ error: 'expectedDeliveryDays 0–3650 arası olmalı' });
+                }
+                data.expectedDeliveryDays = n;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(b, 'targetDeliveryDate')) {
+            const td = parseOptionalIsoDate(b.targetDeliveryDate);
+            if (!td.ok) return res.status(400).json({ error: td.error || 'targetDeliveryDate geçersiz' });
+            data.targetDeliveryDate = td.date;
+        }
+
+        const effectiveType =
+            Object.prototype.hasOwnProperty.call(b, 'planningProductType') && b.planningProductType !== null
+                ? b.planningProductType
+                : existing.planningProductType;
+
+        const hasSegmentsKey = Object.prototype.hasOwnProperty.call(b, 'segments');
+        let segmentPayload = null;
+        if (hasSegmentsKey) {
+            if (!Array.isArray(b.segments)) {
+                return res.status(400).json({ error: 'segments dizi olmalı' });
+            }
+            if (!effectiveType) {
+                return res.status(400).json({ error: 'Segment kaydı için planningProductType gerekli (önce tür seçin)' });
+            }
+            const allowed = new Set(TRACKED_MAIN_STEPS[effectiveType] || []);
+            const qty = Number(existing.quantity);
+            const maxUnit = Math.min(100, Math.max(1, Number.isFinite(qty) && qty > 0 ? Math.ceil(qty) : 1));
+            segmentPayload = [];
+            for (const s of b.segments) {
+                const mk = typeof s.mainStepKey === 'string' ? s.mainStepKey : '';
+                if (!allowed.has(mk)) {
+                    return res.status(400).json({ error: `Geçersiz veya uyumsuz mainStepKey: ${mk}` });
+                }
+                const unitIndex = parseInt(String(s.unitIndex != null ? s.unitIndex : 1), 10);
+                if (!Number.isFinite(unitIndex) || unitIndex < 1 || unitIndex > maxUnit) {
+                    return res.status(400).json({
+                        error: `unitIndex 1–${maxUnit} arası olmalı (miktar: ${existing.quantity})`
+                    });
+                }
+                const ps = parseOptionalIsoDate(s.plannedStart);
+                const pe = parseOptionalIsoDate(s.plannedEnd);
+                if (!ps.ok || !ps.date) return res.status(400).json({ error: `${mk} plannedStart gerekli` });
+                if (!pe.ok || !pe.date) return res.status(400).json({ error: `${mk} plannedEnd gerekli` });
+                if (pe.date.getTime() < ps.date.getTime()) {
+                    return res.status(400).json({ error: `${mk}: plannedEnd, plannedStart'tan önce olamaz` });
+                }
+                let durationDays = null;
+                if (s.durationDays !== undefined && s.durationDays !== null && s.durationDays !== '') {
+                    const dn = parseInt(String(s.durationDays), 10);
+                    if (!Number.isFinite(dn) || dn < 0) {
+                        return res.status(400).json({ error: `${mk}: durationDays geçersiz` });
+                    }
+                    durationDays = dn;
+                }
+                segmentPayload.push({
+                    proposalIngestId: id,
+                    unitIndex,
+                    mainStepKey: mk,
+                    plannedStart: ps.date,
+                    plannedEnd: pe.date,
+                    durationDays
+                });
+            }
+        }
+
+        await prisma.$transaction(async (tx) => {
+            if (Object.keys(data).length > 0) {
+                await tx.proposalIngest.update({ where: { id }, data });
+            }
+            if (hasSegmentsKey) {
+                await tx.proposalPlanSegment.deleteMany({ where: { proposalIngestId: id } });
+                if (segmentPayload.length > 0) {
+                    await tx.proposalPlanSegment.createMany({ data: segmentPayload });
+                }
+            }
+        });
+
+        const row = await prisma.proposalIngest.findUnique({
+            where: { id },
+            include: { planSegments: { orderBy: { id: 'asc' } } }
+        });
+        res.json(row);
+    } catch (error) {
+        console.error('planning put proposal:', error);
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' npx prisma migrate deploy'
+                : '';
+        res.status(500).json({ error: `Plan kaydedilemedi.${hint}` });
     }
 });
 

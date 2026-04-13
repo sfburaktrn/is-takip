@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import { API_URL, apiFetch } from '@/lib/api';
 import {
     Settings,
@@ -171,7 +172,7 @@ export default function AyarlarPage() {
                         </div>
 
                         {loading ? (
-                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>Yükleniyor...</div>
+                            <OzunluLoading variant="compact" />
                         ) : (
                             <div style={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>

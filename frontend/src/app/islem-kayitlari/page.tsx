@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import { getAuditLogs, type AuditLogRow } from '@/lib/api';
 import { History, Loader2, RefreshCcw } from 'lucide-react';
 
@@ -97,8 +98,8 @@ export default function IslemKayitlariPage() {
                 )}
 
                 {loading && rows.length === 0 ? (
-                    <div className="card py-14 text-center">
-                        <Loader2 className="animate-spin mx-auto" size={36} />
+                    <div className="card py-8">
+                        <OzunluLoading variant="compact" />
                     </div>
                 ) : (
                     <>

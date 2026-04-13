@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import { getCompanySummary, deleteCompanyM3Group, type CompanySummary } from '@/lib/api';
 
 type ProductType = 'DAMPER' | 'DORSE';
@@ -173,12 +174,7 @@ export default function FirmaOzeti() {
 
                 {/* Loading State */}
                 {loading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                            <div style={{ color: 'var(--muted)' }}>Yükleniyor...</div>
-                        </div>
-                    </div>
+                    <OzunluLoading variant="inline" />
                 ) : (
                     /* Company Cards */
                     <div>

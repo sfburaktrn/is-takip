@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import { getDampersSummary, getDorsesSummary, type DamperSummary, type DorseSummary } from '@/lib/api';
 
 export default function OzetSayfasi() {
@@ -61,12 +62,7 @@ export default function OzetSayfasi() {
             <>
                 <Sidebar />
                 <main className="main-content">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                            <div style={{ color: 'var(--muted)' }}>Yükleniyor...</div>
-                        </div>
-                    </div>
+                    <OzunluLoading variant="inline" />
                 </main>
             </>
             </AuthGuard>

@@ -23,7 +23,8 @@ import {
     User,
     Users,
     Search,
-    History
+    History,
+    CalendarDays
 } from 'lucide-react';
 
 function typeLabel(t: string) {
@@ -79,11 +80,10 @@ export default function Sidebar() {
         { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
         { href: '/analiz', label: 'Analiz', icon: LineChart },
         { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
+        { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
         { href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
+       /* { href: '/planlama', label: 'Üretim planı', icon: CalendarDays }, */
     ];
-
-    const kapasiteMenuItem = { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users };
-    const KapasiteSidebarIcon = kapasiteMenuItem.icon;
 
     const adminOnlyMenuItems = [
         { href: '/islem-kayitlari', label: 'İşlem kayıtları', icon: History },
@@ -115,8 +115,8 @@ export default function Sidebar() {
 
             {/* Sidebar */}
             <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-                <div className="sidebar-logo" style={{ padding: '12px 12px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ position: 'relative', width: '100%', height: '28px' }}>
+                <div className="sidebar-logo" style={{ padding: '6px 6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <div style={{ position: 'relative', width: '100%', height: '22px' }}>
                         <Image
                             src="/logo.png"
                             alt="Özünlü Logo"
@@ -129,10 +129,10 @@ export default function Sidebar() {
                         fontSize: '11px',
                         fontWeight: 700,
                         color: 'var(--muted)',
-                        letterSpacing: '1px',
+                        letterSpacing: '0.5px',
                         textAlign: 'center',
                         borderTop: '1px solid var(--border)',
-                        paddingTop: '12px',
+                        paddingTop: '6px',
                         width: '100%'
                     }}>
                         İMALAT TAKİP SİSTEMİ
@@ -140,7 +140,7 @@ export default function Sidebar() {
                 </div>
 
                 {user && (
-                    <div style={{ padding: '8px 12px 12px', position: 'relative', zIndex: 20 }}>
+                    <div className="sidebar-search" style={{ padding: '4px 2px 6px', position: 'relative', zIndex: 20 }}>
                         <div style={{ position: 'relative' }}>
                             <Search
                                 size={16}
@@ -155,7 +155,7 @@ export default function Sidebar() {
                             />
                             <input
                                 type="search"
-                                placeholder="İmalat no, müşteri, şasi..."
+                                placeholder="İmalat no, müşteri…"
                                 value={searchQ}
                                 onChange={e => {
                                     setSearchQ(e.target.value);
@@ -164,10 +164,10 @@ export default function Sidebar() {
                                 onFocus={() => setSearchOpen(true)}
                                 style={{
                                     width: '100%',
-                                    padding: '8px 10px 8px 34px',
+                                    padding: '7px 10px 7px 34px',
                                     borderRadius: '8px',
                                     border: '1px solid var(--border)',
-                                    fontSize: '12px',
+                                    fontSize: '13px',
                                     background: 'var(--card-bg, #fff)',
                                 }}
                             />
@@ -176,8 +176,8 @@ export default function Sidebar() {
                             <div
                                 style={{
                                     position: 'absolute',
-                                    left: '12px',
-                                    right: '12px',
+                                    left: '2px',
+                                    right: '2px',
                                     top: '100%',
                                     marginTop: '4px',
                                     maxHeight: '280px',
@@ -197,14 +197,14 @@ export default function Sidebar() {
                                     ];
                                     if (searchLoading) {
                                         return (
-                                            <div style={{ padding: '12px', fontSize: '12px', color: 'var(--muted)' }}>
+                                            <div style={{ padding: '12px', fontSize: '13px', color: 'var(--muted)' }}>
                                                 Aranıyor…
                                             </div>
                                         );
                                     }
                                     if (searchError) {
                                         return (
-                                            <div style={{ padding: '12px', fontSize: '12px', color: '#b91c1c' }}>
+                                            <div style={{ padding: '12px', fontSize: '13px', color: '#b91c1c' }}>
                                                 {searchError}
                                             </div>
                                         );
@@ -214,7 +214,7 @@ export default function Sidebar() {
                                     }
                                     if (all.length === 0) {
                                         return (
-                                            <div style={{ padding: '12px', fontSize: '12px', color: 'var(--muted)' }}>
+                                            <div style={{ padding: '12px', fontSize: '13px', color: 'var(--muted)' }}>
                                                 Sonuç yok
                                             </div>
                                         );
@@ -230,7 +230,7 @@ export default function Sidebar() {
                                             style={{
                                                 display: 'block',
                                                 padding: '10px 12px',
-                                                fontSize: '12px',
+                                                fontSize: '13px',
                                                 borderBottom: '1px solid var(--border)',
                                                 color: 'var(--foreground, #0f172a)',
                                                 textDecoration: 'none',
@@ -259,106 +259,118 @@ export default function Sidebar() {
                             onClick={() => setIsOpen(false)}
                             suppressHydrationWarning
                         >
-                            <item.icon size={20} />
+                            <item.icon size={18} strokeWidth={2} />
                             <span>{item.label}</span>
                         </Link>
                     ))}
-
-                    {user && (
-                        <>
-                            <div style={{
-                                padding: '10px 10px 4px',
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                color: 'var(--muted)',
-                                letterSpacing: '1px',
-                                borderTop: '1px solid var(--border)',
-                                marginTop: '2px'
-                            }}>
-                                YÖNETİM
-                            </div>
-                            <Link
-                                href={kapasiteMenuItem.href}
-                                className={`sidebar-item ${pathname === kapasiteMenuItem.href ? 'active' : ''}`}
-                                onClick={() => setIsOpen(false)}
-                                suppressHydrationWarning
-                            >
-                                <KapasiteSidebarIcon size={20} />
-                                <span>{kapasiteMenuItem.label}</span>
-                            </Link>
-                            {isAdmin &&
-                                adminOnlyMenuItems.map((item) => (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
-                                        onClick={() => setIsOpen(false)}
-                                        suppressHydrationWarning
-                                    >
-                                        <item.icon size={20} />
-                                        <span>{item.label}</span>
-                                    </Link>
-                                ))}
-                        </>
-                    )}
                 </nav>
 
-                <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                        <div style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '8px',
-                            background: isAdmin
-                                ? 'rgba(239, 68, 68, 0.1)'
-                                : 'rgba(2, 35, 71, 0.1)',
-                            color: isAdmin ? 'var(--danger)' : 'var(--primary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            {isAdmin ? <Crown size={18} /> : <User size={18} />}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: '13px' }}>
-                                {user?.fullName || 'Kullanıcı'}
+                <div className="sidebar-footer" style={{ paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
+                    {user && isAdmin && (
+                        <>
+                            <div
+                                style={{
+                                    padding: '6px 6px 3px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: 'var(--muted)',
+                                    letterSpacing: '0.45px',
+                                }}
+                            >
+                                YÖNETİM
                             </div>
-                            <div style={{ color: 'var(--muted)', fontSize: '11px' }}>
-                                {isAdmin ? 'Yönetici' : 'Kullanıcı'}
+                            {adminOnlyMenuItems.map((item) => (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
+                                    onClick={() => setIsOpen(false)}
+                                    suppressHydrationWarning
+                                >
+                                    <item.icon size={18} strokeWidth={2} />
+                                    <span>{item.label}</span>
+                                </Link>
+                            ))}
+                        </>
+                    )}
+                    {user && (
+                        <>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    marginBottom: '8px',
+                                    marginTop: isAdmin ? '6px' : 0,
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '7px',
+                                        background: isAdmin
+                                            ? 'rgba(239, 68, 68, 0.1)'
+                                            : 'rgba(2, 35, 71, 0.1)',
+                                        color: isAdmin ? 'var(--danger)' : 'var(--primary)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    {isAdmin ? <Crown size={17} /> : <User size={17} />}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div
+                                        style={{
+                                            fontWeight: 600,
+                                            fontSize: '13px',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        {user.fullName || 'Kullanıcı'}
+                                    </div>
+                                    <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
+                                        {isAdmin ? 'Yönetici' : 'Kullanıcı'}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <button
-                        onClick={handleLogout}
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            background: 'var(--secondary)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '8px',
-                            color: 'var(--muted)',
-                            fontSize: '13px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--danger)';
-                            e.currentTarget.style.color = 'white';
-                            e.currentTarget.style.borderColor = 'var(--danger)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'var(--secondary)';
-                            e.currentTarget.style.color = 'var(--muted)';
-                            e.currentTarget.style.borderColor = 'var(--border)';
-                        }}
-                    >
-                        <LogOut size={16} /> Çıkış Yap
-                    </button>
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    background: 'var(--secondary)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    color: 'var(--muted)',
+                                    fontSize: '13px',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'var(--danger)';
+                                    e.currentTarget.style.color = 'white';
+                                    e.currentTarget.style.borderColor = 'var(--danger)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'var(--secondary)';
+                                    e.currentTarget.style.color = 'var(--muted)';
+                                    e.currentTarget.style.borderColor = 'var(--border)';
+                                }}
+                            >
+                                <LogOut size={16} /> Çıkış
+                            </button>
+                        </>
+                    )}
                 </div>
             </aside>
         </>

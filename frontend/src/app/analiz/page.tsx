@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import { getStats, type Stats, type StepStats, API_URL, apiFetch, getSasis } from '@/lib/api';
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
@@ -327,12 +328,7 @@ export default function Analiz() {
                 </header>
 
                 {loading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><Loader2 size={48} className="animate-spin" /></div>
-                            <div style={{ color: 'var(--muted)' }}>Yükleniyor...</div>
-                        </div>
-                    </div>
+                    <OzunluLoading variant="inline" />
                 ) : (
                     <>
                         {/* Stats Cards */}

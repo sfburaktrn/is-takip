@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
+import { ProductLocalNote } from '@/components/ProductLocalNote';
 import {
     Package,
     CheckCircle,
@@ -21,6 +23,7 @@ import {
     ArrowDown,
     LineChart,
     Type,
+    Hash,
     FileSpreadsheet, // Added icon
     Download, // Added icon
     X, // Added icon
@@ -58,6 +61,131 @@ import {
 
 type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'HEPSI';
 
+type ListSortBy =
+    | 'progress-asc'
+    | 'progress-desc'
+    | 'name-asc'
+    | 'name-desc'
+    | 'date-asc'
+    | 'date-desc'
+    | 'imalat-desc'
+    | 'imalat-asc'
+    | 'sasiNo-desc'
+    | 'sasiNo-asc'
+    | null;
+
+/** Pozitif sayı = girilmiş imalat no; null, 0 ve boş string eksik sayılır (karttaki !imalatNo ile uyumlu). */
+function parseImalatNo(n: unknown): number | null {
+    if (n == null) return null;
+    if (typeof n === 'string') {
+        const t = n.trim();
+        if (t === '') return null;
+        const num = Number(t);
+        if (!Number.isFinite(num) || num <= 0) return null;
+        return num;
+    }
+    if (typeof n === 'number') {
+        if (!Number.isFinite(n) || n <= 0) return null;
+        return n;
+    }
+    return null;
+}
+
+function hasDamperDorseImalatNo(n: unknown): boolean {
+    return parseImalatNo(n) != null;
+}
+
+function compareImalatNoDesc(a: unknown, b: unknown): number {
+    const na = parseImalatNo(a);
+    const nb = parseImalatNo(b);
+    const ah = na != null;
+    const bh = nb != null;
+    if (ah && bh) return nb - na;
+    if (ah) return -1;
+    if (bh) return 1;
+    return 0;
+}
+
+function compareImalatNoAsc(a: unknown, b: unknown): number {
+    const na = parseImalatNo(a);
+    const nb = parseImalatNo(b);
+    const ah = na != null;
+    const bh = nb != null;
+    if (ah && bh) return na - nb;
+    if (ah) return -1;
+    if (bh) return 1;
+    return 0;
+}
+
+function normalizeSasiNoValue(s: unknown): string {
+    if (s == null) return '';
+    let t = String(s).replace(/\u00a0/g, ' ').trim();
+    if (t === '') return '';
+    t = t.replace(/\s+/g, ' ');
+    if (
+        t === '-' ||
+        t === '—' ||
+        t === '–' ||
+        /^[\s\-–—]+$/u.test(t)
+    ) {
+        return '';
+    }
+    const u = t.toUpperCase();
+    if (u === 'YOK' || u === 'N/A') return '';
+    const low = t.toLowerCase();
+    if (low === 'n/a' || low === 'null' || low === 'undefined') return '';
+    return t;
+}
+
+function hasSasiNoWritten(s: unknown): boolean {
+    return normalizeSasiNoValue(s) !== '';
+}
+
+function formatSasiNoLabel(s: unknown): string {
+    const n = normalizeSasiNoValue(s);
+    return n !== '' ? n : '-';
+}
+
+function compareSasiNoDesc(a: unknown, b: unknown): number {
+    const as = normalizeSasiNoValue(a);
+    const bs = normalizeSasiNoValue(b);
+    if (as && bs) return bs.localeCompare(as, 'tr', { numeric: true });
+    if (as) return -1;
+    if (bs) return 1;
+    return 0;
+}
+
+function compareSasiNoAsc(a: unknown, b: unknown): number {
+    const as = normalizeSasiNoValue(a);
+    const bs = normalizeSasiNoValue(b);
+    if (as && bs) return as.localeCompare(bs, 'tr', { numeric: true });
+    if (as) return -1;
+    if (bs) return 1;
+    return 0;
+}
+
+function compareSasiRowsBySasiNoDesc(
+    a: { sasiNo?: unknown; imalatNo?: unknown; id?: number },
+    b: { sasiNo?: unknown; imalatNo?: unknown; id?: number }
+): number {
+    const c = compareSasiNoDesc(a.sasiNo, b.sasiNo);
+    if (c !== 0) return c;
+    const ci = compareImalatNoDesc(a.imalatNo, b.imalatNo);
+    if (ci !== 0) return ci;
+    return (a.id ?? 0) - (b.id ?? 0);
+}
+
+function compareSasiRowsBySasiNoAsc(
+    a: { sasiNo?: unknown; imalatNo?: unknown; id?: number },
+    b: { sasiNo?: unknown; imalatNo?: unknown; id?: number }
+): number {
+    const c = compareSasiNoAsc(a.sasiNo, b.sasiNo);
+    if (c !== 0) return c;
+    const ci = compareImalatNoAsc(a.imalatNo, b.imalatNo);
+    if (ci !== 0) return ci;
+    return (a.id ?? 0) - (b.id ?? 0);
+}
+
 function UrunListesiContent() {
     const searchParams = useSearchParams();
     const [productType, setProductType] = useState<ProductType>('DAMPER');
@@ -82,7 +210,7 @@ function UrunListesiContent() {
     const [sasiFilter, setSasiFilter] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedId, setExpandedId] = useState<number | null>(null);
-    const [sortBy, setSortBy] = useState<'progress-asc' | 'progress-desc' | 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc' | null>(null);
+    const [sortBy, setSortBy] = useState<ListSortBy>(null);
 
     // Sasi Link Modal State
     const [showLinkModal, setShowLinkModal] = useState(false);
@@ -124,6 +252,7 @@ function UrunListesiContent() {
         sasiId: '',
         silindir: '', // Added
         malzemeCinsi: '', // Added
+        frenMarka: '',
         branda: false, // Added
         renk: '',
     });
@@ -158,6 +287,18 @@ function UrunListesiContent() {
         }, 150);
         return () => window.clearTimeout(tick);
     }, [loading, searchParams, dampers.length, dorses.length, sasis.length]);
+
+    useEffect(() => {
+        setSortBy(prev => {
+            if (
+                (productType === 'DAMPER' || productType === 'DORSE') &&
+                (prev === 'sasiNo-desc' || prev === 'sasiNo-asc')
+            ) {
+                return null;
+            }
+            return prev;
+        });
+    }, [productType]);
 
     async function loadData() {
         try {
@@ -444,7 +585,7 @@ function UrunListesiContent() {
                     renk: formData.renk || null,
                     adet: quantity,
                     branda: formData.branda,
-                    brandaMontaji: formData.branda,
+                    brandaMontaji: false,
                 });
                 setShowAddModal(false);
                 setFormData({
@@ -518,8 +659,9 @@ function UrunListesiContent() {
                     sasiId: dorseFormData.sasiId ? parseInt(dorseFormData.sasiId) : null,
                     silindir: dorseFormData.silindir || null, // Added
                     malzemeCinsi: dorseFormData.malzemeCinsi || null, // Added
+                    frenMarka: dorseFormData.frenMarka || null,
                     branda: dorseFormData.branda, // Added
-                    brandaMontaji: dorseFormData.branda, // Added
+                    brandaMontaji: false,
                 });
                 setShowAddModal(false);
                 setDorseFormData({
@@ -535,6 +677,7 @@ function UrunListesiContent() {
                     sasiId: '',
                     silindir: '', // Added
                     malzemeCinsi: '', // Added
+                    frenMarka: '',
                     branda: false, // Added
                     renk: '',
                 });
@@ -564,7 +707,9 @@ function UrunListesiContent() {
             );
         }
 
-        if (statusFilter) {
+        if (statusFilter === 'eksikNumara') {
+            result = result.filter(d => !hasDamperDorseImalatNo(d.imalatNo));
+        } else if (statusFilter) {
             result = result.filter(d => getDamperStatus(d) === statusFilter);
         }
 
@@ -583,13 +728,17 @@ function UrunListesiContent() {
                         return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
                     case 'date-desc':
                         return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                    case 'imalat-desc':
+                        return compareImalatNoDesc(a.imalatNo, b.imalatNo);
+                    case 'imalat-asc':
+                        return compareImalatNoAsc(a.imalatNo, b.imalatNo);
                     default:
                         return 0;
                 }
             });
         }
 
-        return statusFilter || sortBy || searchTerm ? result : result.slice(0, 50); // Increased limit as this is the main list
+        return result;
     }, [dampers, statusFilter, sortBy, searchTerm]);
 
     // Filter and sort dorses
@@ -603,7 +752,9 @@ function UrunListesiContent() {
             );
         }
 
-        if (statusFilter) {
+        if (statusFilter === 'eksikNumara') {
+            result = result.filter(d => !hasDamperDorseImalatNo(d.imalatNo));
+        } else if (statusFilter) {
             result = result.filter(d => getDorseStatus(d) === statusFilter);
         }
 
@@ -622,13 +773,17 @@ function UrunListesiContent() {
                         return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
                     case 'date-desc':
                         return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                    case 'imalat-desc':
+                        return compareImalatNoDesc(a.imalatNo, b.imalatNo);
+                    case 'imalat-asc':
+                        return compareImalatNoAsc(a.imalatNo, b.imalatNo);
                     default:
                         return 0;
                 }
             });
         }
 
-        return statusFilter || sortBy || searchTerm ? result : result.slice(0, 50); // Increased limit
+        return result;
     }, [dorses, statusFilter, sortBy, searchTerm]);
 
     // Filter and sort sasis
@@ -645,7 +800,9 @@ function UrunListesiContent() {
             );
         }
 
-        if (statusFilter) {
+        if (statusFilter === 'eksikNumara') {
+            result = result.filter(s => !hasSasiNoWritten(s.sasiNo));
+        } else if (statusFilter) {
             if (statusFilter === 'tamamlanan') {
                 result = result.filter(s => getSasiStatus(s) === 'tamamlanan');
             } else if (statusFilter === 'devamEden') {
@@ -692,13 +849,25 @@ function UrunListesiContent() {
                         return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
                     case 'date-desc':
                         return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                    case 'imalat-desc': {
+                        const c = compareImalatNoDesc(a.imalatNo, b.imalatNo);
+                        return c !== 0 ? c : (a.id ?? 0) - (b.id ?? 0);
+                    }
+                    case 'imalat-asc': {
+                        const c = compareImalatNoAsc(a.imalatNo, b.imalatNo);
+                        return c !== 0 ? c : (a.id ?? 0) - (b.id ?? 0);
+                    }
+                    case 'sasiNo-desc':
+                        return compareSasiRowsBySasiNoDesc(a, b);
+                    case 'sasiNo-asc':
+                        return compareSasiRowsBySasiNoAsc(a, b);
                     default:
                         return 0;
                 }
             });
         }
 
-        return statusFilter || sortBy || sasiFilter || searchTerm ? result : result.slice(0, 50);
+        return result;
     }, [sasis, statusFilter, sortBy, sasiFilter, searchTerm]);
 
     // Helper functions for status (defined here to be accessible in sortedAllProducts)
@@ -741,7 +910,13 @@ function UrunListesiContent() {
             });
         }
 
-        if (statusFilter) {
+        if (statusFilter === 'eksikNumara') {
+            result = result.filter(item => {
+                if (item._type === 'DAMPER') return !hasDamperDorseImalatNo((item as Damper).imalatNo);
+                if (item._type === 'DORSE') return !hasDamperDorseImalatNo((item as Dorse).imalatNo);
+                return !hasSasiNoWritten((item as Sasi).sasiNo);
+            });
+        } else if (statusFilter) {
             // General status filtering for combined list
             // Mapping statuses to common terms if needed, or using specific logic
             result = result.filter(item => {
@@ -750,19 +925,9 @@ function UrunListesiContent() {
                 else if (item._type === 'DORSE') status = getDorseStatus(item as any);
                 else if (item._type === 'SASI') status = getSasiStatus(item as any);
 
-                // For simplified 'All Products' view, we might only support basic status matches
-                // or specific advanced filters if they apply to all. 
-                // For now, let's support basic matches if the filter values overlap.
-                // If filter is specific to Sasi (like 'bosStok'), handled below.
-
                 if (statusFilter === 'tamamlanan') return status === 'tamamlanan';
                 if (statusFilter === 'devamEden') return status === 'devamEden';
                 if (statusFilter === 'baslamayan') return status === 'baslamayan';
-
-                // Sasi specific filters - only apply to Sasi items, others are filtered out?
-                // Or maybe just show Sasi items that match, and hide others?
-                // Usually "All Products" implies a broader view. Let's keep it simple:
-                // If a specific filter is selected that only applies to one type, show only matching items of that type.
 
                 if (item._type === 'SASI') {
                     if (statusFilter === 'bosStok') {
@@ -810,6 +975,56 @@ function UrunListesiContent() {
                         return getDate(a) - getDate(b);
                     case 'date-desc':
                         return getDate(b) - getDate(a);
+                    case 'imalat-desc': {
+                        const key = (item: (typeof allItems)[number]) => {
+                            if (item._type === 'DAMPER' || item._type === 'DORSE') {
+                                return parseImalatNo((item as Damper | Dorse).imalatNo);
+                            }
+                            if (item._type === 'SASI') return parseImalatNo((item as Sasi).imalatNo);
+                            return null;
+                        };
+                        const ka = key(a);
+                        const kb = key(b);
+                        if (ka != null && kb != null) return kb - ka;
+                        if (ka != null) return -1;
+                        if (kb != null) return 1;
+                        return (a.id ?? 0) - (b.id ?? 0);
+                    }
+                    case 'imalat-asc': {
+                        const key = (item: (typeof allItems)[number]) => {
+                            if (item._type === 'DAMPER' || item._type === 'DORSE') {
+                                return parseImalatNo((item as Damper | Dorse).imalatNo);
+                            }
+                            if (item._type === 'SASI') return parseImalatNo((item as Sasi).imalatNo);
+                            return null;
+                        };
+                        const ka = key(a);
+                        const kb = key(b);
+                        if (ka != null && kb != null) return ka - kb;
+                        if (ka != null) return -1;
+                        if (kb != null) return 1;
+                        return (a.id ?? 0) - (b.id ?? 0);
+                    }
+                    case 'sasiNo-desc': {
+                        const key = (item: (typeof allItems)[number]) =>
+                            item._type === 'SASI' ? normalizeSasiNoValue((item as Sasi).sasiNo) || null : null;
+                        const sa = key(a);
+                        const sb = key(b);
+                        if (sa && sb) return sb.localeCompare(sa, 'tr', { numeric: true });
+                        if (sa) return -1;
+                        if (sb) return 1;
+                        return (a.id ?? 0) - (b.id ?? 0);
+                    }
+                    case 'sasiNo-asc': {
+                        const key = (item: (typeof allItems)[number]) =>
+                            item._type === 'SASI' ? normalizeSasiNoValue((item as Sasi).sasiNo) || null : null;
+                        const sa = key(a);
+                        const sb = key(b);
+                        if (sa && sb) return sa.localeCompare(sb, 'tr', { numeric: true });
+                        if (sa) return -1;
+                        if (sb) return 1;
+                        return (a.id ?? 0) - (b.id ?? 0);
+                    }
                     default:
                         return 0;
                 }
@@ -818,6 +1033,17 @@ function UrunListesiContent() {
 
         return result;
     }, [dampers, dorses, sasis, searchTerm, statusFilter, sortBy]);
+
+    const eksikNumaraCount = useMemo(() => {
+        if (productType === 'DAMPER') return dampers.filter(d => !hasDamperDorseImalatNo(d.imalatNo)).length;
+        if (productType === 'DORSE') return dorses.filter(d => !hasDamperDorseImalatNo(d.imalatNo)).length;
+        if (productType === 'SASI') return sasis.filter(s => !hasSasiNoWritten(s.sasiNo)).length;
+        return (
+            dampers.filter(d => !hasDamperDorseImalatNo(d.imalatNo)).length +
+            dorses.filter(d => !hasDamperDorseImalatNo(d.imalatNo)).length +
+            sasis.filter(s => !hasSasiNoWritten(s.sasiNo)).length
+        );
+    }, [productType, dampers, dorses, sasis]);
 
     const currentStats = useMemo(() => {
         // Yardımcı fonksiyonlar (Stats hesaplaması için)
@@ -1228,11 +1454,12 @@ function UrunListesiContent() {
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Yükleniyor...</span>
-                </div>
-            </div>
+            <>
+                <Sidebar />
+                <main className="main-content">
+                    <OzunluLoading variant="inline" />
+                </main>
+            </>
         );
     }
 
@@ -1785,6 +2012,12 @@ function UrunListesiContent() {
                             {statusFilter === 'tamamlanan' && `✅ Tamamlanan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
                             {statusFilter === 'devamEden' && `🔄 Devam Eden ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
                             {statusFilter === 'baslamayan' && `⏸️ Başlamayan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
+                            {statusFilter === 'eksikNumara' &&
+                                (productType === 'SASI'
+                                    ? 'Şasi no girilmeyen şasiler'
+                                    : productType === 'HEPSI'
+                                      ? 'İmalat veya şasi no eksik kayıtlar'
+                                      : `İmalat no girilmeyen ${productType === 'DAMPER' ? 'damperler' : 'dorseler'}`)}
                             {!statusFilter && `Tüm ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
                         </h2>
                         {statusFilter && (
@@ -1915,6 +2148,83 @@ function UrunListesiContent() {
                             <Calendar size={16} /> Tarih {sortBy === 'date-desc' ? 'Yeni→Eski' : sortBy === 'date-asc' ? 'Eski→Yeni' : ''}
                         </button>
 
+                        {(productType === 'DAMPER' ||
+                            productType === 'DORSE' ||
+                            productType === 'SASI' ||
+                            productType === 'HEPSI') && (
+                            <button
+                                type="button"
+                                className={`btn btn-secondary`}
+                                style={{
+                                    fontSize: '12px',
+                                    padding: '6px 12px',
+                                    background:
+                                        sortBy === 'imalat-desc' || sortBy === 'imalat-asc' ? 'var(--primary)' : undefined,
+                                    color:
+                                        sortBy === 'imalat-desc' || sortBy === 'imalat-asc' ? 'white' : undefined
+                                }}
+                                onClick={() => {
+                                    if (sortBy === 'imalat-desc') setSortBy('imalat-asc');
+                                    else if (sortBy === 'imalat-asc') setSortBy(null);
+                                    else setSortBy('imalat-desc');
+                                }}
+                                title="İmalat no: önce büyükten küçüğe, tekrar küçükten büyüğe; boş/0 olanlar her zaman sonda"
+                            >
+                                <Hash size={16} /> İmalat no{' '}
+                                {sortBy === 'imalat-desc' ? '↓' : sortBy === 'imalat-asc' ? '↑' : ''}
+                            </button>
+                        )}
+
+                        {(productType === 'SASI' || productType === 'HEPSI') && (
+                            <button
+                                type="button"
+                                className={`btn btn-secondary`}
+                                style={{
+                                    fontSize: '12px',
+                                    padding: '6px 12px',
+                                    background:
+                                        sortBy === 'sasiNo-desc' || sortBy === 'sasiNo-asc' ? 'var(--primary)' : undefined,
+                                    color:
+                                        sortBy === 'sasiNo-desc' || sortBy === 'sasiNo-asc' ? 'white' : undefined
+                                }}
+                                onClick={() => {
+                                    if (sortBy === 'sasiNo-desc') setSortBy('sasiNo-asc');
+                                    else if (sortBy === 'sasiNo-asc') setSortBy(null);
+                                    else setSortBy('sasiNo-desc');
+                                }}
+                                title="Şasi no: önce büyükten küçüğe, tekrar küçükten büyüğe; boş olanlar sonda"
+                            >
+                                <Hash size={16} /> Şasi no{' '}
+                                {sortBy === 'sasiNo-desc' ? '↓' : sortBy === 'sasiNo-asc' ? '↑' : ''}
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            className={`btn btn-secondary`}
+                            style={{
+                                fontSize: '12px',
+                                padding: '6px 12px',
+                                borderStyle: 'dashed',
+                                background: statusFilter === 'eksikNumara' ? 'rgba(245, 158, 11, 0.25)' : undefined,
+                                borderColor: statusFilter === 'eksikNumara' ? 'var(--warning)' : undefined
+                            }}
+                            onClick={() => setStatusFilter(statusFilter === 'eksikNumara' ? null : 'eksikNumara')}
+                            title={
+                                productType === 'SASI'
+                                    ? 'Şasi numarası girilmemiş şasiler'
+                                    : productType === 'HEPSI'
+                                      ? 'Damper/dorsede imalat no, şaside şasi no eksik olanlar'
+                                      : 'İmalat numarası girilmemiş kayıtlar'
+                            }
+                        >
+                            {productType === 'SASI'
+                                ? `Şasi no yok (${eksikNumaraCount})`
+                                : productType === 'HEPSI'
+                                  ? `İmalat/şasi no eksik (${eksikNumaraCount})`
+                                  : `İmalat no eksik (${eksikNumaraCount})`}
+                        </button>
+
                         {sortBy && (
                             <button
                                 className="btn"
@@ -1979,6 +2289,15 @@ function UrunListesiContent() {
 
                                             {isExpanded && (
                                                 <div className="damper-card-body">
+                                                    <ProductLocalNote
+                                                        kind="DAMPER"
+                                                        productId={damper.id}
+                                                        value={damper.cardNote}
+                                                        onPersist={async (next) => {
+                                                            const updated = await updateDamper(damper.id, { cardNote: next });
+                                                            setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                        }}
+                                                    />
                                                     {/* Araç Geldi Mi */}
                                                     {/* Bilgi Kartları (İmalat No, Araç Durumu & Tarih) */}
                                                     <div style={{
@@ -2048,9 +2367,10 @@ function UrunListesiContent() {
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'space-between',
-                                                            gap: '12px'
+                                                            gap: '12px',
+                                                            minWidth: 0
                                                         }}>
-                                                            <div>
+                                                            <div style={{ minWidth: 0 }}>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500, color: damper.sasiNo ? 'var(--foreground)' : 'var(--muted)' }}>
                                                                     {damper.sasiNo || 'Girilmedi'}
@@ -2063,7 +2383,8 @@ function UrunListesiContent() {
                                                                     width: '120px',
                                                                     padding: '6px 10px',
                                                                     fontSize: '13px',
-                                                                    height: '34px'
+                                                                    height: '34px',
+                                                                    flexShrink: 0
                                                                 }}
                                                                 placeholder="Şasi No"
                                                                 value={damper.sasiNo || ''}
@@ -2085,34 +2406,7 @@ function UrunListesiContent() {
                                                             />
                                                         </div>
 
-                                                        {/* Araç Durumu */}
-                                                        <div style={{
-                                                            background: 'var(--card-bg-secondary)',
-                                                            padding: '12px 16px',
-                                                            borderRadius: '10px',
-                                                            border: '1px solid var(--border)',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between'
-                                                        }}>
-                                                            <div>
-                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ARAÇ DURUMU</div>
-                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                    {damper.aracGeldiMi ? 'Araç Fabrikada' : 'Araç Gelmedi'}
-                                                                </div>
-                                                            </div>
-                                                            <div
-                                                                className={`step-toggle ${damper.aracGeldiMi ? 'active' : ''}`}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleStepToggle(damper.id, 'aracGeldiMi', damper.aracGeldiMi, 'DAMPER');
-                                                                }}
-                                                                style={{ transform: 'scale(1.1)' }}
-                                                                title="Değiştirmek için tıklayın"
-                                                            ></div>
-                                                        </div>
-
-                                                        {/* Adet (Quantity) */}
+                                                        {/* Renk - İmalat / Şasi ile aynı satırda */}
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
@@ -2121,81 +2415,10 @@ function UrunListesiContent() {
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'space-between',
-                                                            gap: '12px'
+                                                            gap: '12px',
+                                                            minWidth: 0
                                                         }}>
-                                                            <div>
-                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
-                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                    {damper.adet > 0 ? damper.adet : '–'}
-                                                                </div>
-                                                            </div>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                <input
-                                                                    type="number"
-                                                                    className="input"
-                                                                    min="1"
-                                                                    style={{
-                                                                        width: '60px',
-                                                                        padding: '4px 8px',
-                                                                        fontSize: '13px',
-                                                                        textAlign: 'center',
-                                                                        height: '32px'
-                                                                    }}
-                                                                    value={damper.adet > 0 ? String(damper.adet) : ''}
-                                                                    onChange={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const raw = e.target.value;
-                                                                        const key = `damper-${damper.id}-adet`;
-                                                                        if (raw === '') {
-                                                                            setDampers(prev =>
-                                                                                prev.map(d => (d.id === damper.id ? { ...d, adet: 0 } : d))
-                                                                            );
-                                                                            persistLater(key, async () => {
-                                                                                const updated = await updateDamper(damper.id, { adet: 1 });
-                                                                                setDampers(prev =>
-                                                                                    applyServerRowIfFieldMatches(prev, damper.id, 'adet', 0, updated)
-                                                                                );
-                                                                            });
-                                                                            return;
-                                                                        }
-                                                                        const newAdet = parseInt(raw, 10);
-                                                                        if (Number.isNaN(newAdet) || newAdet < 1) return;
-                                                                        const snap = newAdet;
-                                                                        setDampers(prev =>
-                                                                            prev.map(d => (d.id === damper.id ? { ...d, adet: newAdet } : d))
-                                                                        );
-                                                                        persistLater(key, async () => {
-                                                                            const updated = await updateDamper(damper.id, { adet: newAdet });
-                                                                            setDampers(prev =>
-                                                                                applyServerRowIfFieldMatches(prev, damper.id, 'adet', snap, updated)
-                                                                            );
-                                                                        });
-                                                                    }}
-                                                                    onBlur={() => {
-                                                                        void persistNow(`damper-${damper.id}-adet`);
-                                                                        setDampers(prev =>
-                                                                            prev.map(d =>
-                                                                                d.id === damper.id && d.adet < 1 ? { ...d, adet: 1 } : d
-                                                                            )
-                                                                        );
-                                                                    }}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Renk - Düzenlenebilir */}
-                                                        <div style={{
-                                                            background: 'var(--card-bg-secondary)',
-                                                            padding: '12px 16px',
-                                                            borderRadius: '10px',
-                                                            border: '1px solid var(--border)',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            gap: '12px'
-                                                        }}>
-                                                            <div>
+                                                            <div style={{ minWidth: 0 }}>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500, color: damper.renk ? 'var(--foreground)' : 'var(--muted)' }}>
                                                                     {damper.renk || 'Girilmedi'}
@@ -2208,7 +2431,8 @@ function UrunListesiContent() {
                                                                     width: '100px',
                                                                     padding: '6px 10px',
                                                                     fontSize: '13px',
-                                                                    height: '34px'
+                                                                    height: '34px',
+                                                                    flexShrink: 0
                                                                 }}
                                                                 placeholder="Renk"
                                                                 value={damper.renk || ''}
@@ -2230,7 +2454,7 @@ function UrunListesiContent() {
                                                             />
                                                         </div>
 
-                                                        {/* Tarih/Saat */}
+                                                        {/* Branda */}
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
@@ -2240,48 +2464,263 @@ function UrunListesiContent() {
                                                             alignItems: 'center',
                                                             justifyContent: 'space-between',
                                                             gap: '12px',
-                                                            position: 'relative' // İkon konumlandırma için
+                                                            minWidth: 0
                                                         }}>
                                                             <div>
-                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
-                                                                <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
-                                                                    {damper.createdAt ? new Date(damper.createdAt).toLocaleString('tr-TR', {
-                                                                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-                                                                    }) : '-'}
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>BRANDA</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 600, color: damper.branda ? 'var(--success)' : 'var(--danger)' }}>
+                                                                    {damper.branda ? 'VAR' : 'YOK'}
                                                                 </div>
                                                             </div>
-                                                            <input
-                                                                type="datetime-local"
-                                                                className="input"
-                                                                style={{
-                                                                    padding: '4px 8px',
-                                                                    fontSize: '12px',
-                                                                    width: '40px', // Sadece ikon için
-                                                                    height: '30px',
-                                                                    border: '1px solid var(--border)',
-                                                                    background: 'var(--bg)',
-                                                                    color: 'transparent',
-                                                                    cursor: 'pointer',
-                                                                    opacity: 0, // Tamamen görünmez yap, ama tıklanabilir olsun (custom icon altında)
-                                                                    position: 'absolute',
-                                                                    right: '16px',
-                                                                    zIndex: 10
-                                                                }}
-                                                                title="Tarihi Düzenle"
+                                                            <select
+                                                                className="select"
+                                                                value={damper.branda ? 'VAR' : 'YOK'}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onMouseDown={(e) => e.stopPropagation()}
                                                                 onChange={(e) => {
-                                                                    if (!e.target.value) return;
-                                                                    const iso = new Date(e.target.value).toISOString();
-                                                                    setDampers(prev =>
-                                                                        prev.map(d => (d.id === damper.id ? { ...d, createdAt: iso } : d))
+                                                                    const v = e.target.value === 'VAR';
+                                                                    e.stopPropagation();
+                                                                    setDampers((prev) =>
+                                                                        prev.map((d) =>
+                                                                            d.id === damper.id
+                                                                                ? { ...d, branda: v, ...(v ? {} : { brandaMontaji: false }) }
+                                                                                : d
+                                                                        )
                                                                     );
                                                                     void (async () => {
-                                                                        const updated = await updateDamper(damper.id, { createdAt: iso });
-                                                                        setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                        const updated = await updateDamper(
+                                                                            damper.id,
+                                                                            v ? { branda: true } : { branda: false, brandaMontaji: false }
+                                                                        );
+                                                                        setDampers((prev) =>
+                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'branda', v, updated)
+                                                                        );
                                                                     })();
                                                                 }}
-                                                            />
-                                                            <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                                                                <Calendar size={20} />
+                                                                style={{ width: '76px', padding: '6px 8px', fontSize: '12px', height: '34px', flexShrink: 0 }}
+                                                            >
+                                                                <option value="VAR">VAR</option>
+                                                                <option value="YOK">YOK</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {/* Araç markası — tam satır */}
+                                                        <div style={{
+                                                            gridColumn: '1 / -1',
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '16px 20px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '12px',
+                                                            minWidth: 0
+                                                        }}>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>ARAÇ MARKASI</div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                                                                <div
+                                                                    style={{
+                                                                        flex: '1 1 200px',
+                                                                        minWidth: 0,
+                                                                        fontSize: '15px',
+                                                                        fontWeight: 500,
+                                                                        color: damper.aracMarka ? 'var(--foreground)' : 'var(--muted)',
+                                                                        lineHeight: 1.4,
+                                                                        overflowWrap: 'anywhere',
+                                                                        wordBreak: 'break-word'
+                                                                    }}
+                                                                >
+                                                                    {damper.aracMarka || 'Girilmedi'}
+                                                                </div>
+                                                                <input
+                                                                    type="text"
+                                                                    className="input"
+                                                                    autoComplete="off"
+                                                                    spellCheck={false}
+                                                                    style={{
+                                                                        flex: '2 1 280px',
+                                                                        width: '100%',
+                                                                        minWidth: 'min(100%, 220px)',
+                                                                        maxWidth: '100%',
+                                                                        padding: '8px 14px',
+                                                                        fontSize: '15px',
+                                                                        height: '40px',
+                                                                        boxSizing: 'border-box'
+                                                                    }}
+                                                                    placeholder="Araç markası"
+                                                                    value={damper.aracMarka ?? ''}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    onChange={(e) => {
+                                                                        const newMarka = e.target.value;
+                                                                        setDampers(prev =>
+                                                                            prev.map(d => (d.id === damper.id ? { ...d, aracMarka: newMarka || null } : d))
+                                                                        );
+                                                                        const key = `damper-${damper.id}-aracMarka`;
+                                                                        persistLater(key, async () => {
+                                                                            const updated = await updateDamper(damper.id, { aracMarka: newMarka || null });
+                                                                            setDampers(prev =>
+                                                                                applyServerRowIfFieldMatches(prev, damper.id, 'aracMarka', newMarka || null, updated)
+                                                                            );
+                                                                        });
+                                                                    }}
+                                                                    onBlur={() => void persistNow(`damper-${damper.id}-aracMarka`)}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="damper-info-trio">
+                                                            <div style={{
+                                                                background: 'var(--card-bg-secondary)',
+                                                                padding: '12px 16px',
+                                                                borderRadius: '10px',
+                                                                border: '1px solid var(--border)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                gap: '12px',
+                                                                position: 'relative',
+                                                                minWidth: 0
+                                                            }}>
+                                                                <div style={{ minWidth: 0 }}>
+                                                                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
+                                                                    <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
+                                                                        {damper.createdAt ? new Date(damper.createdAt).toLocaleString('tr-TR', {
+                                                                            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                                                                        }) : '-'}
+                                                                    </div>
+                                                                </div>
+                                                                <input
+                                                                    type="datetime-local"
+                                                                    className="input"
+                                                                    style={{
+                                                                        padding: '4px 8px',
+                                                                        fontSize: '12px',
+                                                                        width: '40px',
+                                                                        height: '30px',
+                                                                        border: '1px solid var(--border)',
+                                                                        background: 'var(--bg)',
+                                                                        color: 'transparent',
+                                                                        cursor: 'pointer',
+                                                                        opacity: 0,
+                                                                        position: 'absolute',
+                                                                        right: '16px',
+                                                                        zIndex: 10
+                                                                    }}
+                                                                    title="Tarihi Düzenle"
+                                                                    onChange={(e) => {
+                                                                        if (!e.target.value) return;
+                                                                        const iso = new Date(e.target.value).toISOString();
+                                                                        setDampers(prev =>
+                                                                            prev.map(d => (d.id === damper.id ? { ...d, createdAt: iso } : d))
+                                                                        );
+                                                                        void (async () => {
+                                                                            const updated = await updateDamper(damper.id, { createdAt: iso });
+                                                                            setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                        })();
+                                                                    }}
+                                                                />
+                                                                <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                                                                    <Calendar size={20} />
+                                                                </div>
+                                                            </div>
+
+                                                            <div style={{
+                                                                background: 'var(--card-bg-secondary)',
+                                                                padding: '12px 16px',
+                                                                borderRadius: '10px',
+                                                                border: '1px solid var(--border)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                gap: '12px',
+                                                                minWidth: 0
+                                                            }}>
+                                                                <div>
+                                                                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
+                                                                    <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                        {damper.adet > 0 ? damper.adet : '–'}
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        className="input"
+                                                                        min="1"
+                                                                        style={{
+                                                                            width: '60px',
+                                                                            padding: '4px 8px',
+                                                                            fontSize: '13px',
+                                                                            textAlign: 'center',
+                                                                            height: '32px'
+                                                                        }}
+                                                                        value={damper.adet > 0 ? String(damper.adet) : ''}
+                                                                        onChange={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const raw = e.target.value;
+                                                                            const key = `damper-${damper.id}-adet`;
+                                                                            if (raw === '') {
+                                                                                setDampers(prev =>
+                                                                                    prev.map(d => (d.id === damper.id ? { ...d, adet: 0 } : d))
+                                                                                );
+                                                                                persistLater(key, async () => {
+                                                                                    const updated = await updateDamper(damper.id, { adet: 1 });
+                                                                                    setDampers(prev =>
+                                                                                        applyServerRowIfFieldMatches(prev, damper.id, 'adet', 0, updated)
+                                                                                    );
+                                                                                });
+                                                                                return;
+                                                                            }
+                                                                            const newAdet = parseInt(raw, 10);
+                                                                            if (Number.isNaN(newAdet) || newAdet < 1) return;
+                                                                            const snap = newAdet;
+                                                                            setDampers(prev =>
+                                                                                prev.map(d => (d.id === damper.id ? { ...d, adet: newAdet } : d))
+                                                                            );
+                                                                            persistLater(key, async () => {
+                                                                                const updated = await updateDamper(damper.id, { adet: newAdet });
+                                                                                setDampers(prev =>
+                                                                                    applyServerRowIfFieldMatches(prev, damper.id, 'adet', snap, updated)
+                                                                                );
+                                                                            });
+                                                                        }}
+                                                                        onBlur={() => {
+                                                                            void persistNow(`damper-${damper.id}-adet`);
+                                                                            setDampers(prev =>
+                                                                                prev.map(d =>
+                                                                                    d.id === damper.id && d.adet < 1 ? { ...d, adet: 1 } : d
+                                                                                )
+                                                                            );
+                                                                        }}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div style={{
+                                                                background: 'var(--card-bg-secondary)',
+                                                                padding: '12px 16px',
+                                                                borderRadius: '10px',
+                                                                border: '1px solid var(--border)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                minWidth: 0
+                                                            }}>
+                                                                <div>
+                                                                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ARAÇ DURUMU</div>
+                                                                    <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                        {damper.aracGeldiMi ? 'Araç Fabrikada' : 'Araç Gelmedi'}
+                                                                    </div>
+                                                                </div>
+                                                                <div
+                                                                    className={`step-toggle ${damper.aracGeldiMi ? 'active' : ''}`}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleStepToggle(damper.id, 'aracGeldiMi', damper.aracGeldiMi, 'DAMPER');
+                                                                    }}
+                                                                    style={{ transform: 'scale(1.1)' }}
+                                                                    title="Değiştirmek için tıklayın"
+                                                                ></div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -2296,14 +2735,51 @@ function UrunListesiContent() {
                                                                 </div>
                                                                 <div className="step-items">
                                                                     {group.subSteps.map((step) => {
+                                                                        const isBrandaMontajiLocked = step.key === 'brandaMontaji' && !damper.branda;
                                                                         const isCompleted = damper[step.key as keyof Damper] as boolean;
+                                                                        const toggleOn = !isBrandaMontajiLocked && isCompleted;
                                                                         return (
-                                                                            <div key={step.key} className="step-item">
-                                                                                <span className="step-item-label">{step.label}</span>
-                                                                                <div
-                                                                                    className={`step-toggle ${isCompleted ? 'active' : ''}`}
-                                                                                    onClick={() => handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER')}
-                                                                                ></div>
+                                                                            <div
+                                                                                key={step.key}
+                                                                                className="step-item"
+                                                                                style={isBrandaMontajiLocked ? { alignItems: 'flex-start' } : undefined}
+                                                                            >
+                                                                                <div style={{ minWidth: 0, flex: 1, paddingRight: 8 }}>
+                                                                                    <span className="step-item-label">{step.label}</span>
+                                                                                    {isBrandaMontajiLocked ? (
+                                                                                        <div
+                                                                                            style={{
+                                                                                                fontSize: '11px',
+                                                                                                color: 'var(--muted)',
+                                                                                                marginTop: 6,
+                                                                                                maxWidth: 240,
+                                                                                                lineHeight: 1.35,
+                                                                                            }}
+                                                                                        >
+                                                                                            Bu siparişte branda yok; bu adım kullanılmıyor.
+                                                                                        </div>
+                                                                                    ) : null}
+                                                                                </div>
+                                                                                <div style={{ alignSelf: 'center', flexShrink: 0 }}>
+                                                                                    <div
+                                                                                        className={`step-toggle ${toggleOn ? 'active' : ''}`}
+                                                                                        onClick={
+                                                                                            isBrandaMontajiLocked
+                                                                                                ? undefined
+                                                                                                : () => handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER')
+                                                                                        }
+                                                                                        title={
+                                                                                            isBrandaMontajiLocked
+                                                                                                ? 'Branda yok — montaj takip edilmez'
+                                                                                                : 'Değiştirmek için tıklayın'
+                                                                                        }
+                                                                                        style={
+                                                                                            isBrandaMontajiLocked
+                                                                                                ? { opacity: 0.45, cursor: 'not-allowed', pointerEvents: 'none' }
+                                                                                                : undefined
+                                                                                        }
+                                                                                    />
+                                                                                </div>
                                                                             </div>
                                                                         );
                                                                     })}
@@ -2430,7 +2906,7 @@ function UrunListesiContent() {
                                                     </span>
                                                 </div>
                                                 <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                                                    {sasi.sasiNo || '-'} | {sasi.dingil || '-'}
+                                                    {formatSasiNoLabel(sasi.sasiNo)} | {sasi.dingil || '-'}
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
@@ -2445,6 +2921,15 @@ function UrunListesiContent() {
                                             {/* Body */}
                                             {isExpanded && (
                                                 <div className="damper-card-body">
+                                                    <ProductLocalNote
+                                                        kind="SASI"
+                                                        productId={sasi.id}
+                                                        value={sasi.cardNote}
+                                                        onPersist={async (next) => {
+                                                            const updated = await updateSasi(sasi.id, { cardNote: next });
+                                                            setSasis(prev => prev.map(s => (s.id === sasi.id ? updated : s)));
+                                                        }}
+                                                    />
                                                     {/* Info Cards */}
                                                     <div style={{
                                                         display: 'grid',
@@ -2455,11 +2940,11 @@ function UrunListesiContent() {
                                                         borderBottom: '1px solid var(--border)'
                                                     }}>
 
-                                                        {/* IMALAT NO */}
-                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        {/* İMALAT NO */}
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: !hasDamperDorseImalatNo(sasi.imalatNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                             <div>
-                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
-                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.imalatNo}</div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: !hasDamperDorseImalatNo(sasi.imalatNo) ? 'var(--warning)' : 'var(--foreground)' }}>{sasi.imalatNo ?? 'Girilmedi'}</div>
                                                             </div>
                                                             <input
                                                                 type="text"
@@ -2484,6 +2969,38 @@ function UrunListesiContent() {
                                                                     });
                                                                 }}
                                                                 onBlur={() => void persistNow(`sasi-${sasi.id}-imalatNo`)}
+                                                                onClick={e => e.stopPropagation()}
+                                                            />
+                                                        </div>
+
+                                                        {/* ŞASİ NO */}
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: !hasSasiNoWritten(sasi.sasiNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minWidth: 0 }}>
+                                                            <div style={{ minWidth: 0 }}>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500, color: hasSasiNoWritten(sasi.sasiNo) ? 'var(--foreground)' : 'var(--warning)' }}>{hasSasiNoWritten(sasi.sasiNo) ? normalizeSasiNoValue(sasi.sasiNo) : 'Girilmedi'}</div>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                autoComplete="off"
+                                                                className="input"
+                                                                style={{ width: '140px', padding: '4px', fontSize: '13px', flexShrink: 0 }}
+                                                                placeholder="Şasi no"
+                                                                value={sasi.sasiNo ?? ''}
+                                                                onChange={(e) => {
+                                                                    const raw = e.target.value;
+                                                                    const v = raw.trim() === '' ? null : raw;
+                                                                    setSasis(prev =>
+                                                                        prev.map(s => (s.id === sasi.id ? { ...s, sasiNo: v } : s))
+                                                                    );
+                                                                    const key = `sasi-${sasi.id}-sasiNo`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateSasi(sasi.id, { sasiNo: v });
+                                                                        setSasis(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, sasi.id, 'sasiNo', v, updated)
+                                                                        );
+                                                                    });
+                                                                }}
+                                                                onBlur={() => void persistNow(`sasi-${sasi.id}-sasiNo`)}
                                                                 onClick={e => e.stopPropagation()}
                                                             />
                                                         </div>
@@ -2652,6 +3169,15 @@ function UrunListesiContent() {
 
                                             {isExpanded && (
                                                 <div className="damper-card-body">
+                                                    <ProductLocalNote
+                                                        kind="DORSE"
+                                                        productId={dorse.id}
+                                                        value={dorse.cardNote}
+                                                        onPersist={async (next) => {
+                                                            const updated = await updateDorse(dorse.id, { cardNote: next });
+                                                            setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                        }}
+                                                    />
                                                     <div style={{
                                                         display: 'grid',
                                                         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -2823,6 +3349,45 @@ function UrunListesiContent() {
                                                             />
                                                         </div>
 
+                                                        {/* Fren (Wabco / Knorr) */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>FREN</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {dorse.frenMarka || '-'}
+                                                                </div>
+                                                            </div>
+                                                            <select
+                                                                className="select"
+                                                                style={{ width: '100px', padding: '6px 10px', fontSize: '12px', height: '34px' }}
+                                                                value={dorse.frenMarka ?? ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onMouseDown={(e) => e.stopPropagation()}
+                                                                onChange={(e) => {
+                                                                    const v = e.target.value;
+                                                                    const vOrNull = v === '' ? null : v;
+                                                                    void (async () => {
+                                                                        const updated = await updateDorse(dorse.id, { frenMarka: vOrNull });
+                                                                        setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                                    })();
+                                                                }}
+                                                            >
+                                                                <option value="">Seçiniz</option>
+                                                                {(dropdowns?.dorseFren ?? ['Wabco', 'Knorr']).map((f) => (
+                                                                    <option key={f} value={f}>{f}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
                                                         {/* Şasi Bağlantısı */}
                                                         <div style={{
                                                             gridColumn: '1 / -1',
@@ -2974,7 +3539,7 @@ function UrunListesiContent() {
                                                             justifyContent: 'space-between',
                                                             gap: '12px'
                                                         }}>
-                                                            <div>
+                                                            <div style={{ minWidth: 0 }}>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500, color: dorse.renk ? 'var(--foreground)' : 'var(--muted)' }}>
                                                                     {dorse.renk || 'Girilmedi'}
@@ -3007,6 +3572,56 @@ function UrunListesiContent() {
                                                                 }}
                                                                 onBlur={() => void persistNow(`dorse-${dorse.id}-renk`)}
                                                             />
+                                                        </div>
+
+                                                        {/* Branda */}
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px',
+                                                            minWidth: 0
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>BRANDA</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 600, color: dorse.branda ? 'var(--success)' : 'var(--danger)' }}>
+                                                                    {dorse.branda ? 'VAR' : 'YOK'}
+                                                                </div>
+                                                            </div>
+                                                            <select
+                                                                className="select"
+                                                                value={dorse.branda ? 'VAR' : 'YOK'}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onMouseDown={(e) => e.stopPropagation()}
+                                                                onChange={(e) => {
+                                                                    const v = e.target.value === 'VAR';
+                                                                    e.stopPropagation();
+                                                                    setDorses((prev) =>
+                                                                        prev.map((d) =>
+                                                                            d.id === dorse.id
+                                                                                ? { ...d, branda: v, ...(v ? {} : { brandaMontaji: false }) }
+                                                                                : d
+                                                                        )
+                                                                    );
+                                                                    void (async () => {
+                                                                        const updated = await updateDorse(
+                                                                            dorse.id,
+                                                                            v ? { branda: true } : { branda: false, brandaMontaji: false }
+                                                                        );
+                                                                        setDorses((prev) =>
+                                                                            applyServerRowIfFieldMatches(prev, dorse.id, 'branda', v, updated)
+                                                                        );
+                                                                    })();
+                                                                }}
+                                                                style={{ width: '76px', padding: '6px 8px', fontSize: '12px', height: '34px', flexShrink: 0 }}
+                                                            >
+                                                                <option value="VAR">VAR</option>
+                                                                <option value="YOK">YOK</option>
+                                                            </select>
                                                         </div>
 
                                                         {/* Tarih */}
@@ -3094,14 +3709,51 @@ function UrunListesiContent() {
                                                                         }
 
                                                                         // Handle boolean steps (Toggles)
+                                                                        const isBrandaMontajiLocked = step.key === 'brandaMontaji' && !dorse.branda;
                                                                         const isCompleted = dorse[step.key as keyof Dorse] as boolean;
+                                                                        const toggleOn = !isBrandaMontajiLocked && isCompleted;
                                                                         return (
-                                                                            <div key={step.key} className="step-item">
-                                                                                <span className="step-item-label">{step.label}</span>
-                                                                                <div
-                                                                                    className={`step-toggle ${isCompleted ? 'active' : ''}`}
-                                                                                    onClick={() => handleStepToggle(dorse.id, step.key, isCompleted, 'DORSE')}
-                                                                                ></div>
+                                                                            <div
+                                                                                key={step.key}
+                                                                                className="step-item"
+                                                                                style={isBrandaMontajiLocked ? { alignItems: 'flex-start' } : undefined}
+                                                                            >
+                                                                                <div style={{ minWidth: 0, flex: 1, paddingRight: 8 }}>
+                                                                                    <span className="step-item-label">{step.label}</span>
+                                                                                    {isBrandaMontajiLocked ? (
+                                                                                        <div
+                                                                                            style={{
+                                                                                                fontSize: '11px',
+                                                                                                color: 'var(--muted)',
+                                                                                                marginTop: 6,
+                                                                                                maxWidth: 240,
+                                                                                                lineHeight: 1.35,
+                                                                                            }}
+                                                                                        >
+                                                                                            Bu siparişte branda yok; bu adım kullanılmıyor.
+                                                                                        </div>
+                                                                                    ) : null}
+                                                                                </div>
+                                                                                <div style={{ alignSelf: 'center', flexShrink: 0 }}>
+                                                                                    <div
+                                                                                        className={`step-toggle ${toggleOn ? 'active' : ''}`}
+                                                                                        onClick={
+                                                                                            isBrandaMontajiLocked
+                                                                                                ? undefined
+                                                                                                : () => handleStepToggle(dorse.id, step.key, isCompleted, 'DORSE')
+                                                                                        }
+                                                                                        title={
+                                                                                            isBrandaMontajiLocked
+                                                                                                ? 'Branda yok — montaj takip edilmez'
+                                                                                                : 'Değiştirmek için tıklayın'
+                                                                                        }
+                                                                                        style={
+                                                                                            isBrandaMontajiLocked
+                                                                                                ? { opacity: 0.45, cursor: 'not-allowed', pointerEvents: 'none' }
+                                                                                                : undefined
+                                                                                        }
+                                                                                    />
+                                                                                </div>
                                                                             </div>
                                                                         );
                                                                     })}
@@ -3198,6 +3850,15 @@ function UrunListesiContent() {
 
                                         {isExpanded && (
                                             <div className="damper-card-body">
+                                                <ProductLocalNote
+                                                    kind="DAMPER"
+                                                    productId={damper.id}
+                                                    value={damper.cardNote}
+                                                    onPersist={async (next) => {
+                                                        const updated = await updateDamper(damper.id, { cardNote: next });
+                                                        setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                    }}
+                                                />
                                                 {/* Araç Geldi Mi */}
                                                 {/* Bilgi Kartları (İmalat No, Araç Durumu & Tarih) */}
                                                 <div style={{
@@ -3267,9 +3928,10 @@ function UrunListesiContent() {
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'space-between',
-                                                        gap: '12px'
+                                                        gap: '12px',
+                                                        minWidth: 0
                                                     }}>
-                                                        <div>
+                                                        <div style={{ minWidth: 0 }}>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500, color: damper.sasiNo ? 'var(--foreground)' : 'var(--muted)' }}>
                                                                 {damper.sasiNo || 'Girilmedi'}
@@ -3282,7 +3944,8 @@ function UrunListesiContent() {
                                                                 width: '120px',
                                                                 padding: '6px 10px',
                                                                 fontSize: '13px',
-                                                                height: '34px'
+                                                                height: '34px',
+                                                                flexShrink: 0
                                                             }}
                                                             placeholder="Şasi No"
                                                             value={damper.sasiNo || ''}
@@ -3304,106 +3967,7 @@ function UrunListesiContent() {
                                                         />
                                                     </div>
 
-                                                    {/* Araç Durumu */}
-                                                    <div style={{
-                                                        background: 'var(--card-bg-secondary)',
-                                                        padding: '12px 16px',
-                                                        borderRadius: '10px',
-                                                        border: '1px solid var(--border)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between'
-                                                    }}>
-                                                        <div>
-                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ARAÇ DURUMU</div>
-                                                            <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                {damper.aracGeldiMi ? 'Araç Fabrikada' : 'Araç Gelmedi'}
-                                                            </div>
-                                                        </div>
-                                                        <div
-                                                            className={`step-toggle ${damper.aracGeldiMi ? 'active' : ''}`}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleStepToggle(damper.id, 'aracGeldiMi', damper.aracGeldiMi, 'DAMPER');
-                                                            }}
-                                                            style={{ transform: 'scale(1.1)' }}
-                                                            title="Değiştirmek için tıklayın"
-                                                        ></div>
-                                                    </div>
-
-                                                    {/* Adet (Quantity) */}
-                                                    <div style={{
-                                                        background: 'var(--card-bg-secondary)',
-                                                        padding: '12px 16px',
-                                                        borderRadius: '10px',
-                                                        border: '1px solid var(--border)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        gap: '12px'
-                                                    }}>
-                                                        <div>
-                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
-                                                            <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                                                {damper.adet > 0 ? damper.adet : '–'}
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <input
-                                                                type="number"
-                                                                className="input"
-                                                                min="1"
-                                                                style={{
-                                                                    width: '60px',
-                                                                    padding: '4px 8px',
-                                                                    fontSize: '13px',
-                                                                    textAlign: 'center',
-                                                                    height: '32px'
-                                                                }}
-                                                                value={damper.adet > 0 ? String(damper.adet) : ''}
-                                                                onChange={(e) => {
-                                                                    e.stopPropagation();
-                                                                    const raw = e.target.value;
-                                                                    const key = `damper-${damper.id}-adet`;
-                                                                    if (raw === '') {
-                                                                        setDampers(prev =>
-                                                                            prev.map(d => (d.id === damper.id ? { ...d, adet: 0 } : d))
-                                                                        );
-                                                                        persistLater(key, async () => {
-                                                                            const updated = await updateDamper(damper.id, { adet: 1 });
-                                                                            setDampers(prev =>
-                                                                                applyServerRowIfFieldMatches(prev, damper.id, 'adet', 0, updated)
-                                                                            );
-                                                                        });
-                                                                        return;
-                                                                    }
-                                                                    const newAdet = parseInt(raw, 10);
-                                                                    if (Number.isNaN(newAdet) || newAdet < 1) return;
-                                                                    const snap = newAdet;
-                                                                    setDampers(prev =>
-                                                                        prev.map(d => (d.id === damper.id ? { ...d, adet: newAdet } : d))
-                                                                    );
-                                                                    persistLater(key, async () => {
-                                                                        const updated = await updateDamper(damper.id, { adet: newAdet });
-                                                                        setDampers(prev =>
-                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'adet', snap, updated)
-                                                                        );
-                                                                    });
-                                                                }}
-                                                                onBlur={() => {
-                                                                    void persistNow(`damper-${damper.id}-adet`);
-                                                                    setDampers(prev =>
-                                                                        prev.map(d =>
-                                                                            d.id === damper.id && d.adet < 1 ? { ...d, adet: 1 } : d
-                                                                        )
-                                                                    );
-                                                                }}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Tarih/Saat */}
+                                                    {/* Renk - İmalat / Şasi ile aynı satırda */}
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
@@ -3413,48 +3977,311 @@ function UrunListesiContent() {
                                                         alignItems: 'center',
                                                         justifyContent: 'space-between',
                                                         gap: '12px',
-                                                        position: 'relative' // İkon konumlandırma için
+                                                        minWidth: 0
                                                     }}>
-                                                        <div>
-                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
-                                                            <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
-                                                                {damper.createdAt ? new Date(damper.createdAt).toLocaleString('tr-TR', {
-                                                                    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-                                                                }) : '-'}
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500, color: damper.renk ? 'var(--foreground)' : 'var(--muted)' }}>
+                                                                {damper.renk || 'Girilmedi'}
                                                             </div>
                                                         </div>
                                                         <input
-                                                            type="datetime-local"
+                                                            type="text"
                                                             className="input"
                                                             style={{
-                                                                padding: '4px 8px',
-                                                                fontSize: '12px',
-                                                                width: '40px', // Sadece ikon için
-                                                                height: '30px',
-                                                                border: '1px solid var(--border)',
-                                                                background: 'var(--bg)',
-                                                                color: 'transparent',
-                                                                cursor: 'pointer',
-                                                                opacity: 0, // Tamamen görünmez yap, ama tıklanabilir olsun (custom icon altında)
-                                                                position: 'absolute',
-                                                                right: '16px',
-                                                                zIndex: 10
+                                                                width: '100px',
+                                                                padding: '6px 10px',
+                                                                fontSize: '13px',
+                                                                height: '34px',
+                                                                flexShrink: 0
                                                             }}
-                                                            title="Tarihi Düzenle"
+                                                            placeholder="Renk"
+                                                            value={damper.renk || ''}
+                                                            onClick={(e) => e.stopPropagation()}
                                                             onChange={(e) => {
-                                                                if (!e.target.value) return;
-                                                                const iso = new Date(e.target.value).toISOString();
+                                                                const newRenk = e.target.value;
                                                                 setDampers(prev =>
-                                                                    prev.map(d => (d.id === damper.id ? { ...d, createdAt: iso } : d))
+                                                                    prev.map(d => (d.id === damper.id ? { ...d, renk: newRenk } : d))
+                                                                );
+                                                                const key = `damper-${damper.id}-renk`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateDamper(damper.id, { renk: newRenk });
+                                                                    setDampers(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, damper.id, 'renk', newRenk, updated)
+                                                                    );
+                                                                });
+                                                            }}
+                                                            onBlur={() => void persistNow(`damper-${damper.id}-renk`)}
+                                                        />
+                                                    </div>
+
+                                                    {/* Branda */}
+                                                    <div style={{
+                                                        background: 'var(--card-bg-secondary)',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '12px',
+                                                        minWidth: 0
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>BRANDA</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 600, color: damper.branda ? 'var(--success)' : 'var(--danger)' }}>
+                                                                {damper.branda ? 'VAR' : 'YOK'}
+                                                            </div>
+                                                        </div>
+                                                        <select
+                                                            className="select"
+                                                            value={damper.branda ? 'VAR' : 'YOK'}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            onChange={(e) => {
+                                                                const v = e.target.value === 'VAR';
+                                                                e.stopPropagation();
+                                                                setDampers((prev) =>
+                                                                    prev.map((d) =>
+                                                                        d.id === damper.id
+                                                                            ? { ...d, branda: v, ...(v ? {} : { brandaMontaji: false }) }
+                                                                            : d
+                                                                    )
                                                                 );
                                                                 void (async () => {
-                                                                    const updated = await updateDamper(damper.id, { createdAt: iso });
-                                                                    setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                    const updated = await updateDamper(
+                                                                        damper.id,
+                                                                        v ? { branda: true } : { branda: false, brandaMontaji: false }
+                                                                    );
+                                                                    setDampers((prev) =>
+                                                                        applyServerRowIfFieldMatches(prev, damper.id, 'branda', v, updated)
+                                                                    );
                                                                 })();
                                                             }}
-                                                        />
-                                                        <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                                                            <Calendar size={20} />
+                                                            style={{ width: '76px', padding: '6px 8px', fontSize: '12px', height: '34px', flexShrink: 0 }}
+                                                        >
+                                                            <option value="VAR">VAR</option>
+                                                            <option value="YOK">YOK</option>
+                                                        </select>
+                                                    </div>
+
+                                                    {/* Araç markası — tam satır */}
+                                                    <div style={{
+                                                        gridColumn: '1 / -1',
+                                                        background: 'var(--card-bg-secondary)',
+                                                        padding: '16px 20px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: '12px',
+                                                        minWidth: 0
+                                                    }}>
+                                                        <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>ARAÇ MARKASI</div>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                                                            <div
+                                                                style={{
+                                                                    flex: '1 1 200px',
+                                                                    minWidth: 0,
+                                                                    fontSize: '15px',
+                                                                    fontWeight: 500,
+                                                                    color: damper.aracMarka ? 'var(--foreground)' : 'var(--muted)',
+                                                                    lineHeight: 1.4,
+                                                                    overflowWrap: 'anywhere',
+                                                                    wordBreak: 'break-word'
+                                                                }}
+                                                            >
+                                                                {damper.aracMarka || 'Girilmedi'}
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                className="input"
+                                                                autoComplete="off"
+                                                                spellCheck={false}
+                                                                style={{
+                                                                    flex: '2 1 280px',
+                                                                    width: '100%',
+                                                                    minWidth: 'min(100%, 220px)',
+                                                                    maxWidth: '100%',
+                                                                    padding: '8px 14px',
+                                                                    fontSize: '15px',
+                                                                    height: '40px',
+                                                                    boxSizing: 'border-box'
+                                                                }}
+                                                                placeholder="Araç markası"
+                                                                value={damper.aracMarka ?? ''}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={(e) => {
+                                                                    const newMarka = e.target.value;
+                                                                    setDampers(prev =>
+                                                                        prev.map(d => (d.id === damper.id ? { ...d, aracMarka: newMarka || null } : d))
+                                                                    );
+                                                                    const key = `damper-${damper.id}-aracMarka`;
+                                                                    persistLater(key, async () => {
+                                                                        const updated = await updateDamper(damper.id, { aracMarka: newMarka || null });
+                                                                        setDampers(prev =>
+                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'aracMarka', newMarka || null, updated)
+                                                                        );
+                                                                    });
+                                                                }}
+                                                                onBlur={() => void persistNow(`damper-${damper.id}-aracMarka`)}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="damper-info-trio">
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px',
+                                                            position: 'relative',
+                                                            minWidth: 0
+                                                        }}>
+                                                            <div style={{ minWidth: 0 }}>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
+                                                                <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
+                                                                    {damper.createdAt ? new Date(damper.createdAt).toLocaleString('tr-TR', {
+                                                                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                                                                    }) : '-'}
+                                                                </div>
+                                                            </div>
+                                                            <input
+                                                                type="datetime-local"
+                                                                className="input"
+                                                                style={{
+                                                                    padding: '4px 8px',
+                                                                    fontSize: '12px',
+                                                                    width: '40px',
+                                                                    height: '30px',
+                                                                    border: '1px solid var(--border)',
+                                                                    background: 'var(--bg)',
+                                                                    color: 'transparent',
+                                                                    cursor: 'pointer',
+                                                                    opacity: 0,
+                                                                    position: 'absolute',
+                                                                    right: '16px',
+                                                                    zIndex: 10
+                                                                }}
+                                                                title="Tarihi Düzenle"
+                                                                onChange={(e) => {
+                                                                    if (!e.target.value) return;
+                                                                    const iso = new Date(e.target.value).toISOString();
+                                                                    setDampers(prev =>
+                                                                        prev.map(d => (d.id === damper.id ? { ...d, createdAt: iso } : d))
+                                                                    );
+                                                                    void (async () => {
+                                                                        const updated = await updateDamper(damper.id, { createdAt: iso });
+                                                                        setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                    })();
+                                                                }}
+                                                            />
+                                                            <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                                                                <Calendar size={20} />
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            gap: '12px',
+                                                            minWidth: 0
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {damper.adet > 0 ? damper.adet : '–'}
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                                                <input
+                                                                    type="number"
+                                                                    className="input"
+                                                                    min="1"
+                                                                    style={{
+                                                                        width: '60px',
+                                                                        padding: '4px 8px',
+                                                                        fontSize: '13px',
+                                                                        textAlign: 'center',
+                                                                        height: '32px'
+                                                                    }}
+                                                                    value={damper.adet > 0 ? String(damper.adet) : ''}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const raw = e.target.value;
+                                                                        const key = `damper-${damper.id}-adet`;
+                                                                        if (raw === '') {
+                                                                            setDampers(prev =>
+                                                                                prev.map(d => (d.id === damper.id ? { ...d, adet: 0 } : d))
+                                                                            );
+                                                                            persistLater(key, async () => {
+                                                                                const updated = await updateDamper(damper.id, { adet: 1 });
+                                                                                setDampers(prev =>
+                                                                                    applyServerRowIfFieldMatches(prev, damper.id, 'adet', 0, updated)
+                                                                                );
+                                                                            });
+                                                                            return;
+                                                                        }
+                                                                        const newAdet = parseInt(raw, 10);
+                                                                        if (Number.isNaN(newAdet) || newAdet < 1) return;
+                                                                        const snap = newAdet;
+                                                                        setDampers(prev =>
+                                                                            prev.map(d => (d.id === damper.id ? { ...d, adet: newAdet } : d))
+                                                                        );
+                                                                        persistLater(key, async () => {
+                                                                            const updated = await updateDamper(damper.id, { adet: newAdet });
+                                                                            setDampers(prev =>
+                                                                                applyServerRowIfFieldMatches(prev, damper.id, 'adet', snap, updated)
+                                                                            );
+                                                                        });
+                                                                    }}
+                                                                    onBlur={() => {
+                                                                        void persistNow(`damper-${damper.id}-adet`);
+                                                                        setDampers(prev =>
+                                                                            prev.map(d =>
+                                                                                d.id === damper.id && d.adet < 1 ? { ...d, adet: 1 } : d
+                                                                            )
+                                                                        );
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{
+                                                            background: 'var(--card-bg-secondary)',
+                                                            padding: '12px 16px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            minWidth: 0
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ARAÇ DURUMU</div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                    {damper.aracGeldiMi ? 'Araç Fabrikada' : 'Araç Gelmedi'}
+                                                                </div>
+                                                            </div>
+                                                            <div
+                                                                className={`step-toggle ${damper.aracGeldiMi ? 'active' : ''}`}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleStepToggle(damper.id, 'aracGeldiMi', damper.aracGeldiMi, 'DAMPER');
+                                                                }}
+                                                                style={{ transform: 'scale(1.1)' }}
+                                                                title="Değiştirmek için tıklayın"
+                                                            ></div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -3469,14 +4296,51 @@ function UrunListesiContent() {
                                                             </div>
                                                             <div className="step-items">
                                                                 {group.subSteps.map((step) => {
+                                                                    const isBrandaMontajiLocked = step.key === 'brandaMontaji' && !damper.branda;
                                                                     const isCompleted = damper[step.key as keyof Damper] as boolean;
+                                                                    const toggleOn = !isBrandaMontajiLocked && isCompleted;
                                                                     return (
-                                                                        <div key={step.key} className="step-item">
-                                                                            <span className="step-item-label">{step.label}</span>
-                                                                            <div
-                                                                                className={`step-toggle ${isCompleted ? 'active' : ''}`}
-                                                                                onClick={() => handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER')}
-                                                                            ></div>
+                                                                        <div
+                                                                            key={step.key}
+                                                                            className="step-item"
+                                                                            style={isBrandaMontajiLocked ? { alignItems: 'flex-start' } : undefined}
+                                                                        >
+                                                                            <div style={{ minWidth: 0, flex: 1, paddingRight: 8 }}>
+                                                                                <span className="step-item-label">{step.label}</span>
+                                                                                {isBrandaMontajiLocked ? (
+                                                                                    <div
+                                                                                        style={{
+                                                                                            fontSize: '11px',
+                                                                                            color: 'var(--muted)',
+                                                                                            marginTop: 6,
+                                                                                            maxWidth: 240,
+                                                                                            lineHeight: 1.35,
+                                                                                        }}
+                                                                                    >
+                                                                                        Bu siparişte branda yok; bu adım kullanılmıyor.
+                                                                                    </div>
+                                                                                ) : null}
+                                                                            </div>
+                                                                            <div style={{ alignSelf: 'center', flexShrink: 0 }}>
+                                                                                <div
+                                                                                    className={`step-toggle ${toggleOn ? 'active' : ''}`}
+                                                                                    onClick={
+                                                                                        isBrandaMontajiLocked
+                                                                                            ? undefined
+                                                                                            : () => handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER')
+                                                                                    }
+                                                                                    title={
+                                                                                        isBrandaMontajiLocked
+                                                                                            ? 'Branda yok — montaj takip edilmez'
+                                                                                            : 'Değiştirmek için tıklayın'
+                                                                                    }
+                                                                                    style={
+                                                                                        isBrandaMontajiLocked
+                                                                                            ? { opacity: 0.45, cursor: 'not-allowed', pointerEvents: 'none' }
+                                                                                            : undefined
+                                                                                    }
+                                                                                />
+                                                                            </div>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -3611,7 +4475,7 @@ function UrunListesiContent() {
                                                 </span>
                                             </div>
                                             <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                                                {sasi.sasiNo || '-'} | {sasi.dingil || '-'}
+                                                {formatSasiNoLabel(sasi.sasiNo)} | {sasi.dingil || '-'}
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
@@ -3626,6 +4490,15 @@ function UrunListesiContent() {
                                         {/* Body */}
                                         {isExpanded && (
                                             <div className="damper-card-body">
+                                                <ProductLocalNote
+                                                    kind="SASI"
+                                                    productId={sasi.id}
+                                                    value={sasi.cardNote}
+                                                    onPersist={async (next) => {
+                                                        const updated = await updateSasi(sasi.id, { cardNote: next });
+                                                        setSasis(prev => prev.map(s => (s.id === sasi.id ? updated : s)));
+                                                    }}
+                                                />
                                                 {/* Info Cards */}
                                                 <div style={{
                                                     display: 'grid',
@@ -3636,11 +4509,11 @@ function UrunListesiContent() {
                                                     borderBottom: '1px solid var(--border)'
                                                 }}>
 
-                                                    {/* IMALAT NO */}
-                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    {/* İMALAT NO */}
+                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: !hasDamperDorseImalatNo(sasi.imalatNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                         <div>
-                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
-                                                            <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.imalatNo}</div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500, color: !hasDamperDorseImalatNo(sasi.imalatNo) ? 'var(--warning)' : 'var(--foreground)' }}>{sasi.imalatNo ?? 'Girilmedi'}</div>
                                                         </div>
                                                         <input
                                                             type="text"
@@ -3665,6 +4538,38 @@ function UrunListesiContent() {
                                                                 });
                                                             }}
                                                             onBlur={() => void persistNow(`sasi-${sasi.id}-imalatNo`)}
+                                                            onClick={e => e.stopPropagation()}
+                                                        />
+                                                    </div>
+
+                                                    {/* ŞASİ NO */}
+                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: !hasSasiNoWritten(sasi.sasiNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minWidth: 0 }}>
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500, color: hasSasiNoWritten(sasi.sasiNo) ? 'var(--foreground)' : 'var(--warning)' }}>{hasSasiNoWritten(sasi.sasiNo) ? normalizeSasiNoValue(sasi.sasiNo) : 'Girilmedi'}</div>
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            autoComplete="off"
+                                                            className="input"
+                                                            style={{ width: '140px', padding: '4px', fontSize: '13px', flexShrink: 0 }}
+                                                            placeholder="Şasi no"
+                                                            value={sasi.sasiNo ?? ''}
+                                                            onChange={(e) => {
+                                                                const raw = e.target.value;
+                                                                const v = raw.trim() === '' ? null : raw;
+                                                                setSasis(prev =>
+                                                                    prev.map(s => (s.id === sasi.id ? { ...s, sasiNo: v } : s))
+                                                                );
+                                                                const key = `sasi-${sasi.id}-sasiNo`;
+                                                                persistLater(key, async () => {
+                                                                    const updated = await updateSasi(sasi.id, { sasiNo: v });
+                                                                    setSasis(prev =>
+                                                                        applyServerRowIfFieldMatches(prev, sasi.id, 'sasiNo', v, updated)
+                                                                    );
+                                                                });
+                                                            }}
+                                                            onBlur={() => void persistNow(`sasi-${sasi.id}-sasiNo`)}
                                                             onClick={e => e.stopPropagation()}
                                                         />
                                                     </div>
@@ -3840,6 +4745,15 @@ function UrunListesiContent() {
 
                                         {isExpanded && (
                                             <div className="damper-card-body">
+                                                <ProductLocalNote
+                                                    kind="DORSE"
+                                                    productId={dorse.id}
+                                                    value={dorse.cardNote}
+                                                    onPersist={async (next) => {
+                                                        const updated = await updateDorse(dorse.id, { cardNote: next });
+                                                        setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                    }}
+                                                />
                                                 <div style={{
                                                     display: 'grid',
                                                     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -4011,6 +4925,45 @@ function UrunListesiContent() {
                                                         />
                                                     </div>
 
+                                                    {/* Fren (Wabco / Knorr) */}
+                                                    <div style={{
+                                                        background: 'var(--card-bg-secondary)',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '12px'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>FREN</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 500 }}>
+                                                                {dorse.frenMarka || '-'}
+                                                            </div>
+                                                        </div>
+                                                        <select
+                                                            className="select"
+                                                            style={{ width: '100px', padding: '6px 10px', fontSize: '12px', height: '34px' }}
+                                                            value={dorse.frenMarka ?? ''}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            onChange={(e) => {
+                                                                const v = e.target.value;
+                                                                const vOrNull = v === '' ? null : v;
+                                                                void (async () => {
+                                                                    const updated = await updateDorse(dorse.id, { frenMarka: vOrNull });
+                                                                    setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                                })();
+                                                            }}
+                                                        >
+                                                            <option value="">Seçiniz</option>
+                                                            {(dropdowns?.dorseFren ?? ['Wabco', 'Knorr']).map((f) => (
+                                                                <option key={f} value={f}>{f}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
                                                     {/* Şasi Bağlantısı */}
                                                     <div style={{
                                                         gridColumn: '1 / -1',
@@ -4162,7 +5115,7 @@ function UrunListesiContent() {
                                                         justifyContent: 'space-between',
                                                         gap: '12px'
                                                     }}>
-                                                        <div>
+                                                        <div style={{ minWidth: 0 }}>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>RENK</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500, color: dorse.renk ? 'var(--foreground)' : 'var(--muted)' }}>
                                                                 {dorse.renk || 'Girilmedi'}
@@ -4195,6 +5148,56 @@ function UrunListesiContent() {
                                                             }}
                                                             onBlur={() => void persistNow(`dorse-${dorse.id}-renk`)}
                                                         />
+                                                    </div>
+
+                                                    {/* Branda */}
+                                                    <div style={{
+                                                        background: 'var(--card-bg-secondary)',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid var(--border)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '12px',
+                                                        minWidth: 0
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>BRANDA</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 600, color: dorse.branda ? 'var(--success)' : 'var(--danger)' }}>
+                                                                {dorse.branda ? 'VAR' : 'YOK'}
+                                                            </div>
+                                                        </div>
+                                                        <select
+                                                            className="select"
+                                                            value={dorse.branda ? 'VAR' : 'YOK'}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            onChange={(e) => {
+                                                                const v = e.target.value === 'VAR';
+                                                                e.stopPropagation();
+                                                                setDorses((prev) =>
+                                                                    prev.map((d) =>
+                                                                        d.id === dorse.id
+                                                                            ? { ...d, branda: v, ...(v ? {} : { brandaMontaji: false }) }
+                                                                            : d
+                                                                    )
+                                                                );
+                                                                void (async () => {
+                                                                    const updated = await updateDorse(
+                                                                        dorse.id,
+                                                                        v ? { branda: true } : { branda: false, brandaMontaji: false }
+                                                                    );
+                                                                    setDorses((prev) =>
+                                                                        applyServerRowIfFieldMatches(prev, dorse.id, 'branda', v, updated)
+                                                                    );
+                                                                })();
+                                                            }}
+                                                            style={{ width: '76px', padding: '6px 8px', fontSize: '12px', height: '34px', flexShrink: 0 }}
+                                                        >
+                                                            <option value="VAR">VAR</option>
+                                                            <option value="YOK">YOK</option>
+                                                        </select>
                                                     </div>
 
                                                     {/* Tarih */}
@@ -4282,14 +5285,51 @@ function UrunListesiContent() {
                                                                     }
 
                                                                     // Handle boolean steps (Toggles)
+                                                                    const isBrandaMontajiLocked = step.key === 'brandaMontaji' && !dorse.branda;
                                                                     const isCompleted = dorse[step.key as keyof Dorse] as boolean;
+                                                                    const toggleOn = !isBrandaMontajiLocked && isCompleted;
                                                                     return (
-                                                                        <div key={step.key} className="step-item">
-                                                                            <span className="step-item-label">{step.label}</span>
-                                                                            <div
-                                                                                className={`step-toggle ${isCompleted ? 'active' : ''}`}
-                                                                                onClick={() => handleStepToggle(dorse.id, step.key, isCompleted, 'DORSE')}
-                                                                            ></div>
+                                                                        <div
+                                                                            key={step.key}
+                                                                            className="step-item"
+                                                                            style={isBrandaMontajiLocked ? { alignItems: 'flex-start' } : undefined}
+                                                                        >
+                                                                            <div style={{ minWidth: 0, flex: 1, paddingRight: 8 }}>
+                                                                                <span className="step-item-label">{step.label}</span>
+                                                                                {isBrandaMontajiLocked ? (
+                                                                                    <div
+                                                                                        style={{
+                                                                                            fontSize: '11px',
+                                                                                            color: 'var(--muted)',
+                                                                                            marginTop: 6,
+                                                                                            maxWidth: 240,
+                                                                                            lineHeight: 1.35,
+                                                                                        }}
+                                                                                    >
+                                                                                        Bu siparişte branda yok; bu adım kullanılmıyor.
+                                                                                    </div>
+                                                                                ) : null}
+                                                                            </div>
+                                                                            <div style={{ alignSelf: 'center', flexShrink: 0 }}>
+                                                                                <div
+                                                                                    className={`step-toggle ${toggleOn ? 'active' : ''}`}
+                                                                                    onClick={
+                                                                                        isBrandaMontajiLocked
+                                                                                            ? undefined
+                                                                                            : () => handleStepToggle(dorse.id, step.key, isCompleted, 'DORSE')
+                                                                                    }
+                                                                                    title={
+                                                                                        isBrandaMontajiLocked
+                                                                                            ? 'Branda yok — montaj takip edilmez'
+                                                                                            : 'Değiştirmek için tıklayın'
+                                                                                    }
+                                                                                    style={
+                                                                                        isBrandaMontajiLocked
+                                                                                            ? { opacity: 0.45, cursor: 'not-allowed', pointerEvents: 'none' }
+                                                                                            : undefined
+                                                                                    }
+                                                                                />
+                                                                            </div>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -4575,6 +5615,19 @@ function UrunListesiContent() {
                                                     value={dorseFormData.kalinlik}
                                                     onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: e.target.value }))}
                                                 />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Fren</label>
+                                                <select
+                                                    className="select"
+                                                    value={dorseFormData.frenMarka}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, frenMarka: e.target.value }))}
+                                                >
+                                                    <option value="">Seçiniz</option>
+                                                    {(dropdowns?.dorseFren ?? ['Wabco', 'Knorr']).map((f) => (
+                                                        <option key={f} value={f}>{f}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                             <div className="form-group">
                                                 <label className="form-label">Branda *</label>
@@ -4976,9 +6029,12 @@ export default function UrunListesiPage() {
         <AuthGuard>
             <Suspense
                 fallback={
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-                        <span style={{ color: 'var(--muted)' }}>Yükleniyor…</span>
-                    </div>
+                    <>
+                        <Sidebar />
+                        <main className="main-content">
+                            <OzunluLoading variant="inline" />
+                        </main>
+                    </>
                 }
             >
                 <UrunListesiContent />

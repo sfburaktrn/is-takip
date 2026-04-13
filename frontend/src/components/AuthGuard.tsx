@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
+import OzunluLoading from '@/components/OzunluLoading';
 
 interface AuthGuardProps {
     children: React.ReactNode;
@@ -24,21 +25,7 @@ export default function AuthGuard({ children, requireAdmin = false }: AuthGuardP
     }, [user, isLoading, isAdmin, requireAdmin, router]);
 
     if (isLoading) {
-        return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100vh',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)'
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                    <div>Yükleniyor...</div>
-                </div>
-            </div>
-        );
+        return <OzunluLoading variant="fullscreen" />;
     }
 
     if (!user) {

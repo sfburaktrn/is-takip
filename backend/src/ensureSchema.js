@@ -11,6 +11,10 @@ const STATEMENTS = [
     `ALTER TABLE "Damper" ADD COLUMN IF NOT EXISTS "productionStartedAt" TIMESTAMP(3)`,
     `ALTER TABLE "Dorse" ADD COLUMN IF NOT EXISTS "productionStartedAt" TIMESTAMP(3)`,
     `ALTER TABLE "Sasi" ADD COLUMN IF NOT EXISTS "productionStartedAt" TIMESTAMP(3)`,
+    `ALTER TABLE "Damper" ADD COLUMN IF NOT EXISTS "cardNote" TEXT`,
+    `ALTER TABLE "Dorse" ADD COLUMN IF NOT EXISTS "cardNote" TEXT`,
+    `ALTER TABLE "Dorse" ADD COLUMN IF NOT EXISTS "frenMarka" TEXT`,
+    `ALTER TABLE "Sasi" ADD COLUMN IF NOT EXISTS "cardNote" TEXT`,
 
     `CREATE TABLE IF NOT EXISTS "StepCompletionEvent" (
     "id" SERIAL NOT NULL,
@@ -108,6 +112,34 @@ const STATEMENTS = [
     `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "teknik_pdf_url" TEXT`,
     `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "manufacturing_not" TEXT`,
     `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "manufacturing_aciliyet" TEXT`,
+    `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "planning_product_type" TEXT`,
+    `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "expected_delivery_days" INTEGER`,
+    `ALTER TABLE "proposal_ingest" ADD COLUMN IF NOT EXISTS "target_delivery_date" TIMESTAMP(3)`,
+    `CREATE INDEX IF NOT EXISTS "proposal_ingest_approval_logged_at_idx" ON "proposal_ingest"("approval_logged_at")`,
+
+    `CREATE TABLE IF NOT EXISTS "proposal_plan_segment" (
+    "id" SERIAL NOT NULL,
+    "proposal_ingest_id" INTEGER NOT NULL,
+    "main_step_key" TEXT NOT NULL,
+    "planned_start" TIMESTAMP(3) NOT NULL,
+    "planned_end" TIMESTAMP(3) NOT NULL,
+    "duration_days" INTEGER,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "proposal_plan_segment_pkey" PRIMARY KEY ("id")
+)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "proposal_plan_segment_proposal_ingest_id_main_step_key_key" ON "proposal_plan_segment"("proposal_ingest_id", "main_step_key")`,
+    `CREATE INDEX IF NOT EXISTS "proposal_plan_segment_proposal_ingest_id_idx" ON "proposal_plan_segment"("proposal_ingest_id")`,
+    `DO $ensurePlanSeg$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'proposal_plan_segment_proposal_ingest_id_fkey') THEN
+            ALTER TABLE "proposal_plan_segment" ADD CONSTRAINT "proposal_plan_segment_proposal_ingest_id_fkey"
+            FOREIGN KEY ("proposal_ingest_id") REFERENCES "proposal_ingest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+    END $ensurePlanSeg$`,
+    `ALTER TABLE "proposal_plan_segment" ADD COLUMN IF NOT EXISTS "unit_index" INTEGER NOT NULL DEFAULT 1`,
+    `DROP INDEX IF EXISTS "proposal_plan_segment_proposal_ingest_id_main_step_key_key"`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "proposal_plan_segment_proposal_ingest_id_unit_index_main_step_key_key" ON "proposal_plan_segment"("proposal_ingest_id", "unit_index", "main_step_key")`,
 ];
 
 async function ensureDatabaseSchema() {

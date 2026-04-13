@@ -82,6 +82,8 @@ export interface Damper {
     updatedAt?: string;
     /** Üretime giriş (verimlilik metrikleri); yalnızca yeni kayıtlarda dolu */
     productionStartedAt?: string | null;
+    /** Kart üzerindeki serbest not (veritabanı) */
+    cardNote?: string | null;
 }
 
 export interface DamperSummary {
@@ -155,6 +157,7 @@ export interface Dropdowns {
     model: string[];
     kurumMuayenesi: string[];
     dmoMuayenesi: string[];
+    dorseFren?: string[];
 }
 
 export interface CompanyVariant {
@@ -454,6 +457,8 @@ export interface Dorse {
     sasiNo: string | null;
     silindir: string | null;
     malzemeCinsi: string | null;
+    /** Wabco / Knorr — tamamlama adımındaki boolean fren alanından ayrı */
+    frenMarka?: string | null;
 
     // Sub-steps
     plazmaProgrami: boolean;
@@ -499,6 +504,7 @@ export interface Dorse {
     createdAt?: string;
     updatedAt?: string;
     productionStartedAt?: string | null;
+    cardNote?: string | null;
 
     // RELATIONSHIP
     sasiId?: number | null;
@@ -541,6 +547,7 @@ export interface Sasi {
     createdAt?: string;
     updatedAt?: string;
     productionStartedAt?: string | null;
+    cardNote?: string | null;
 
     // RELATIONSHIP
     isLinked?: boolean;
@@ -602,6 +609,19 @@ export async function getVerimlilik(
     return handleResponse<VerimlilikResponse>(res);
 }
 
+export type PlanningProductType = 'DAMPER' | 'DORSE';
+
+/** Teklif plan segmenti (onaylı teklif üretim planı). */
+export interface ProposalPlanSegmentRow {
+    id: number;
+    proposalIngestId: number;
+    unitIndex: number;
+    mainStepKey: string;
+    plannedStart: string;
+    plannedEnd: string;
+    durationDays: number | null;
+}
+
 /** Teklif Takip'ten gelen onaylı teklif özeti. */
 export interface ProposalIngestRow {
     id: number;
@@ -624,8 +644,53 @@ export interface ProposalIngestRow {
     teknikPdfUrl: string | null;
     manufacturingNot: string | null;
     manufacturingAciliyet: 'Normal' | 'Acil' | 'Çok Acil' | null;
+    planningProductType?: PlanningProductType | null;
+    expectedDeliveryDays?: number | null;
+    targetDeliveryDate?: string | null;
+    planSegments?: ProposalPlanSegmentRow[];
     createdAt: string;
     updatedAt: string;
+}
+
+export interface PlanningMetaStep {
+    mainStepKey: string;
+    label: string;
+}
+
+export interface PlanningMetaResponse {
+    productType: PlanningProductType;
+    steps: PlanningMetaStep[];
+}
+
+export interface PlanningAlertsResponse {
+    overdue: Array<{
+        id: number;
+        companyName: string;
+        deadline: string;
+        planningProductType: string | null;
+        imalataAlindi: boolean;
+    }>;
+    dueSoon: Array<{
+        id: number;
+        companyName: string;
+        deadline: string;
+        planningProductType: string | null;
+        imalataAlindi: boolean;
+    }>;
+    soonDays: number;
+}
+
+export interface PutProposalPlanningBody {
+    planningProductType?: PlanningProductType | null;
+    expectedDeliveryDays?: number | null;
+    targetDeliveryDate?: string | null;
+    segments?: Array<{
+        unitIndex?: number;
+        mainStepKey: string;
+        plannedStart: string;
+        plannedEnd: string;
+        durationDays?: number | null;
+    }>;
 }
 
 export async function getProposalIngestList(limit = 300): Promise<ProposalIngestRow[]> {
@@ -656,6 +721,44 @@ export async function deleteProposalIngest(id: number): Promise<void> {
         const text = await res.text();
         throw new Error(`API Error: ${res.status} ${res.statusText} - ${text.substring(0, 500)}`);
     }
+}
+
+/** Mevcut işlerde "İmalata alındı" işaretli onaylı teklifler + plan segmentleri. */
+export async function getPlanningProposals(limit = 300): Promise<ProposalIngestRow[]> {
+    const q = new URLSearchParams({ limit: String(limit) });
+    const res = await apiFetch(`${API_URL}/planning/proposals?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<ProposalIngestRow[]>(res);
+}
+
+export async function getPlanningMeta(type: PlanningProductType): Promise<PlanningMetaResponse> {
+    const q = new URLSearchParams({ type });
+    const res = await apiFetch(`${API_URL}/planning/meta?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<PlanningMetaResponse>(res);
+}
+
+export async function getPlanningAlerts(soonDays = 3): Promise<PlanningAlertsResponse> {
+    const q = new URLSearchParams({ soonDays: String(soonDays) });
+    const res = await apiFetch(`${API_URL}/planning/alerts?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<PlanningAlertsResponse>(res);
+}
+
+export async function putProposalPlanning(id: number, body: PutProposalPlanningBody): Promise<ProposalIngestRow> {
+    const res = await apiFetch(`${API_URL}/planning/proposals/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<ProposalIngestRow>(res);
 }
 
 export interface CapacityScheduleDefaults {

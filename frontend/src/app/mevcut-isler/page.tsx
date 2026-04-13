@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import {
     getProposalIngestList,
     patchProposalIngest,
@@ -116,7 +117,12 @@ function ProposalCard({ r, onToggleImalat, onRequestDelete, busy, onPdfPreview }
                         style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', transition: 'background 0.2s', background: imalat ? 'var(--success)' : '#cbd5e1', opacity: busy ? 0.5 : 1 }}>
                         <span style={{ position: 'absolute', top: '2px', left: imalat ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.15)', transition: 'left 0.2s' }} />
                     </button>
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)' }}>İmalata alındı</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--foreground)' }}>İmalata alındı</span>
+                        <span style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: 1.35 }}>
+                            Açıkken teklif <strong>Üretim planı</strong> bekleyenler listesine düşer.
+                        </span>
+                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
                     <button type="button" disabled={busy} onClick={() => onRequestDelete(r)} style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid #fecaca', background: '#fff', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="Sil"><Trash2 size={15} /></button>
@@ -338,9 +344,8 @@ export default function MevcutIslerPage() {
 
                     {/* content */}
                     {loading && rows.length === 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-                            <Loader2 className="animate-spin text-[var(--primary)]" size={36} />
-                            <p style={{ marginTop: '16px', color: 'var(--muted)' }}>Yükleniyor…</p>
+                        <div style={{ padding: '48px 0' }}>
+                            <OzunluLoading variant="inline" />
                         </div>
                     ) : rows.length === 0 ? (
                         <div className="card" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: '16px' }}>

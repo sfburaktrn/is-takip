@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import { API_URL, apiFetch } from '@/lib/api';
 import {
     FileText,
     ClipboardList,
-    Loader2,
     Calendar,
     User,
     Clock
@@ -90,10 +90,7 @@ export default function GirisLoglariPage() {
                         </div>
 
                         {loading ? (
-                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                                <Loader2 size={32} className="animate-spin" />
-                                <div>Yükleniyor...</div>
-                            </div>
+                            <OzunluLoading variant="compact" />
                         ) : logs.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
                                 Henüz giriş kaydı yok

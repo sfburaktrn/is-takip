@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import { useAuth } from '@/lib/AuthContext';
 import {
     getVerimlilik,
@@ -295,9 +296,7 @@ export default function VerimlilikPage() {
                 </header>
 
                 {loading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '50vh' }}>
-                        <Loader2 size={40} className="animate-spin" />
-                    </div>
+                    <OzunluLoading variant="inline" />
                 ) : error ? (
                     <div className="card" style={{ padding: '24px', color: '#b91c1c' }}>
                         {error}

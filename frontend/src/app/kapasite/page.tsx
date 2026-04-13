@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
+import OzunluLoading from '@/components/OzunluLoading';
 import {
     getCapacityWeek,
     putCapacityWeek,
@@ -496,9 +497,8 @@ export default function KapasitePage() {
                 </div>
 
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-200/80 bg-white py-20 shadow-inner">
-                        <Loader2 className="animate-spin text-[var(--primary)]" size={44} strokeWidth={2} />
-                        <p className="text-sm font-medium text-slate-500">Kapasite verileri yükleniyor…</p>
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-white py-12 shadow-inner">
+                        <OzunluLoading variant="compact" />
                     </div>
                 ) : (
                     <>

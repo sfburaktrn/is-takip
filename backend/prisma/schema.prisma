@@ -54,6 +54,7 @@ model Damper {
   adet                  Int      @default(1)
   sasiNo                String?
   productionStartedAt   DateTime?
+  cardNote              String?  @db.Text
 }
 
 model Dorse {
@@ -119,7 +120,9 @@ model Dorse {
   sasiNo                String?
   silindir              String?
   malzemeCinsi          String?
+  frenMarka             String?
   productionStartedAt   DateTime?
+  cardNote              String?  @db.Text
 
   // RELATIONSHIP
   sasiId                Int?     @unique
@@ -195,6 +198,7 @@ model Sasi {
   updatedAt             DateTime @updatedAt
   adet                  Int      @default(1)
   productionStartedAt   DateTime?
+  cardNote              String?  @db.Text
 
   // RELATIONSHIP
   dorse                 Dorse?
@@ -263,10 +267,35 @@ model ProposalIngest {
   teknikPdfUrl           String?   @map("teknik_pdf_url")
   manufacturingNot       String?   @map("manufacturing_not") @db.Text
   manufacturingAciliyet  String?   @map("manufacturing_aciliyet")
+  /// Planlama ekranı: DAMPER | DORSE (bölüm şablonu).
+  planningProductType    String?   @map("planning_product_type")
+  expectedDeliveryDays     Int?      @map("expected_delivery_days")
+  targetDeliveryDate       DateTime? @map("target_delivery_date")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
+  planSegments ProposalPlanSegment[]
+
   @@index([pushedAt])
   @@index([imalataAlindi])
+  @@index([approvalLoggedAt])
   @@map("proposal_ingest")
+}
+
+/// Onaylı teklif bazlı üretim planı (ana bölüm tarihleri). unitIndex = araç sırası (1..miktar).
+model ProposalPlanSegment {
+  id                 Int       @id @default(autoincrement())
+  proposalIngestId   Int       @map("proposal_ingest_id")
+  proposalIngest     ProposalIngest @relation(fields: [proposalIngestId], references: [id], onDelete: Cascade)
+  unitIndex          Int       @default(1) @map("unit_index")
+  mainStepKey        String    @map("main_step_key")
+  plannedStart       DateTime  @map("planned_start")
+  plannedEnd         DateTime  @map("planned_end")
+  durationDays       Int?      @map("duration_days")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([proposalIngestId, unitIndex, mainStepKey])
+  @@index([proposalIngestId])
+  @@map("proposal_plan_segment")
 }

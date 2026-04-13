@@ -9,7 +9,6 @@ type ProductLocalNoteProps = {
     kind: ProductNoteKind;
     productId: number;
     value: string | null | undefined;
-    label?: string;
     onPersist: (nextText: string | null) => Promise<void>;
 };
 
@@ -20,7 +19,7 @@ function comparableSaved(raw: string | null | undefined): string {
 
 const SAVE_DEBOUNCE_MS = 900;
 
-export function ProductLocalNote({ kind, productId, value, label, onPersist }: ProductLocalNoteProps) {
+export function ProductLocalNote({ kind, productId, value, onPersist }: ProductLocalNoteProps) {
     const [text, setText] = useState(() => value ?? '');
     const [saving, setSaving] = useState(false);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,8 +95,6 @@ export function ProductLocalNote({ kind, productId, value, label, onPersist }: P
         void flushSave(textRef.current);
     };
 
-    const defaultLabel = kind === 'DAMPER' ? 'Damper' : kind === 'DORSE' ? 'Dorse' : 'Şasi';
-
     return (
         <div
             onClick={e => e.stopPropagation()}
@@ -172,18 +169,6 @@ export function ProductLocalNote({ kind, productId, value, label, onPersist }: P
                             <span style={{ fontSize: '11px', color: '#92400e', opacity: 0.9 }}>Kaydediliyor…</span>
                         )}
                     </div>
-                    <p
-                        style={{
-                            margin: '4px 0 0',
-                            fontSize: '12px',
-                            lineHeight: 1.45,
-                            color: '#92400e',
-                            opacity: 0.92,
-                        }}
-                    >
-                        <strong>{label ?? defaultLabel}</strong> — hatırlatma metni veritabanına kaydedilir; üretim adımları ve diğer alanlar
-                        aynı kalır.
-                    </p>
                 </div>
             </div>
             <textarea

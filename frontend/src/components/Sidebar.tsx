@@ -82,7 +82,7 @@ export default function Sidebar() {
         { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
         { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
         { href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
-       /* { href: '/planlama', label: 'Üretim planı', icon: CalendarDays }, */
+       /*{ href: '/planlama', label: 'Üretim planı', icon: CalendarDays }, */
     ];
 
     const adminOnlyMenuItems = [

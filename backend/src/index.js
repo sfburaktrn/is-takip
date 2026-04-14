@@ -224,6 +224,23 @@ function requireTeklifIngestSecret(req, res, next) {
     next();
 }
 
+/** Teklif Takip canlı ekran: Bearer TEKLIF_LIVE_SECRET (oturum kullanılmaz). */
+function requireTeklifLiveSecret(req, res, next) {
+    const secret = process.env.TEKLIF_LIVE_SECRET;
+    if (!secret || String(secret).trim() === '') {
+        return res.status(503).json({ error: 'Entegrasyon yapılandırılmamış' });
+    }
+    const h = req.headers.authorization;
+    if (!h || typeof h !== 'string' || !h.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Yetkisiz' });
+    }
+    const token = h.slice(7).trim();
+    if (token !== secret) {
+        return res.status(401).json({ error: 'Yetkisiz' });
+    }
+    next();
+}
+
 function strOrNull(v) {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
@@ -357,6 +374,162 @@ function calculateMainSasiStepStatus(sasi, groupKey) {
     if (completedCount === 0) return 'BAŞLAMADI';
     if (completedCount === totalCount) return 'TAMAMLANDI';
     return 'DEVAM EDİYOR';
+}
+
+// Teklif Takip: canlı üretim feed'i için yardımcılar
+const LIVE_DAMPER_SUBSTEPS = [
+    'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'damperSasiPlazmaKesim', 'presBukum',
+    'aracBraket', 'damperSasi', 'sasiYukleme',
+    'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
+    'damperKurulmasi', 'damperKaynak', 'sasiKapakSiperlik', 'yukleme',
+    'hidrolik', 'boyaHazirlik', 'boya',
+    'elektrik', 'hava', 'tamamlama',
+    // UI (frontend/src/app/urun-listesi/page.tsx) progress hesabıyla uyumlu:
+    'sonKontrol', 'teslimat',
+];
+
+const LIVE_DORSE_SUBSTEPS = [
+    'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'presBukum', 'dorseSasi',
+    'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
+    'dorseKurulmasi', 'dorseKaynak', 'kapakSiperlik', 'yukleme', 'hidrolik',
+    'boyaHazirlik', 'dorseSasiBoyama',
+    'fren', 'dorseElektrik', 'tamamlama', 'cekiciElektrik', 'cekiciHidrolik', 'aracKontrolBypassAyari',
+    // UI (frontend/src/app/urun-listesi/page.tsx) progress hesabıyla uyumlu:
+    'sonKontrol', 'tipOnay', 'fatura', 'tahsilat', 'teslimat',
+];
+
+const LIVE_DAMPER_MAIN_STAGES = [
+    { key: 'kesimBukum', label: 'KESİM - BÜKÜM' },
+    { key: 'sasiBitis', label: 'ŞASİ BİTİŞ' },
+    { key: 'onHazirlik', label: 'ÖN HAZIRLIK' },
+    { key: 'montaj', label: 'MONTAJ' },
+    { key: 'hidrolik', label: 'HİDROLİK' },
+    { key: 'boyaBitis', label: 'BOYA BİTİŞ' },
+    { key: 'tamamlamaBitis', label: 'TAMAMLAMA BİTİŞ' },
+    { key: 'sonKontrol', label: 'SON KONTROL' },
+    { key: 'teslimat', label: 'TESLİMAT' },
+];
+
+const LIVE_DORSE_MAIN_STAGES = [
+    { key: 'kesimBukum', label: 'KESİM - BÜKÜM' },
+    { key: 'onHazirlik', label: 'ÖN HAZIRLIK' },
+    { key: 'montaj', label: 'MONTAJ' },
+    { key: 'boya', label: 'BOYA' },
+    { key: 'cekici', label: 'ÇEKİCİ' },
+    { key: 'tamamlama', label: 'TAMAMLAMA' },
+    { key: 'sonKontrol', label: 'SON KONTROL' },
+];
+
+function calcProgressPercentBySubSteps(item, subSteps) {
+    const total = subSteps.length;
+    if (total <= 0) return 0;
+    const done = subSteps.filter(k => item && item[k] === true).length;
+    return Math.round((done / total) * 100);
+}
+
+function calcDamperStageStatuses(damper) {
+    return {
+        kesimBukum: calculateMainStepStatus(damper, 'kesimBukum'),
+        sasiBitis: calculateMainStepStatus(damper, 'sasiBitis'),
+        onHazirlik: calculateMainStepStatus(damper, 'onHazirlik'),
+        montaj: calculateMainStepStatus(damper, 'montaj'),
+        hidrolik: damper.hidrolik ? 'TAMAMLANDI' : 'BAŞLAMADI',
+        boyaBitis: calculateMainStepStatus(damper, 'boyaBitis'),
+        tamamlamaBitis: calculateMainStepStatus(damper, 'tamamlamaBitis'),
+        sonKontrol: damper.sonKontrol ? 'TAMAMLANDI' : 'BAŞLAMADI',
+        teslimat: damper.teslimat ? 'TAMAMLANDI' : 'BAŞLAMADI',
+    };
+}
+
+function calcDorseStageStatuses(dorse) {
+    const cekiciStatus = (() => {
+        const steps = ['cekiciElektrik', 'cekiciHidrolik'];
+        const completed = steps.filter(k => dorse && dorse[k] === true).length;
+        if (completed === 0) return 'BAŞLAMADI';
+        if (completed === steps.length) return 'TAMAMLANDI';
+        return 'DEVAM EDİYOR';
+    })();
+    return {
+        kesimBukum: calculateMainDorseStepStatus(dorse, 'kesimBukum'),
+        onHazirlik: calculateMainDorseStepStatus(dorse, 'onHazirlik'),
+        montaj: calculateMainDorseStepStatus(dorse, 'montaj'),
+        boya: calculateMainDorseStepStatus(dorse, 'boya'),
+        cekici: cekiciStatus,
+        tamamlama: calculateMainDorseStepStatus(dorse, 'tamamlama'),
+        // Dorse'de sonKontrol bir grup: tipOnay/fatura/tahsilat/teslimat dahil.
+        sonKontrol: calculateMainDorseStepStatus(dorse, 'sonKontrol'),
+    };
+}
+
+function calcActiveStage(stages, stageStatuses, progress) {
+    if (!Array.isArray(stages) || stages.length === 0) {
+        return { key: 'start', label: 'BAŞLAMADI', status: progress > 0 ? 'DEVAM EDİYOR' : 'BAŞLAMADI' };
+    }
+    if (progress >= 100) return { key: 'done', label: 'TAMAMLANDI', status: 'TAMAMLANDI' };
+    if (progress <= 0) {
+        const first = stages[0];
+        return { key: first.key, label: first.label, status: 'BAŞLAMADI' };
+    }
+
+    // 1) Eğer herhangi bir aşama "DEVAM EDİYOR" ise onu aktif kabul et.
+    for (const s of stages) {
+        const st = stageStatuses[s.key];
+        if (st === 'DEVAM EDİYOR') return { key: s.key, label: s.label, status: 'DEVAM EDİYOR' };
+    }
+
+    // 2) Hiçbir aşama "DEVAM EDİYOR" değilse ama progress > 0 ise,
+    // ilk BAŞLAMADI aşamayı "DEVAM EDİYOR" gibi göster (kullanıcı beklentisi).
+    for (const s of stages) {
+        const st = stageStatuses[s.key];
+        if (st === 'BAŞLAMADI' || !st) return { key: s.key, label: s.label, status: 'DEVAM EDİYOR' };
+    }
+
+    // 3) Fallback: hepsi tamamlanmış görünüyorsa ama progress < 100 ise yine devam ediyor say.
+    const last = stages[stages.length - 1];
+    return { key: last.key, label: last.label, status: 'DEVAM EDİYOR' };
+}
+
+function getStageSubSteps(productType, stageKey) {
+    if (productType === 'DAMPER') {
+        const g = STEP_GROUPS[stageKey];
+        if (g && Array.isArray(g.subSteps)) return g.subSteps;
+        if (stageKey === 'hidrolik') return ['hidrolik'];
+        if (stageKey === 'sonKontrol') return ['sonKontrol'];
+        if (stageKey === 'teslimat') return ['teslimat'];
+        return [];
+    }
+    if (productType === 'DORSE') {
+        const g = DORSE_STEP_GROUPS[stageKey];
+        if (g && Array.isArray(g.subSteps)) return g.subSteps;
+        if (stageKey === 'cekici') return ['cekiciElektrik', 'cekiciHidrolik'];
+        return [];
+    }
+    return [];
+}
+
+function buildStageDetails(productType, item, stages, stageStatuses) {
+    const stageDetails = stages.map(s => {
+        const status = stageStatuses[s.key] || 'BAŞLAMADI';
+        if (status !== 'DEVAM EDİYOR') {
+            return { key: s.key, label: s.label, status };
+        }
+        const subSteps = getStageSubSteps(productType, s.key);
+        const completedSubStepKeys = subSteps.filter(k => item && item[k] === true);
+        const remainingSubStepKeys = subSteps.filter(k => !(item && item[k] === true));
+        return {
+            key: s.key,
+            label: s.label,
+            status,
+            completedSubStepKeys,
+            remainingSubStepKeys,
+        };
+    });
+
+    const notCompletedStages = stageDetails
+        .filter(s => s.status !== 'TAMAMLANDI')
+        .map(s => ({ key: s.key, label: s.label, status: s.status }));
+
+    return { stageDetails, notCompletedStages };
 }
 
 function addCalculatedSasiSteps(sasi) {
@@ -2689,6 +2862,112 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
                 ? ' Veritabanı şeması eksik olabilir: npx prisma migrate deploy'
                 : '';
         res.status(500).json({ error: `Kayıt işlenemedi.${hint}` });
+    }
+});
+
+/**
+ * Teklif Takip: Canlı üretim listesi (Damper + Dorse).
+ * Auth: Bearer TEKLIF_LIVE_SECRET
+ *
+ * Query:
+ * - type: ALL | DAMPER | DORSE (default ALL)
+ * - company: baseCompany filtre (opsiyonel; getBaseCompany ile eşleştirilir)
+ * - limit: default 500 (maks 2000)
+ */
+app.get('/api/integrations/teklif-takip/live/production', requireTeklifLiveSecret, async (req, res) => {
+    try {
+        const type = String(req.query.type || 'ALL').toUpperCase();
+        const company = req.query.company ? String(req.query.company) : null;
+        const limitRaw = req.query.limit ? parseInt(String(req.query.limit), 10) : 500;
+        const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(2000, limitRaw)) : 500;
+
+        const wantDamper = type === 'ALL' || type === 'DAMPER';
+        const wantDorse = type === 'ALL' || type === 'DORSE';
+
+        let dampers = [];
+        let dorses = [];
+
+        if (wantDamper) {
+            dampers = await prisma.damper.findMany({
+                orderBy: { updatedAt: 'desc' },
+                take: limit,
+            });
+        }
+        if (wantDorse) {
+            dorses = await prisma.dorse.findMany({
+                orderBy: { updatedAt: 'desc' },
+                take: limit,
+                include: { sasi: true },
+            });
+        }
+
+        const wantCompany = company ? String(company).toUpperCase().trim() : null;
+
+        const rows = [];
+
+        for (const d of dampers) {
+            const baseCompany = getBaseCompany(d.musteri);
+            if (wantCompany && baseCompany !== wantCompany) continue;
+            const stageStatuses = calcDamperStageStatuses(d);
+            const progress = calcProgressPercentBySubSteps(d, LIVE_DAMPER_SUBSTEPS);
+            const active = calcActiveStage(LIVE_DAMPER_MAIN_STAGES, stageStatuses, progress);
+            const { stageDetails, notCompletedStages } = buildStageDetails('DAMPER', d, LIVE_DAMPER_MAIN_STAGES, stageStatuses);
+            rows.push({
+                productType: 'DAMPER',
+                id: d.id,
+                imalatNo: d.imalatNo ?? null,
+                musteri: d.musteri,
+                baseCompany,
+                updatedAt: d.updatedAt,
+                cardNote: d.cardNote ?? null,
+                progress,
+                activeStageKey: active.key,
+                activeStageLabel: active.label,
+                activeStageStatus: active.status,
+                stageStatuses,
+                stageDetails,
+                notCompletedStages,
+            });
+        }
+
+        for (const d of dorses) {
+            const baseCompany = getBaseCompany(d.musteri);
+            if (wantCompany && baseCompany !== wantCompany) continue;
+            const stageStatuses = calcDorseStageStatuses(d);
+            const progress = calcProgressPercentBySubSteps(d, LIVE_DORSE_SUBSTEPS);
+            const active = calcActiveStage(LIVE_DORSE_MAIN_STAGES, stageStatuses, progress);
+            const { stageDetails, notCompletedStages } = buildStageDetails('DORSE', d, LIVE_DORSE_MAIN_STAGES, stageStatuses);
+            rows.push({
+                productType: 'DORSE',
+                id: d.id,
+                imalatNo: d.imalatNo ?? null,
+                musteri: d.musteri,
+                baseCompany,
+                updatedAt: d.updatedAt,
+                cardNote: d.cardNote ?? null,
+                progress,
+                activeStageKey: active.key,
+                activeStageLabel: active.label,
+                activeStageStatus: active.status,
+                stageStatuses,
+                stageDetails,
+                notCompletedStages,
+                sasi: d.sasi
+                    ? {
+                          id: d.sasi.id,
+                          imalatNo: d.sasi.imalatNo ?? null,
+                          musteri: d.sasi.musteri ?? null,
+                          sasiNo: d.sasi.sasiNo ?? null,
+                      }
+                    : null,
+            });
+        }
+
+        rows.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        res.json(rows.slice(0, limit));
+    } catch (error) {
+        console.error('Error fetching live production:', error);
+        res.status(500).json({ error: 'Failed to fetch live production' });
     }
 });
 

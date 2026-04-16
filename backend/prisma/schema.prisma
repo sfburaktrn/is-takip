@@ -96,6 +96,7 @@ model Dorse {
   dorseSasiBoyama       Boolean  @default(false)
 
   // TAMAMLAMA
+  frenProgrami          Boolean  @default(false)
   fren                  Boolean  @default(false)
   dorseElektrik         Boolean  @default(false)
   tamamlama             Boolean  @default(false)

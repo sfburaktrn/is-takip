@@ -316,7 +316,7 @@ const DORSE_STEP_GROUPS = {
     },
     tamamlama: {
         name: 'TAMAMLAMA',
-        subSteps: ['fren', 'dorseElektrik', 'tamamlama', 'cekiciElektrik', 'cekiciHidrolik', 'aracKontrolBypassAyari']
+        subSteps: ['frenProgrami', 'fren', 'dorseElektrik', 'tamamlama', 'aracKontrolBypassAyari', 'brandaMontaji']
     },
     sonKontrol: {
         name: 'SON KONTROL',
@@ -393,7 +393,7 @@ const LIVE_DORSE_SUBSTEPS = [
     'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
     'dorseKurulmasi', 'dorseKaynak', 'kapakSiperlik', 'yukleme', 'hidrolik',
     'boyaHazirlik', 'dorseSasiBoyama',
-    'fren', 'dorseElektrik', 'tamamlama', 'cekiciElektrik', 'cekiciHidrolik', 'aracKontrolBypassAyari',
+    'frenProgrami', 'fren', 'dorseElektrik', 'tamamlama', 'cekiciElektrik', 'cekiciHidrolik', 'aracKontrolBypassAyari',
     // UI (frontend/src/app/urun-listesi/page.tsx) progress hesabıyla uyumlu:
     'sonKontrol', 'tipOnay', 'fatura', 'tahsilat', 'teslimat',
 ];
@@ -1951,6 +1951,7 @@ app.get('/api/analytics/recent-activity', requireAuth, async (req, res) => {
                 if (item.dorseSasiBoyama) completedSubSteps.push('Dorse Şasi Boyama');
 
                 // Tamamlama
+                if (item.frenProgrami) completedSubSteps.push('Fren Programı');
                 if (item.fren) completedSubSteps.push('Fren');
                 if (item.dorseElektrik) completedSubSteps.push('Dorse Elektrik');
                 if (item.tamamlama) completedSubSteps.push('Tamamlama');

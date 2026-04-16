@@ -374,7 +374,7 @@ function UrunListesiContent() {
             dorse.dorseKurulmasi, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.yukleme, dorse.hidrolik,
             dorse.boyaHazirlik, dorse.dorseSasiBoyama,
             dorse.cekiciElektrik, dorse.cekiciHidrolik,
-            dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
+            dorse.frenProgrami, dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
             dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
         ];
         const completed = steps.filter(Boolean).length;
@@ -414,7 +414,7 @@ function UrunListesiContent() {
             dorse.dorseKurulmasi, dorse.dorseKaynak, dorse.kapakSiperlik, dorse.yukleme, dorse.hidrolik,
             dorse.boyaHazirlik, dorse.dorseSasiBoyama,
             dorse.cekiciElektrik, dorse.cekiciHidrolik,
-            dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
+            dorse.frenProgrami, dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
             dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
         ];
 

@@ -483,6 +483,7 @@ export interface Dorse {
     boyaHazirlik: boolean;
     dorseSasiBoyama: boolean;
 
+    frenProgrami: boolean;
     fren: boolean;
     dorseElektrik: boolean;
     tamamlama: boolean;
@@ -1110,6 +1111,7 @@ export const DORSE_STEP_GROUPS = [
         key: 'tamamlama',
         name: 'TAMAMLAMA',
         subSteps: [
+            { key: 'frenProgrami', label: 'Fren Programı' },
             { key: 'fren', label: 'Fren' },
             { key: 'dorseElektrik', label: 'Dorse Elektrik' },
             { key: 'tamamlama', label: 'Tamamlama' },

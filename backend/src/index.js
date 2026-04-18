@@ -2953,34 +2953,6 @@ app.post('/api/notifications/debug/sync-proposals', requireAuth, async (req, res
     res.json(result);
 });
 
-app.post('/api/notifications/debug/create-test', requireAdmin, async (req, res) => {
-    try {
-        const kind = req.body?.kind === 'PROPOSAL_TEKLIF' ? 'PROPOSAL_TEKLIF' : 'NEW_PRODUCT';
-        const productType = kind === 'PROPOSAL_TEKLIF' ? 'PROPOSAL' : 'DAMPER';
-        const productId = Math.floor(Date.now() / 1000);
-        const title =
-            kind === 'PROPOSAL_TEKLIF'
-                ? 'Test teklif bildirimi'
-                : 'Test üretim bildirimi';
-        const body = `Test bildirimi — ${new Date().toLocaleString('tr-TR')}`;
-        const created = await prisma.notification.create({
-            data: {
-                kind,
-                productType,
-                productId,
-                title,
-                body,
-                actorUserId: req.session.userId ?? null
-            }
-        });
-        console.log('[debug] Test bildirim oluşturuldu id=', created.id, 'kind=', kind);
-        res.json({ ok: true, id: created.id, kind });
-    } catch (error) {
-        console.error('Test bildirim hatası:', error);
-        res.status(500).json({ error: 'Test bildirimi oluşturulamadı', detail: error?.message });
-    }
-});
-
 app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
     try {
         const userId = req.session.userId;

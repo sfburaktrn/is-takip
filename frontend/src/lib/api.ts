@@ -978,16 +978,6 @@ export async function markNotificationRead(id: number): Promise<{ ok: boolean }>
     return handleResponse<{ ok: boolean }>(res);
 }
 
-export async function createTestNotification(kind: 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF' = 'PROPOSAL_TEKLIF'): Promise<{ ok: boolean; id: number; kind: string }> {
-    const res = await apiFetch(`${API_URL}/notifications/debug/create-test`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind }),
-    });
-    return handleResponse<{ ok: boolean; id: number; kind: string }>(res);
-}
-
 export async function syncProposalNotifications(): Promise<{ ok: boolean; scanned?: number; created?: number; skipped?: string; error?: string }> {
     const res = await apiFetch(`${API_URL}/notifications/debug/sync-proposals`, {
         method: 'POST',

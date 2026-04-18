@@ -6,7 +6,6 @@ import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
 import {
-    createTestNotification,
     getNotifications,
     getUnreadNotificationBreakdown,
     isProposalNotification,
@@ -16,8 +15,7 @@ import {
     syncProposalNotifications,
     type NotificationItem
 } from '@/lib/api';
-import { useAuth } from '@/lib/AuthContext';
-import { Bell, Briefcase, CheckCheck, Factory, LayoutGrid, Loader2, RefreshCcw, Zap } from 'lucide-react';
+import { Bell, Briefcase, CheckCheck, Factory, LayoutGrid, Loader2, RefreshCcw } from 'lucide-react';
 
 type Category = 'all' | 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF';
 
@@ -42,7 +40,6 @@ function productTypeLabel(t: string) {
 }
 
 export default function BildirimlerPage() {
-    const { isAdmin } = useAuth();
     const [items, setItems] = useState<NotificationItem[]>([]);
     const [total, setTotal] = useState(0);
     const [skip, setSkip] = useState(0);
@@ -50,7 +47,6 @@ export default function BildirimlerPage() {
     const [error, setError] = useState<string | null>(null);
     const [unreadOnly, setUnreadOnly] = useState(false);
     const [markingAll, setMarkingAll] = useState(false);
-    const [creatingTest, setCreatingTest] = useState(false);
     const [category, setCategory] = useState<Category>('all');
     const [breakdown, setBreakdown] = useState({ product: 0, proposal: 0, total: 0 });
     const limit = 40;
@@ -191,28 +187,6 @@ export default function BildirimlerPage() {
                                 {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
                                 Yenile
                             </button>
-                            {isAdmin && (
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={async () => {
-                                        try {
-                                            setCreatingTest(true);
-                                            await createTestNotification('PROPOSAL_TEKLIF');
-                                            await load();
-                                        } catch (e) {
-                                            setError(e instanceof Error ? e.message : 'Test bildirimi oluşturulamadı');
-                                        } finally {
-                                            setCreatingTest(false);
-                                        }
-                                    }}
-                                    disabled={creatingTest}
-                                    title="Bildirim sisteminin çalıştığını hızlıca doğrulamak için"
-                                >
-                                    {creatingTest ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                                    Test bildirim oluştur
-                                </button>
-                            )}
                         </div>
                     </div>
 

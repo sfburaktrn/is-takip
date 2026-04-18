@@ -40,6 +40,17 @@ import {
     X
 } from 'lucide-react';
 
+type StockItemPayload = {
+    groupId?: number;
+    groupName?: string;
+    purchaseCode: string | null;
+    description: string;
+    unit: string | null;
+    quantity: string | null;
+    supplierName: string | null;
+    supplierContact: string | null;
+};
+
 function formatTry(n: number | null | undefined) {
     if (n == null || Number.isNaN(n)) return '—';
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 }).format(n);
@@ -447,7 +458,7 @@ function ItemEditModal({
     groups: StockGroupRow[];
     saving: boolean;
     onClose: () => void;
-    onSave: (p: Record<string, unknown>) => Promise<void>;
+    onSave: (p: StockItemPayload) => Promise<void>;
 }) {
     const [groupId, setGroupId] = useState<number | ''>(initial?.groupId ?? '');
     const [newGroupName, setNewGroupName] = useState('');
@@ -549,11 +560,11 @@ function ItemEditModal({
                         className="btn btn-primary"
                         disabled={saving || !description.trim()}
                         onClick={() => {
-                            const payload: Record<string, unknown> = {
+                            const payload: StockItemPayload = {
                                 purchaseCode: purchaseCode.trim() || null,
                                 description: description.trim(),
                                 unit: unit.trim() || null,
-                                quantity: quantity.trim() || null,
+                                quantity: String(quantity ?? '').trim() || null,
                                 supplierName: supplierName.trim() || null,
                                 supplierContact: supplierContact.trim() || null
                             };

@@ -1213,12 +1213,12 @@ export const DORSE_STEP_GROUPS = [
         key: 'tamamlama',
         name: 'TAMAMLAMA',
         subSteps: [
-            { key: 'frenProgrami', label: 'Fren Programı' },
-            { key: 'fren', label: 'Fren' },
             { key: 'dorseElektrik', label: 'Dorse Elektrik' },
+            { key: 'fren', label: 'Fren' },
             { key: 'tamamlama', label: 'Tamamlama' },
-            { key: 'aracKontrolBypassAyari', label: 'Araç kontrol bypass ayarı' },
+            { key: 'frenProgrami', label: 'Fren Programı' },
             { key: 'brandaMontaji', label: 'Branda Montajı' },
+            { key: 'aracKontrolBypassAyari', label: 'Araç kontrol bypass ayarı' },
         ],
     },
     {

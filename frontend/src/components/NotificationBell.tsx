@@ -17,7 +17,7 @@ import { getNotificationSoundEnabled, setNotificationSoundEnabled } from '@/lib/
 import { playNotificationChime, unlockNotificationAudio } from '@/lib/notificationSound';
 import { Bell, Briefcase, ChevronRight, Factory, Loader2, Volume2, VolumeX, X } from 'lucide-react';
 
-const POLL_MS = 45000;
+const POLL_MS = 20000;
 const PANEL_LIMIT = 24;
 
 function productTypeLabel(t: string) {
@@ -133,9 +133,26 @@ export default function NotificationBell() {
         }
         void refreshUnread();
         const id = setInterval(() => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             void refreshUnread();
         }, POLL_MS);
-        return () => clearInterval(id);
+
+        const onVisibility = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                void refreshUnread();
+            }
+        };
+        const onFocus = () => {
+            void refreshUnread();
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('focus', onFocus);
+
+        return () => {
+            clearInterval(id);
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('focus', onFocus);
+        };
     }, [user, pathname, refreshUnread]);
 
     useEffect(() => {
@@ -209,6 +226,15 @@ export default function NotificationBell() {
         if (open && user) {
             loadPanel();
         }
+    }, [open, user, loadPanel]);
+
+    useEffect(() => {
+        if (!open || !user) return;
+        const id = setInterval(() => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            loadPanel();
+        }, POLL_MS);
+        return () => clearInterval(id);
     }, [open, user, loadPanel]);
 
     useEffect(() => {

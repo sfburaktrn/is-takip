@@ -152,6 +152,17 @@ app.options('*', cors({
 }));
 app.use(express.json());
 
+/** Teşhis: `/api/integrations/teklif-takip` altındaki her isteği logla (ingest sorununu kesin teşhis için). */
+app.use((req, res, next) => {
+    if (req.originalUrl && req.originalUrl.startsWith('/api/integrations/teklif-takip')) {
+        console.log('[HTTP]', req.method, req.originalUrl,
+            '| from=', req.headers['x-forwarded-for'] || req.ip,
+            '| auth=', req.headers.authorization ? (req.headers.authorization.slice(0, 10) + '…') : 'YOK',
+            '| ct=', req.headers['content-type']);
+    }
+    next();
+});
+
 // Session middleware
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -210,15 +221,19 @@ const requireAdmin = (req, res, next) => {
 /** Teklif Takip sunucu-sunucu ingest: Bearer IMALAT_INGEST_SECRET (oturum kullanılmaz). */
 function requireTeklifIngestSecret(req, res, next) {
     const secret = process.env.IMALAT_INGEST_SECRET;
+    console.log('[teklif-takip ingest] istek geldi:', req.method, req.originalUrl, 'Auth header var mı?', Boolean(req.headers.authorization));
     if (!secret || String(secret).trim() === '') {
+        console.warn('[teklif-takip ingest] IMALAT_INGEST_SECRET tanımlı değil');
         return res.status(503).json({ error: 'Entegrasyon yapılandırılmamış' });
     }
     const h = req.headers.authorization;
     if (!h || typeof h !== 'string' || !h.startsWith('Bearer ')) {
+        console.warn('[teklif-takip ingest] Authorization header eksik veya Bearer değil');
         return res.status(401).json({ error: 'Yetkisiz' });
     }
     const token = h.slice(7).trim();
     if (token !== secret) {
+        console.warn('[teklif-takip ingest] Token eşleşmedi');
         return res.status(401).json({ error: 'Yetkisiz' });
     }
     next();
@@ -637,6 +652,171 @@ async function writeAuditLog(req, { action, productType, productId, summary, det
     }
 }
 
+function notificationProductLabel(productType) {
+    if (productType === 'DAMPER') return 'Damper';
+    if (productType === 'DORSE') return 'Dorse';
+    if (productType === 'SASI') return 'Şasi';
+    return productType;
+}
+
+/** Yeni ürün bildirimi (satır silinmez; sadece ekleme). */
+async function createNewProductNotification(req, { productType, productId, musteriLabel, imalatNo }) {
+    try {
+        const label = notificationProductLabel(productType);
+        const no = imalatNo != null ? String(imalatNo) : String(productId);
+        const customer = musteriLabel && String(musteriLabel).trim() ? String(musteriLabel).trim() : '—';
+        const title = `Yeni ${label}: ${customer}`;
+        const body = `${label} kaydı eklendi (İmalat #${no}).`;
+        await prisma.notification.create({
+            data: {
+                kind: 'NEW_PRODUCT',
+                productType,
+                productId,
+                title,
+                body,
+                actorUserId: req.session.userId ?? null
+            }
+        });
+    } catch (e) {
+        console.error('Bildirim oluşturulamadı:', e);
+    }
+}
+
+/** Teklif Takip → mevcut işler (ingest ile, teklif satırı başına tek bildirim; tüm kullanıcılar okunana kadar kendi sayaçlarında görür). */
+async function createProposalTeklifNotification({
+    proposalIngestId,
+    companyName,
+    quantity,
+    sourceProposalId,
+    hasApproval
+}) {
+    try {
+        const dup = await prisma.notification.findFirst({
+            where: {
+                kind: 'PROPOSAL_TEKLIF',
+                productType: 'PROPOSAL',
+                productId: proposalIngestId
+            },
+            select: { id: true }
+        });
+        if (dup) return { ok: true, duplicate: true };
+        const title = `Teklif takip: ${companyName}`;
+        const body = hasApproval
+            ? `Mevcut işler listesine yeni onaylı teklif özeti eklendi (${quantity} adet). Kaynak: ${sourceProposalId}`
+            : `Teklif takipten yeni özet alındı (${quantity} adet). Kaynak: ${sourceProposalId}`;
+        await prisma.notification.create({
+            data: {
+                kind: 'PROPOSAL_TEKLIF',
+                productType: 'PROPOSAL',
+                productId: proposalIngestId,
+                title,
+                body,
+                actorUserId: null
+            }
+        });
+        return { ok: true, duplicate: false };
+    } catch (e) {
+        console.error('Teklif bildirimi oluşturulamadı:', e);
+        const msg = e instanceof Error ? e.message : String(e);
+        return { ok: false, error: msg };
+    }
+}
+
+/**
+ * Dış sistem (teklif-takip) Supabase'e doğrudan yazdığı için ingest HTTP'si gelmeyebilir.
+ * Bu yüzden son N gün içinde eklenmiş `proposalIngest` satırları için eksik bildirimleri
+ * tamamlayan arka plan eşleyici. Hem periyodik çalışır, hem de liste uçları tetikler.
+ */
+const PROPOSAL_NOTIFY_SYNC_LOOKBACK_HOURS = 96;
+let proposalNotifySyncInFlight = false;
+let proposalNotifySyncLastRunAt = 0;
+
+async function syncProposalNotificationGaps({ force = false } = {}) {
+    if (proposalNotifySyncInFlight) return { ok: true, skipped: 'in-flight' };
+    if (!force && Date.now() - proposalNotifySyncLastRunAt < 10_000) {
+        return { ok: true, skipped: 'cooldown' };
+    }
+    proposalNotifySyncInFlight = true;
+    try {
+        const since = new Date(Date.now() - PROPOSAL_NOTIFY_SYNC_LOOKBACK_HOURS * 60 * 60 * 1000);
+        const rows = await prisma.proposalIngest.findMany({
+            where: {
+                OR: [{ createdAt: { gte: since } }, { pushedAt: { gte: since } }]
+            },
+            orderBy: { id: 'desc' },
+            take: 200,
+            select: {
+                id: true,
+                sourceProposalId: true,
+                companyName: true,
+                quantity: true,
+                approvalLoggedAt: true
+            }
+        });
+        if (!rows.length) return { ok: true, scanned: 0, created: 0 };
+        const existing = await prisma.notification.findMany({
+            where: {
+                kind: 'PROPOSAL_TEKLIF',
+                productType: 'PROPOSAL',
+                productId: { in: rows.map((r) => r.id) }
+            },
+            select: { productId: true }
+        });
+        const haveSet = new Set(existing.map((n) => n.productId));
+        let created = 0;
+        for (const row of rows) {
+            if (haveSet.has(row.id)) continue;
+            const result = await createProposalTeklifNotification({
+                proposalIngestId: row.id,
+                companyName: row.companyName,
+                quantity: row.quantity,
+                sourceProposalId: row.sourceProposalId,
+                hasApproval: Boolean(row.approvalLoggedAt)
+            });
+            if (result?.ok && !result.duplicate) created += 1;
+        }
+        if (created > 0) {
+            console.log(`[proposal-notify-sync] ${created} eksik bildirim oluşturuldu (tarandı: ${rows.length}).`);
+        }
+        return { ok: true, scanned: rows.length, created };
+    } catch (e) {
+        console.error('[proposal-notify-sync] hata:', e);
+        return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    } finally {
+        proposalNotifySyncInFlight = false;
+        proposalNotifySyncLastRunAt = Date.now();
+    }
+}
+
+function triggerProposalNotificationSync() {
+    syncProposalNotificationGaps().catch((e) => {
+        console.error('[proposal-notify-sync] async trigger hatası:', e);
+    });
+}
+
+setInterval(() => {
+    syncProposalNotificationGaps().catch(() => {});
+}, 30_000);
+setTimeout(() => {
+    syncProposalNotificationGaps({ force: true }).catch(() => {});
+}, 5_000);
+
+/** Zil, liste ve okunmamış sayaç: yalnızca son N günde oluşturulan bildirimler. */
+const NOTIFICATION_UI_VISIBLE_DAYS = 45;
+
+function notificationRecentCreatedAtWhere() {
+    const since = new Date(Date.now() - NOTIFICATION_UI_VISIBLE_DAYS * 24 * 60 * 60 * 1000);
+    return { createdAt: { gte: since } };
+}
+
+/** Açılış pop-up: yalnızca son N saatte oluşan okunmamışlar (eski birikim göstermez). */
+const NOTIFICATION_POPUP_RECENT_HOURS = 72;
+
+function notificationPopupRecentWhere() {
+    const since = new Date(Date.now() - NOTIFICATION_POPUP_RECENT_HOURS * 60 * 60 * 1000);
+    return { createdAt: { gte: since } };
+}
+
 // Add calculated main steps to damper object
 function addCalculatedSteps(damper) {
     return {
@@ -955,6 +1135,12 @@ app.post('/api/dampers', requireAuth, async (req, res) => {
                 }
             });
             await syncStepCompletionEvents(prisma, 'DAMPER', damper.id, null, damper, getDamperTrackedStatus);
+            await createNewProductNotification(req, {
+                productType: 'DAMPER',
+                productId: damper.id,
+                musteriLabel: damper.musteri,
+                imalatNo: damper.imalatNo
+            });
             return res.status(201).json(addCalculatedSteps(damper));
         }
 
@@ -970,6 +1156,12 @@ app.post('/api/dampers', requireAuth, async (req, res) => {
                 }
             });
             await syncStepCompletionEvents(prisma, 'DAMPER', damper.id, null, damper, getDamperTrackedStatus);
+            await createNewProductNotification(req, {
+                productType: 'DAMPER',
+                productId: damper.id,
+                musteriLabel: damper.musteri,
+                imalatNo: damper.imalatNo
+            });
             createdDampers.push(addCalculatedSteps(damper));
         }
 
@@ -1127,6 +1319,12 @@ app.post('/api/sasis', requireAuth, async (req, res) => {
                 }
             });
             await syncStepCompletionEvents(prisma, 'SASI', sasi.id, null, sasi, getSasiTrackedStatus);
+            await createNewProductNotification(req, {
+                productType: 'SASI',
+                productId: sasi.id,
+                musteriLabel: sasi.musteri,
+                imalatNo: sasi.imalatNo
+            });
             return res.status(201).json(addCalculatedSasiSteps(sasi));
         }
 
@@ -1145,6 +1343,12 @@ app.post('/api/sasis', requireAuth, async (req, res) => {
                 }
             });
             await syncStepCompletionEvents(prisma, 'SASI', sasi.id, null, sasi, getSasiTrackedStatus);
+            await createNewProductNotification(req, {
+                productType: 'SASI',
+                productId: sasi.id,
+                musteriLabel: sasi.musteri,
+                imalatNo: sasi.imalatNo
+            });
             createdSasis.push(addCalculatedSasiSteps(sasi));
         }
         res.status(201).json(createdSasis);
@@ -2128,6 +2332,12 @@ app.post('/api/dorses', requireAuth, async (req, res) => {
                 include: { sasi: true }
             });
             await syncStepCompletionEvents(prisma, 'DORSE', dorse.id, null, dorse, getDorseTrackedStatus);
+            await createNewProductNotification(req, {
+                productType: 'DORSE',
+                productId: dorse.id,
+                musteriLabel: dorse.musteri,
+                imalatNo: dorse.imalatNo
+            });
             return res.status(201).json(dorse);
         }
 
@@ -2142,6 +2352,12 @@ app.post('/api/dorses', requireAuth, async (req, res) => {
                 }
             });
             await syncStepCompletionEvents(prisma, 'DORSE', dorse.id, null, dorse, getDorseTrackedStatus);
+            await createNewProductNotification(req, {
+                productType: 'DORSE',
+                productId: dorse.id,
+                musteriLabel: dorse.musteri,
+                imalatNo: dorse.imalatNo
+            });
             createdDorses.push(dorse);
         }
 
@@ -2605,6 +2821,193 @@ app.delete('/api/capacity/target', requireAuth, async (req, res) => {
     }
 });
 
+app.get('/api/notifications', requireAuth, async (req, res) => {
+    try {
+        const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '40'), 10) || 40));
+        const skip = Math.max(0, parseInt(String(req.query.skip || '0'), 10) || 0);
+        const unreadOnly =
+            req.query.unreadOnly === '1' ||
+            req.query.unreadOnly === 'true' ||
+            req.query.unreadOnly === 'yes';
+        const userId = req.session.userId;
+
+        const where = {};
+        if (unreadOnly) {
+            where.reads = { none: { userId } };
+        }
+        const kindQ = req.query.kind;
+        if (kindQ === 'NEW_PRODUCT' || kindQ === 'PROPOSAL_TEKLIF') {
+            where.kind = kindQ;
+        }
+        Object.assign(where, notificationRecentCreatedAtWhere());
+
+        const [rows, total] = await Promise.all([
+            prisma.notification.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip,
+                include: {
+                    reads: {
+                        where: { userId },
+                        take: 1,
+                        select: { readAt: true }
+                    },
+                    actor: { select: { username: true, fullName: true } }
+                }
+            }),
+            prisma.notification.count({ where })
+        ]);
+
+        const items = rows.map((n) => ({
+            id: n.id,
+            kind: n.kind,
+            productType: n.productType,
+            productId: n.productId,
+            title: n.title,
+            body: n.body,
+            createdAt: n.createdAt,
+            readAt: n.reads[0]?.readAt ?? null,
+            actor: n.actor
+                ? { username: n.actor.username, fullName: n.actor.fullName }
+                : null
+        }));
+
+        res.json({ items, total, limit, skip });
+    } catch (error) {
+        console.error('Error listing notifications:', error);
+        res.status(500).json({ error: 'Bildirimler alınamadı' });
+    }
+});
+
+app.get('/api/notifications/unread-count', requireAuth, async (req, res) => {
+    try {
+        triggerProposalNotificationSync();
+        const userId = req.session.userId;
+        const forPopup =
+            req.query.forPopup === '1' ||
+            req.query.forPopup === 'true' ||
+            req.query.forPopup === 'yes';
+        const recent = forPopup ? notificationPopupRecentWhere() : notificationRecentCreatedAtWhere();
+        const count = await prisma.notification.count({
+            where: { reads: { none: { userId } }, ...recent }
+        });
+        res.json({
+            count,
+            ...(forPopup ? { windowHours: NOTIFICATION_POPUP_RECENT_HOURS } : {})
+        });
+    } catch (error) {
+        console.error('Error counting unread notifications:', error);
+        res.status(500).json({ error: 'Okunmamış bildirim sayısı alınamadı' });
+    }
+});
+
+app.get('/api/notifications/unread-breakdown', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        const recent = notificationRecentCreatedAtWhere();
+        const base = { reads: { none: { userId } }, ...recent };
+        const [product, proposal, total] = await Promise.all([
+            prisma.notification.count({ where: { ...base, kind: 'NEW_PRODUCT' } }),
+            prisma.notification.count({ where: { ...base, kind: 'PROPOSAL_TEKLIF' } }),
+            prisma.notification.count({ where: base })
+        ]);
+        res.json({ product, proposal, total });
+    } catch (error) {
+        console.error('Error unread breakdown:', error);
+        res.status(500).json({ error: 'Okunmamış özet alınamadı' });
+    }
+});
+
+app.post('/api/notifications/:id/read', requireAuth, async (req, res) => {
+    try {
+        const notificationId = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(notificationId)) {
+            return res.status(400).json({ error: 'Geçersiz bildirim' });
+        }
+        const exists = await prisma.notification.findUnique({
+            where: { id: notificationId },
+            select: { id: true }
+        });
+        if (!exists) {
+            return res.status(404).json({ error: 'Bildirim bulunamadı' });
+        }
+        const userId = req.session.userId;
+        await prisma.notificationRead.upsert({
+            where: {
+                userId_notificationId: { userId, notificationId }
+            },
+            create: { userId, notificationId },
+            update: { readAt: new Date() }
+        });
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('Error marking notification read:', error);
+        res.status(500).json({ error: 'Bildirim okundu işaretlenemedi' });
+    }
+});
+
+/** Teşhis: admin, pipeline'ı test etmek için tek tıkla bildirim üretir. */
+app.post('/api/notifications/debug/sync-proposals', requireAuth, async (req, res) => {
+    const result = await syncProposalNotificationGaps({ force: true });
+    res.json(result);
+});
+
+app.post('/api/notifications/debug/create-test', requireAdmin, async (req, res) => {
+    try {
+        const kind = req.body?.kind === 'PROPOSAL_TEKLIF' ? 'PROPOSAL_TEKLIF' : 'NEW_PRODUCT';
+        const productType = kind === 'PROPOSAL_TEKLIF' ? 'PROPOSAL' : 'DAMPER';
+        const productId = Math.floor(Date.now() / 1000);
+        const title =
+            kind === 'PROPOSAL_TEKLIF'
+                ? 'Test teklif bildirimi'
+                : 'Test üretim bildirimi';
+        const body = `Test bildirimi — ${new Date().toLocaleString('tr-TR')}`;
+        const created = await prisma.notification.create({
+            data: {
+                kind,
+                productType,
+                productId,
+                title,
+                body,
+                actorUserId: req.session.userId ?? null
+            }
+        });
+        console.log('[debug] Test bildirim oluşturuldu id=', created.id, 'kind=', kind);
+        res.json({ ok: true, id: created.id, kind });
+    } catch (error) {
+        console.error('Test bildirim hatası:', error);
+        res.status(500).json({ error: 'Test bildirimi oluşturulamadı', detail: error?.message });
+    }
+});
+
+app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        const onlyPopupRecent =
+            req.query.onlyPopupRecent === '1' ||
+            req.query.onlyPopupRecent === 'true' ||
+            req.query.onlyPopupRecent === 'yes' ||
+            req.body?.onlyPopupRecent === true;
+        const recentFilter = onlyPopupRecent ? notificationPopupRecentWhere() : notificationRecentCreatedAtWhere();
+        const unread = await prisma.notification.findMany({
+            where: { reads: { none: { userId } }, ...recentFilter },
+            select: { id: true }
+        });
+        if (unread.length === 0) {
+            return res.json({ marked: 0 });
+        }
+        await prisma.notificationRead.createMany({
+            data: unread.map((n) => ({ userId, notificationId: n.id })),
+            skipDuplicates: true
+        });
+        res.json({ marked: unread.length });
+    } catch (error) {
+        console.error('Error marking all notifications read:', error);
+        res.status(500).json({ error: 'Bildirimler okundu işaretlenemedi' });
+    }
+});
+
 app.get('/api/audit-logs', requireAdmin, async (req, res) => {
     try {
         const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
@@ -2770,46 +3173,92 @@ app.get('/api/analytics/verimlilik', requireAuth, async (req, res) => {
     }
 });
 
+/** Teşhis: herhangi bir kimlik doğrulaması olmadan ping. Teklif takip projesi bu URL'yi çağırarak
+ *  bu backend'e erişim olup olmadığını hızlıca test edebilir. */
+app.get('/api/integrations/teklif-takip/health', (req, res) => {
+    console.log('[teklif-takip health] çağrıldı, secret tanımlı mı?', Boolean(process.env.IMALAT_INGEST_SECRET));
+    res.json({
+        ok: true,
+        service: 'imalat-takip',
+        ingestPath: '/api/integrations/teklif-takip/ingest',
+        expectsAuth: 'Bearer <IMALAT_INGEST_SECRET>',
+        secretConfigured: Boolean(process.env.IMALAT_INGEST_SECRET),
+        now: new Date().toISOString()
+    });
+});
+
+/** Teşhis: ingest'e GET atıldığında bilgilendirici yanıt (405 değil) ki kullanıcı tarayıcıdan
+ *  bu URL'ye ulaşıp ulaşamadığını test edebilsin. */
+app.get('/api/integrations/teklif-takip/ingest', (req, res) => {
+    console.log('[teklif-takip ingest GET] çağrıldı (yalnızca erişim testi)');
+    res.status(200).json({
+        ok: true,
+        message: 'Bu uç nokta POST ile kullanılır. GET yanıtı erişim testi amacıyla verildi.',
+        expects: {
+            method: 'POST',
+            authorization: 'Bearer <IMALAT_INGEST_SECRET>',
+            contentType: 'application/json',
+            requiredFields: ['sourceProposalId', 'companyName', 'proposalDate', 'quantity', 'pushedAt']
+        }
+    });
+});
+
 /** Teklif Takip → İmalat Takip: onaylı teklif özeti (Damper/Dorse/Şasi kayıtlarına dokunmaz). */
 app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, async (req, res) => {
     try {
         const b = req.body;
+        console.log('[teklif-takip ingest] gövde anahtarları:', b && typeof b === 'object' ? Object.keys(b) : typeof b);
         if (!b || typeof b !== 'object' || Array.isArray(b)) {
+            console.warn('[teklif-takip ingest] Geçersiz gövde (obje değil)');
             return res.status(400).json({ error: 'Geçersiz gövde' });
         }
-        const sourceProposalId = strOrNull(b.sourceProposalId);
+        const sourceProposalId =
+            strOrNull(b.sourceProposalId) || strOrNull(b.source_proposal_id);
         if (!sourceProposalId) {
+            console.warn('[teklif-takip ingest] sourceProposalId eksik');
             return res.status(400).json({ error: 'sourceProposalId zorunlu' });
         }
-        const companyName = strOrNull(b.companyName);
+        const companyName = strOrNull(b.companyName) || strOrNull(b.company_name);
         if (!companyName) {
+            console.warn('[teklif-takip ingest] companyName eksik');
             return res.status(400).json({ error: 'companyName zorunlu' });
         }
-        const pd = parseRequiredIsoDate(b.proposalDate, 'proposalDate');
-        if (!pd.ok) return res.status(400).json({ error: pd.error });
+        const proposalDateRaw = b.proposalDate ?? b.proposal_date;
+        const pd = parseRequiredIsoDate(proposalDateRaw, 'proposalDate');
+        if (!pd.ok) {
+            console.warn('[teklif-takip ingest] proposalDate hatası:', pd.error);
+            return res.status(400).json({ error: pd.error });
+        }
         const qn = Number(b.quantity);
         if (!Number.isFinite(qn)) {
+            console.warn('[teklif-takip ingest] quantity sayısal değil:', b.quantity);
             return res.status(400).json({ error: 'quantity sayısal olmalı' });
         }
-        const pushed = parseRequiredIsoDate(b.pushedAt, 'pushedAt');
-        if (!pushed.ok) return res.status(400).json({ error: pushed.error });
+        const pushedRaw = b.pushedAt ?? b.pushed_at;
+        const pushed = parseRequiredIsoDate(pushedRaw, 'pushedAt');
+        if (!pushed.ok) {
+            console.warn('[teklif-takip ingest] pushedAt hatası:', pushed.error);
+            return res.status(400).json({ error: pushed.error });
+        }
 
         let deliveryDate = null;
-        if (b.deliveryDate !== null && b.deliveryDate !== undefined && b.deliveryDate !== '') {
-            const dd = parseOptionalIsoDate(b.deliveryDate);
+        const deliveryRaw = b.deliveryDate ?? b.delivery_date;
+        if (deliveryRaw !== null && deliveryRaw !== undefined && deliveryRaw !== '') {
+            const dd = parseOptionalIsoDate(deliveryRaw);
             if (!dd.ok) return res.status(400).json({ error: 'deliveryDate geçersiz' });
             deliveryDate = dd.date;
         }
         let approvalLoggedAt = null;
-        if (b.approvalLoggedAt !== null && b.approvalLoggedAt !== undefined && b.approvalLoggedAt !== '') {
-            const ad = parseOptionalIsoDate(b.approvalLoggedAt);
+        const approvalRaw = b.approvalLoggedAt ?? b.approval_logged_at;
+        if (approvalRaw !== null && approvalRaw !== undefined && approvalRaw !== '') {
+            const ad = parseOptionalIsoDate(approvalRaw);
             if (!ad.ok) return res.status(400).json({ error: 'approvalLoggedAt geçersiz' });
             approvalLoggedAt = ad.date;
         }
 
-        const teknikPdfUrl = strOrNull(b.teknikPdfUrl);
-        const manufacturingNot = strOrNull(b.manufacturingNot);
-        const rawAciliyet = strOrNull(b.manufacturingAciliyet);
+        const teknikPdfUrl = strOrNull(b.teknikPdfUrl) || strOrNull(b.teknik_pdf_url);
+        const manufacturingNot = strOrNull(b.manufacturingNot) || strOrNull(b.manufacturing_not);
+        const rawAciliyet = strOrNull(b.manufacturingAciliyet) || strOrNull(b.manufacturing_aciliyet);
         const VALID_ACILIYET = ['Normal', 'Acil', 'Çok Acil'];
         const manufacturingAciliyet = rawAciliyet && VALID_ACILIYET.includes(rawAciliyet) ? rawAciliyet : null;
 
@@ -2825,11 +3274,11 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
                 volume: strOrNull(b.volume),
                 thickness: strOrNull(b.thickness),
                 deliveryDate,
-                contactPerson: strOrNull(b.contactPerson),
+                contactPerson: strOrNull(b.contactPerson) || strOrNull(b.contact_person),
                 notes: strOrNull(b.notes),
-                ownerEmail: strOrNull(b.ownerEmail),
+                ownerEmail: strOrNull(b.ownerEmail) || strOrNull(b.owner_email),
                 pushedAt: pushed.date,
-                pushedBy: strOrNull(b.pushedBy),
+                pushedBy: strOrNull(b.pushedBy) || strOrNull(b.pushed_by),
                 approvalLoggedAt,
                 teknikPdfUrl,
                 manufacturingNot,
@@ -2844,18 +3293,42 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
                 volume: strOrNull(b.volume),
                 thickness: strOrNull(b.thickness),
                 deliveryDate,
-                contactPerson: strOrNull(b.contactPerson),
+                contactPerson: strOrNull(b.contactPerson) || strOrNull(b.contact_person),
                 notes: strOrNull(b.notes),
-                ownerEmail: strOrNull(b.ownerEmail),
+                ownerEmail: strOrNull(b.ownerEmail) || strOrNull(b.owner_email),
                 pushedAt: pushed.date,
-                pushedBy: strOrNull(b.pushedBy),
+                pushedBy: strOrNull(b.pushedBy) || strOrNull(b.pushed_by),
                 approvalLoggedAt,
                 teknikPdfUrl,
                 manufacturingNot,
                 manufacturingAciliyet
             }
         });
-        res.status(200).json({ ok: true, id: row.id });
+
+        /** Her başarılı ingest sonrası dene: teklif satırı başına en fazla bir bildirim (duplicate=true ile atlanır).
+         *  Daha önce DB'de satır vardı ama hiç bildirim yoksa bu sayede ilk gönderimde oluşur. */
+        const notifResult = await createProposalTeklifNotification({
+            proposalIngestId: row.id,
+            companyName,
+            quantity: qn,
+            sourceProposalId,
+            hasApproval: Boolean(approvalLoggedAt)
+        });
+        if (!notifResult.ok) {
+            console.error('[teklif-takip ingest] Bildirim yazılamadı:', notifResult.error);
+        } else if (!notifResult.duplicate) {
+            console.log('[teklif-takip ingest] Bildirim oluşturuldu, proposalIngestId=', row.id);
+        }
+
+        const notificationInserted = Boolean(notifResult.ok && !notifResult.duplicate);
+
+        res.status(200).json({
+            ok: true,
+            id: row.id,
+            notificationCreated: notificationInserted,
+            ...(notifResult.duplicate ? { notificationDuplicate: true } : {}),
+            ...(!notifResult.ok ? { notificationError: notifResult.error } : {})
+        });
     } catch (error) {
         console.error('teklif-takip ingest:', error);
         const hint =
@@ -2974,6 +3447,7 @@ app.get('/api/integrations/teklif-takip/live/production', requireTeklifLiveSecre
 
 app.get('/api/integrations/teklif-takip/proposals', requireAuth, async (req, res) => {
     try {
+        triggerProposalNotificationSync();
         let limit = parseInt(String(req.query.limit || ''), 10);
         if (!Number.isFinite(limit) || limit < 1) limit = 300;
         if (limit > 500) limit = 500;
@@ -3050,6 +3524,7 @@ app.get('/api/planning/meta', requireAuth, (req, res) => {
 /** İmalata alınmış onaylı teklifler (Mevcut işlerde "İmalata alındı" açık) + plan segmentleri. */
 app.get('/api/planning/proposals', requireAuth, async (req, res) => {
     try {
+        triggerProposalNotificationSync();
         let limit = parseInt(String(req.query.limit || ''), 10);
         if (!Number.isFinite(limit) || limit < 1) limit = 300;
         if (limit > 500) limit = 500;

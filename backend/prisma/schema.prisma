@@ -140,6 +140,37 @@ model User {
   updatedAt DateTime @updatedAt
   loginLogs LoginLog[]
   auditLogs AuditLog[]
+  notificationReads     NotificationRead[]
+  authoredNotifications Notification[]     @relation("NotificationActor")
+}
+
+/// Yeni ürün / sistem bildirimleri; satırlar uygulama tarafından silinmez (arşiv).
+model Notification {
+  id          Int      @id @default(autoincrement())
+  kind        String   @default("NEW_PRODUCT")
+  productType String
+  productId   Int
+  title       String
+  body        String?  @db.Text
+  actorUserId Int?
+  actor       User?    @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  reads       NotificationRead[]
+
+  @@index([createdAt])
+  @@index([productType, productId])
+}
+
+model NotificationRead {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  notificationId Int
+  readAt         DateTime @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, notificationId])
+  @@index([userId])
 }
 
 /// Ürün güncellemelerinde kimin neyi değiştirdiği (ek kayıt; ürün satırları silinmez).

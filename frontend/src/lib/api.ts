@@ -908,6 +908,118 @@ export async function getAuditLogs(params?: {
     return handleResponse<AuditLogsResponse>(res);
 }
 
+export interface NotificationItem {
+    id: number;
+    kind: string;
+    productType: string;
+    productId: number;
+    title: string;
+    body: string | null;
+    createdAt: string;
+    readAt: string | null;
+    actor: { username: string; fullName: string } | null;
+}
+
+export interface NotificationsResponse {
+    items: NotificationItem[];
+    total: number;
+    limit: number;
+    skip: number;
+}
+
+export async function getNotifications(params?: {
+    limit?: number;
+    skip?: number;
+    unreadOnly?: boolean;
+    kind?: 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF';
+}): Promise<NotificationsResponse> {
+    const q = new URLSearchParams();
+    if (params?.limit != null) q.set('limit', String(params.limit));
+    if (params?.skip != null) q.set('skip', String(params.skip));
+    if (params?.unreadOnly) q.set('unreadOnly', '1');
+    if (params?.kind) q.set('kind', params.kind);
+    const res = await apiFetch(`${API_URL}/notifications?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<NotificationsResponse>(res);
+}
+
+export async function getUnreadNotificationCount(params?: {
+    forPopup?: boolean;
+}): Promise<{ count: number; windowHours?: number }> {
+    const q = new URLSearchParams();
+    if (params?.forPopup) q.set('forPopup', '1');
+    const qs = q.toString();
+    const res = await apiFetch(`${API_URL}/notifications/unread-count${qs ? `?${qs}` : ''}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<{ count: number; windowHours?: number }>(res);
+}
+
+export async function getUnreadNotificationBreakdown(): Promise<{
+    product: number;
+    proposal: number;
+    total: number;
+}> {
+    const res = await apiFetch(`${API_URL}/notifications/unread-breakdown`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<{ product: number; proposal: number; total: number }>(res);
+}
+
+export async function markNotificationRead(id: number): Promise<{ ok: boolean }> {
+    const res = await apiFetch(`${API_URL}/notifications/${id}/read`, {
+        method: 'POST',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: boolean }>(res);
+}
+
+export async function createTestNotification(kind: 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF' = 'PROPOSAL_TEKLIF'): Promise<{ ok: boolean; id: number; kind: string }> {
+    const res = await apiFetch(`${API_URL}/notifications/debug/create-test`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind }),
+    });
+    return handleResponse<{ ok: boolean; id: number; kind: string }>(res);
+}
+
+export async function syncProposalNotifications(): Promise<{ ok: boolean; scanned?: number; created?: number; skipped?: string; error?: string }> {
+    const res = await apiFetch(`${API_URL}/notifications/debug/sync-proposals`, {
+        method: 'POST',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: boolean; scanned?: number; created?: number; skipped?: string; error?: string }>(res);
+}
+
+export async function markAllNotificationsRead(params?: {
+    onlyPopupRecent?: boolean;
+}): Promise<{ marked: number }> {
+    const q = new URLSearchParams();
+    if (params?.onlyPopupRecent) q.set('onlyPopupRecent', '1');
+    const qs = q.toString();
+    const res = await apiFetch(`${API_URL}/notifications/read-all${qs ? `?${qs}` : ''}`, {
+        method: 'POST',
+        credentials: 'include',
+    });
+    return handleResponse<{ marked: number }>(res);
+}
+
+export function isProposalNotification(n: Pick<NotificationItem, 'kind' | 'productType'>): boolean {
+    return n.kind === 'PROPOSAL_TEKLIF' || n.productType === 'PROPOSAL';
+}
+
+export function notificationItemHref(n: NotificationItem): string {
+    if (isProposalNotification(n)) {
+        return `/mevcut-isler?highlight=${n.productId}`;
+    }
+    return `/urun-listesi?type=${encodeURIComponent(n.productType)}&expand=${n.productId}`;
+}
+
 export interface StaleProductsResponse {
     days: number;
     cutoff: string;

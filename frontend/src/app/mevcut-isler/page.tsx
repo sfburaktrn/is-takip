@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -209,7 +210,10 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 /* ─── page ─── */
-export default function MevcutIslerPage() {
+function MevcutIslerContent() {
+    const searchParams = useSearchParams();
+    const highlightParam = searchParams.get('highlight');
+    const highlightResetRef = useRef(false);
     const [rows, setRows] = useState<ProposalIngestRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -227,6 +231,20 @@ export default function MevcutIslerPage() {
         finally { setLoading(false); }
     }, []);
     useEffect(() => { load(); }, [load]);
+
+    useEffect(() => {
+        if (!highlightParam) return;
+        highlightResetRef.current = false;
+    }, [highlightParam]);
+
+    useEffect(() => {
+        if (!highlightParam || highlightResetRef.current) return;
+        const id = parseInt(highlightParam, 10);
+        if (!Number.isFinite(id)) return;
+        highlightResetRef.current = true;
+        setFilters({ ...EMPTY_FILTERS });
+        setStatusFilter('all');
+    }, [highlightParam]);
 
     const updateFilter = useCallback((key: keyof typeof EMPTY_FILTERS, value: string) => setFilters(prev => ({ ...prev, [key]: value })), []);
     const clearFilters = useCallback(() => { setFilters({ ...EMPTY_FILTERS }); setStatusFilter('all'); }, []);
@@ -258,13 +276,27 @@ export default function MevcutIslerPage() {
         });
     }, [filters, rows, statusFilter]);
 
+    useEffect(() => {
+        if (!highlightParam || loading || rows.length === 0) return;
+        const id = parseInt(highlightParam, 10);
+        if (!Number.isFinite(id)) return;
+        const t = window.setTimeout(() => {
+            const el = document.getElementById(`proposal-ingest-${id}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('proposal-ingest-highlight');
+                window.setTimeout(() => el.classList.remove('proposal-ingest-highlight'), 2600);
+            }
+        }, 450);
+        return () => clearTimeout(t);
+    }, [highlightParam, loading, rows]);
+
     const fCounts = useMemo(() => ({ pending: filteredRows.filter(r => !r.imalataAlindi).length, done: filteredRows.filter(r => r.imalataAlindi).length, total: filteredRows.length }), [filteredRows]);
     const hasActiveFilters = useMemo(() => statusFilter !== 'all' || Object.values(filters).some(v => v.trim().length > 0), [filters, statusFilter]);
 
     const handleStatClick = (s: StatusFilter) => setStatusFilter(prev => prev === s ? 'all' : s);
 
     return (
-        <AuthGuard>
             <>
                 <Sidebar />
                 <main className="main-content analytics-page min-h-0">
@@ -362,7 +394,7 @@ export default function MevcutIslerPage() {
                     ) : (
                         <div className="card-grid">
                             {filteredRows.map((r, i) => (
-                                <div key={r.id} style={{ animation: `fadeSlideUp 0.4s ${i * 0.04}s both` }}>
+                                <div key={r.id} id={`proposal-ingest-${r.id}`} style={{ animation: `fadeSlideUp 0.4s ${i * 0.04}s both`, borderRadius: '16px' }}>
                                     <ProposalCard r={r} busy={busyId === r.id} onToggleImalat={handleToggle} onRequestDelete={setDeleteTarget} onPdfPreview={setPdfPreviewUrl} />
                                 </div>
                             ))}
@@ -458,9 +490,37 @@ export default function MevcutIslerPage() {
                         .notes-block:hover { box-shadow: 0 2px 8px -2px rgba(2,35,71,0.1); }
 
                         .status-badge { display: inline-flex; align-items: center; gap: 5px; }
+
+                        @keyframes proposalHighlightPulse {
+                            0% { box-shadow: 0 0 0 0 rgba(2, 35, 71, 0.45); }
+                            100% { box-shadow: 0 0 0 12px rgba(2, 35, 71, 0); }
+                        }
+                        .proposal-ingest-highlight {
+                            outline: 3px solid var(--primary);
+                            outline-offset: 4px;
+                            animation: proposalHighlightPulse 1.1s ease-out 2;
+                        }
                     `}</style>
                 </main>
             </>
+    );
+}
+
+export default function MevcutIslerPage() {
+    return (
+        <AuthGuard>
+            <Suspense
+                fallback={
+                    <>
+                        <Sidebar />
+                        <main className="main-content analytics-page min-h-0">
+                            <OzunluLoading variant="inline" />
+                        </main>
+                    </>
+                }
+            >
+                <MevcutIslerContent />
+            </Suspense>
         </AuthGuard>
     );
 }

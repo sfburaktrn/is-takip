@@ -23,8 +23,7 @@ import {
     User,
     Users,
     Search,
-    History,
-    CalendarDays
+    History
 } from 'lucide-react';
 
 function typeLabel(t: string) {
@@ -82,7 +81,7 @@ export default function Sidebar() {
         { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
         { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
         { href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
-       /*{ href: '/planlama', label: 'Üretim planı', icon: CalendarDays }, */
+       /*{ href: '/planlama', label: 'Üretim Planı', icon: CalendarDays }, */
     ];
 
     const adminOnlyMenuItems = [

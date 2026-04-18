@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./analytics-responsive.css";
 import { AuthProvider } from "@/lib/AuthContext";
+import NotificationBell from "@/components/NotificationBell";
 
 export const metadata: Metadata = {
   title: "İmalat Takip Sistemi",
@@ -25,6 +26,7 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning={true}>
         <AuthProvider>
+          <NotificationBell />
           {children}
         </AuthProvider>
       </body>

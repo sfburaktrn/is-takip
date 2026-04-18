@@ -1010,6 +1010,196 @@ export function notificationItemHref(n: NotificationItem): string {
     return `/urun-listesi?type=${encodeURIComponent(n.productType)}&expand=${n.productId}`;
 }
 
+/** Stok takip */
+export interface StockGroupRow {
+    id: number;
+    name: string;
+    sortOrder: number;
+    itemCount: number;
+}
+
+export interface StockItemRow {
+    id: number;
+    groupId: number;
+    group: { id: number; name: string };
+    purchaseCode: string | null;
+    description: string;
+    unit: string | null;
+    quantity: string | null;
+    supplierName: string | null;
+    supplierContact: string | null;
+    createdAt: string;
+    updatedAt: string;
+    latestUnitPrice: number | null;
+    previousUnitPrice: number | null;
+    priceChangePercent: number | null;
+}
+
+export interface StockItemsResponse {
+    items: StockItemRow[];
+    total: number;
+    limit: number;
+    skip: number;
+}
+
+export interface StockMovementRow {
+    id: number;
+    type: 'IN' | 'OUT';
+    quantity: number;
+    balanceAfter: number | null;
+    note: string | null;
+    recordedAt: string;
+    user: { username: string; fullName: string } | null;
+}
+
+export interface StockSupplierHistoryRow {
+    id: number;
+    supplierName: string | null;
+    supplierContact: string | null;
+    note: string | null;
+    recordedAt: string;
+    user: { username: string; fullName: string } | null;
+}
+
+export interface StockPriceHistoryPoint {
+    id: number;
+    recordedAt: string;
+    unitPrice: number;
+    note: string | null;
+}
+
+export interface StockItemDetail {
+    id: number;
+    groupId: number;
+    group: { id: number; name: string };
+    purchaseCode: string | null;
+    description: string;
+    unit: string | null;
+    quantity: number | null;
+    supplierName: string | null;
+    supplierContact: string | null;
+    createdAt: string;
+    updatedAt: string;
+    latestUnitPrice: number | null;
+    previousUnitPrice: number | null;
+    priceChangePercent: number | null;
+    priceChangeAbs: number | null;
+    priceHistory: StockPriceHistoryPoint[];
+    movements: StockMovementRow[];
+    supplierHistory: StockSupplierHistoryRow[];
+}
+
+export async function getStockGroups(): Promise<StockGroupRow[]> {
+    const res = await apiFetch(`${API_URL}/stock/groups`, { credentials: 'include', cache: 'no-store' });
+    return handleResponse<StockGroupRow[]>(res);
+}
+
+export async function getStockItems(params?: {
+    groupId?: number;
+    q?: string;
+    limit?: number;
+    skip?: number;
+}): Promise<StockItemsResponse> {
+    const q = new URLSearchParams();
+    if (params?.groupId != null) q.set('groupId', String(params.groupId));
+    if (params?.q != null && params.q.trim().length >= 2) q.set('q', params.q.trim());
+    if (params?.limit != null) q.set('limit', String(params.limit));
+    if (params?.skip != null) q.set('skip', String(params.skip));
+    const qs = q.toString();
+    const res = await apiFetch(`${API_URL}/stock/items${qs ? `?${qs}` : ''}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<StockItemsResponse>(res);
+}
+
+export async function createStockItem(body: {
+    groupId?: number;
+    groupName?: string;
+    purchaseCode?: string | null;
+    description: string;
+    unit?: string | null;
+    quantity?: string | number | null;
+    supplierName?: string | null;
+    supplierContact?: string | null;
+}): Promise<Record<string, unknown>> {
+    const res = await apiFetch(`${API_URL}/stock/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<Record<string, unknown>>(res);
+}
+
+export async function updateStockItem(
+    id: number,
+    body: Partial<{
+        groupId: number;
+        purchaseCode: string | null;
+        description: string;
+        unit: string | null;
+        quantity: string | number | null;
+        supplierName: string | null;
+        supplierContact: string | null;
+    }>
+): Promise<Record<string, unknown>> {
+    const res = await apiFetch(`${API_URL}/stock/items/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<Record<string, unknown>>(res);
+}
+
+export async function addStockItemPrice(
+    id: number,
+    body: { unitPrice: number; note?: string | null }
+): Promise<{ id: number; stockItemId: number; recordedAt: string; unitPrice: unknown; note: string | null }> {
+    const res = await apiFetch(`${API_URL}/stock/items/${id}/price`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+}
+
+export async function getStockItemDetail(id: number): Promise<StockItemDetail> {
+    const res = await apiFetch(`${API_URL}/stock/items/${id}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<StockItemDetail>(res);
+}
+
+export async function addStockMovement(
+    id: number,
+    body: { type: 'IN' | 'OUT'; quantity: number; note?: string | null }
+): Promise<StockMovementRow & { currentQuantity: number }> {
+    const res = await apiFetch(`${API_URL}/stock/items/${id}/movement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+}
+
+export async function changeStockSupplier(
+    id: number,
+    body: { supplierName?: string | null; supplierContact?: string | null; note?: string | null }
+): Promise<StockSupplierHistoryRow> {
+    const res = await apiFetch(`${API_URL}/stock/items/${id}/supplier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<StockSupplierHistoryRow>(res);
+}
+
 export interface StaleProductsResponse {
     days: number;
     cutoff: string;

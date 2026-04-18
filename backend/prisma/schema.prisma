@@ -142,6 +142,8 @@ model User {
   auditLogs AuditLog[]
   notificationReads     NotificationRead[]
   authoredNotifications Notification[]     @relation("NotificationActor")
+  stockMovements        StockMovement[]
+  stockSupplierChanges  StockSupplierHistory[]
 }
 
 /// Yeni ürün / sistem bildirimleri; satırlar uygulama tarafından silinmez (arşiv).
@@ -330,4 +332,81 @@ model ProposalPlanSegment {
   @@unique([proposalIngestId, unitIndex, mainStepKey])
   @@index([proposalIngestId])
   @@map("proposal_plan_segment")
+}
+
+/// Stok grupları (Excel GRUP sütunu vb.).
+model StockGroup {
+  id        Int @id @default(autoincrement())
+  name      String      @unique
+  sortOrder Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  items     StockItem[]
+}
+
+/// Stok kalemi (satınalma kodu, tanım, birim, miktar, tedarikçi).
+model StockItem {
+  id              Int                     @id @default(autoincrement())
+  groupId         Int
+  group           StockGroup              @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  purchaseCode    String?
+  description     String
+  unit            String?
+  quantity        Decimal?                @db.Decimal(18, 4)
+  supplierName    String?
+  supplierContact String?                 @db.Text
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  priceHistory    StockUnitPriceHistory[]
+  movements       StockMovement[]
+  supplierHistory StockSupplierHistory[]
+
+  @@unique([groupId, purchaseCode])
+  @@index([groupId])
+  @@index([description])
+}
+
+/// Birim fiyat geçmişi (satın alma / güncelleme).
+model StockUnitPriceHistory {
+  id          Int       @id @default(autoincrement())
+  stockItemId Int
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  recordedAt  DateTime  @default(now())
+  unitPrice   Decimal   @db.Decimal(18, 4)
+  note        String?
+
+  @@index([stockItemId, recordedAt])
+}
+
+/// Stok hareketleri: her kalem için giriş (IN) ve çıkış (OUT) kayıtları.
+model StockMovement {
+  id          Int       @id @default(autoincrement())
+  stockItemId Int
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  type        String    // 'IN' | 'OUT'
+  quantity    Decimal   @db.Decimal(18, 4)
+  /// Hareket sonrası kalan stok (audit için — anlık snapshot).
+  balanceAfter Decimal? @db.Decimal(18, 4)
+  note        String?
+  userId      Int?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  recordedAt  DateTime  @default(now())
+
+  @@index([stockItemId, recordedAt])
+  @@index([type])
+}
+
+/// Tedarikçi değişiklik geçmişi (kimin ne zaman ne değiştirdiği).
+model StockSupplierHistory {
+  id              Int       @id @default(autoincrement())
+  stockItemId     Int
+  stockItem       StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  supplierName    String?
+  supplierContact String?   @db.Text
+  note            String?
+  userId          Int?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  recordedAt      DateTime  @default(now())
+
+  @@index([stockItemId, recordedAt])
 }

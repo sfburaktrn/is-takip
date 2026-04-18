@@ -9,7 +9,8 @@
         "db:sync": "node scripts/db-push-direct.js",
         "prisma:generate": "prisma generate",
         "prisma:push": "node scripts/db-push-direct.js",
-        "prisma:seed": "node prisma/seed.js"
+        "prisma:seed": "node prisma/seed.js",
+        "stock:import": "node scripts/import-stock-from-xlsx.js"
     },
     "dependencies": {
         "@prisma/client": "^5.22.0",
@@ -23,6 +24,7 @@
         "prisma": "^5.22.0"
     },
     "devDependencies": {
-        "nodemon": "^3.1.7"
+        "nodemon": "^3.1.7",
+        "xlsx": "^0.18.5"
     }
 }

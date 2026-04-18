@@ -23,7 +23,8 @@ import {
     User,
     Users,
     Search,
-    History
+    History,
+    Package
 } from 'lucide-react';
 
 function typeLabel(t: string) {
@@ -81,6 +82,7 @@ export default function Sidebar() {
         { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
         { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
         { href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
+        { href: '/stok-takip', label: 'Stok takip', icon: Package },
        /*{ href: '/planlama', label: 'Üretim Planı', icon: CalendarDays }, */
     ];
 

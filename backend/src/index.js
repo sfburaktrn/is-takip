@@ -2821,6 +2821,491 @@ app.delete('/api/capacity/target', requireAuth, async (req, res) => {
     }
 });
 
+/** Stok: satınalma kodu boş string → null (Postgres unique (groupId, purchaseCode)). */
+function normalizeStockPurchaseCode(v) {
+    if (v === undefined || v === null) return null;
+    const s = String(v).trim();
+    return s.length === 0 ? null : s;
+}
+
+function parseOptionalDecimal(v) {
+    if (v === undefined || v === null || v === '') return null;
+    const n = Number(String(v).replace(',', '.').replace(/\s/g, ''));
+    if (!Number.isFinite(n)) return null;
+    return new Prisma.Decimal(n);
+}
+
+async function resolveStockGroupId(body) {
+    const b = body || {};
+    const gid = parseInt(String(b.groupId || ''), 10);
+    const gname = b.groupName != null ? String(b.groupName).trim() : '';
+    if (Number.isFinite(gid) && gid > 0) {
+        const ex = await prisma.stockGroup.findUnique({ where: { id: gid } });
+        return ex ? gid : null;
+    }
+    if (gname.length > 0) {
+        const g = await prisma.stockGroup.upsert({
+            where: { name: gname },
+            create: { name: gname, sortOrder: 0 },
+            update: {}
+        });
+        return g.id;
+    }
+    return null;
+}
+
+function stockMigrateHint(err) {
+    return err.code === 'P2021' || err.code === 'P2010'
+        ? ' Veritabanında stok tabloları yoksa: npx prisma migrate deploy'
+        : '';
+}
+
+app.get('/api/stock/groups', requireAuth, async (req, res) => {
+    try {
+        const groups = await prisma.stockGroup.findMany({
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+            include: { _count: { select: { items: true } } }
+        });
+        res.json(
+            groups.map((g) => ({
+                id: g.id,
+                name: g.name,
+                sortOrder: g.sortOrder,
+                itemCount: g._count.items
+            }))
+        );
+    } catch (error) {
+        console.error('stock groups:', error);
+        res.status(500).json({ error: `Gruplar alınamadı.${stockMigrateHint(error)}` });
+    }
+});
+
+app.get('/api/stock/items', requireAuth, async (req, res) => {
+    try {
+        let limit = parseInt(String(req.query.limit || ''), 10);
+        if (!Number.isFinite(limit) || limit < 1) limit = 500;
+        if (limit > 2000) limit = 2000;
+        let skip = parseInt(String(req.query.skip || ''), 10);
+        if (!Number.isFinite(skip) || skip < 0) skip = 0;
+        const groupId = parseInt(String(req.query.groupId || ''), 10);
+        const q = String(req.query.q || '').trim();
+
+        const where = {};
+        if (Number.isFinite(groupId) && groupId > 0) {
+            where.groupId = groupId;
+        }
+        if (q.length >= 2) {
+            where.OR = [
+                { description: { contains: q, mode: 'insensitive' } },
+                { purchaseCode: { contains: q, mode: 'insensitive' } },
+                { supplierName: { contains: q, mode: 'insensitive' } }
+            ];
+        }
+
+        const [rows, total] = await Promise.all([
+            prisma.stockItem.findMany({
+                where,
+                orderBy: [{ groupId: 'asc' }, { id: 'asc' }],
+                take: limit,
+                skip,
+                include: {
+                    group: { select: { id: true, name: true } },
+                    priceHistory: { orderBy: { recordedAt: 'desc' }, take: 2 }
+                }
+            }),
+            prisma.stockItem.count({ where })
+        ]);
+
+        const items = rows.map((row) => {
+            const latest = row.priceHistory[0];
+            const prev = row.priceHistory[1];
+            const cur = latest != null ? Number(latest.unitPrice) : null;
+            const prevN = prev != null ? Number(prev.unitPrice) : null;
+            let pct = null;
+            if (cur != null && prevN != null && prevN !== 0) {
+                pct = Math.round(((cur - prevN) / prevN) * 10000) / 100;
+            }
+            return {
+                id: row.id,
+                groupId: row.groupId,
+                group: row.group,
+                purchaseCode: row.purchaseCode,
+                description: row.description,
+                unit: row.unit,
+                quantity: row.quantity != null ? row.quantity.toString() : null,
+                supplierName: row.supplierName,
+                supplierContact: row.supplierContact,
+                createdAt: row.createdAt,
+                updatedAt: row.updatedAt,
+                latestUnitPrice: cur,
+                previousUnitPrice: prevN,
+                priceChangePercent: pct
+            };
+        });
+        res.json({ items, total, limit, skip });
+    } catch (error) {
+        console.error('stock items list:', error);
+        res.status(500).json({ error: `Stok listesi alınamadı.${stockMigrateHint(error)}` });
+    }
+});
+
+app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const row = await prisma.stockItem.findUnique({
+            where: { id },
+            include: {
+                group: true,
+                priceHistory: { orderBy: { recordedAt: 'desc' }, take: 100 },
+                movements: {
+                    orderBy: { recordedAt: 'desc' },
+                    take: 100,
+                    include: { user: { select: { username: true, fullName: true } } }
+                },
+                supplierHistory: {
+                    orderBy: { recordedAt: 'desc' },
+                    take: 30,
+                    include: { user: { select: { username: true, fullName: true } } }
+                }
+            }
+        });
+        if (!row) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        const priceHistory = row.priceHistory.map((h) => ({
+            id: h.id,
+            recordedAt: h.recordedAt,
+            unitPrice: Number(h.unitPrice),
+            note: h.note
+        }));
+        const latest = priceHistory[0] ?? null;
+        const prev = priceHistory[1] ?? null;
+        let priceChangePercent = null;
+        let priceChangeAbs = null;
+        if (latest && prev && prev.unitPrice !== 0) {
+            priceChangeAbs = Math.round((latest.unitPrice - prev.unitPrice) * 100) / 100;
+            priceChangePercent =
+                Math.round(((latest.unitPrice - prev.unitPrice) / prev.unitPrice) * 10000) / 100;
+        }
+
+        const movements = row.movements.map((m) => ({
+            id: m.id,
+            type: m.type,
+            quantity: m.quantity != null ? Number(m.quantity) : 0,
+            balanceAfter: m.balanceAfter != null ? Number(m.balanceAfter) : null,
+            note: m.note,
+            recordedAt: m.recordedAt,
+            user: m.user ? { username: m.user.username, fullName: m.user.fullName } : null
+        }));
+
+        const supplierHistory = row.supplierHistory.map((s) => ({
+            id: s.id,
+            supplierName: s.supplierName,
+            supplierContact: s.supplierContact,
+            note: s.note,
+            recordedAt: s.recordedAt,
+            user: s.user ? { username: s.user.username, fullName: s.user.fullName } : null
+        }));
+
+        res.json({
+            id: row.id,
+            groupId: row.groupId,
+            group: { id: row.group.id, name: row.group.name },
+            purchaseCode: row.purchaseCode,
+            description: row.description,
+            unit: row.unit,
+            quantity: row.quantity != null ? Number(row.quantity) : null,
+            supplierName: row.supplierName,
+            supplierContact: row.supplierContact,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            latestUnitPrice: latest ? latest.unitPrice : null,
+            previousUnitPrice: prev ? prev.unitPrice : null,
+            priceChangePercent,
+            priceChangeAbs,
+            priceHistory,
+            movements,
+            supplierHistory
+        });
+    } catch (error) {
+        console.error('stock item get:', error);
+        res.status(500).json({ error: `Kayıt alınamadı.${stockMigrateHint(error)}` });
+    }
+});
+
+/** Stok giriş / çıkış hareketi: quantity'yi güncelle, hareketi kaydet. */
+app.post('/api/stock/items/:id/movement', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const b = req.body || {};
+        const type = String(b.type || '').toUpperCase();
+        if (type !== 'IN' && type !== 'OUT') {
+            return res.status(400).json({ error: 'type "IN" veya "OUT" olmalı' });
+        }
+        const qtyDec = parseOptionalDecimal(b.quantity);
+        if (qtyDec == null) {
+            return res.status(400).json({ error: 'quantity gerekli (sayı)' });
+        }
+        const qtyNum = Number(qtyDec);
+        if (!(qtyNum > 0)) {
+            return res.status(400).json({ error: 'quantity pozitif olmalı' });
+        }
+        const note = b.note != null ? String(b.note).slice(0, 500) : null;
+
+        const item = await prisma.stockItem.findUnique({ where: { id } });
+        if (!item) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        const current = item.quantity != null ? Number(item.quantity) : 0;
+        const delta = type === 'IN' ? qtyNum : -qtyNum;
+        const next = current + delta;
+        if (next < 0 && type === 'OUT') {
+            return res.status(400).json({
+                error: `Yetersiz stok. Mevcut: ${current}, çıkış: ${qtyNum}`
+            });
+        }
+
+        const uid = req.session?.userId || null;
+        const nextDec = new Prisma.Decimal(next);
+
+        const [, movement] = await prisma.$transaction([
+            prisma.stockItem.update({ where: { id }, data: { quantity: nextDec } }),
+            prisma.stockMovement.create({
+                data: {
+                    stockItemId: id,
+                    type,
+                    quantity: qtyDec,
+                    balanceAfter: nextDec,
+                    note,
+                    userId: uid
+                },
+                include: { user: { select: { username: true, fullName: true } } }
+            })
+        ]);
+
+        res.json({
+            id: movement.id,
+            type: movement.type,
+            quantity: Number(movement.quantity),
+            balanceAfter: movement.balanceAfter != null ? Number(movement.balanceAfter) : null,
+            note: movement.note,
+            recordedAt: movement.recordedAt,
+            user: movement.user ? { username: movement.user.username, fullName: movement.user.fullName } : null,
+            currentQuantity: next
+        });
+    } catch (error) {
+        console.error('stock movement:', error);
+        res.status(500).json({ error: `Hareket kaydedilemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+/** Tedarikçi değiştir: geçmişe kaydet, kalemdeki tedarikçi alanlarını güncelle. */
+app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const b = req.body || {};
+        const supplierName =
+            b.supplierName != null && String(b.supplierName).trim() !== ''
+                ? String(b.supplierName).trim()
+                : null;
+        const supplierContact =
+            b.supplierContact != null && String(b.supplierContact).trim() !== ''
+                ? String(b.supplierContact).trim()
+                : null;
+        const note = b.note != null ? String(b.note).slice(0, 500) : null;
+
+        if (supplierName == null && supplierContact == null) {
+            return res.status(400).json({ error: 'En az bir alan doldurulmalı' });
+        }
+
+        const item = await prisma.stockItem.findUnique({ where: { id } });
+        if (!item) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        const uid = req.session?.userId || null;
+
+        const [, hist] = await prisma.$transaction([
+            prisma.stockItem.update({
+                where: { id },
+                data: { supplierName, supplierContact }
+            }),
+            prisma.stockSupplierHistory.create({
+                data: {
+                    stockItemId: id,
+                    supplierName,
+                    supplierContact,
+                    note,
+                    userId: uid
+                },
+                include: { user: { select: { username: true, fullName: true } } }
+            })
+        ]);
+
+        res.json({
+            id: hist.id,
+            supplierName: hist.supplierName,
+            supplierContact: hist.supplierContact,
+            note: hist.note,
+            recordedAt: hist.recordedAt,
+            user: hist.user ? { username: hist.user.username, fullName: hist.user.fullName } : null
+        });
+    } catch (error) {
+        console.error('stock supplier change:', error);
+        res.status(500).json({ error: `Tedarikçi güncellenemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.post('/api/stock/items', requireAuth, async (req, res) => {
+    try {
+        const b = req.body || {};
+        const groupId = await resolveStockGroupId(b);
+        if (!groupId) {
+            return res.status(400).json({ error: 'groupId veya groupName gerekli' });
+        }
+        const description = String(b.description || '').trim();
+        if (!description) {
+            return res.status(400).json({ error: 'description gerekli' });
+        }
+        const purchaseCode = normalizeStockPurchaseCode(b.purchaseCode);
+        const unit = b.unit != null && String(b.unit).trim() !== '' ? String(b.unit).trim() : null;
+        const quantity = parseOptionalDecimal(b.quantity);
+        const supplierName =
+            b.supplierName != null && String(b.supplierName).trim() !== ''
+                ? String(b.supplierName).trim()
+                : null;
+        const supplierContact =
+            b.supplierContact != null && String(b.supplierContact).trim() !== ''
+                ? String(b.supplierContact).trim()
+                : null;
+
+        const created = await prisma.stockItem.create({
+            data: {
+                groupId,
+                purchaseCode,
+                description,
+                unit,
+                quantity,
+                supplierName,
+                supplierContact
+            },
+            include: { group: { select: { id: true, name: true } } }
+        });
+        res.json(created);
+    } catch (error) {
+        if (error.code === 'P2002') {
+            return res.status(409).json({ error: 'Bu grupta aynı satınalma kodu zaten var' });
+        }
+        console.error('stock item create:', error);
+        res.status(500).json({ error: `Kayıt oluşturulamadı.${stockMigrateHint(error)}` });
+    }
+});
+
+app.put('/api/stock/items/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const b = req.body || {};
+        const data = {};
+
+        if (b.groupId !== undefined) {
+            const gid = parseInt(String(b.groupId), 10);
+            if (!Number.isFinite(gid) || gid < 1) {
+                return res.status(400).json({ error: 'Geçersiz groupId' });
+            }
+            const g = await prisma.stockGroup.findUnique({ where: { id: gid } });
+            if (!g) {
+                return res.status(400).json({ error: 'Grup bulunamadı' });
+            }
+            data.groupId = gid;
+        }
+        if (b.description !== undefined) {
+            const d = String(b.description || '').trim();
+            if (!d) {
+                return res.status(400).json({ error: 'description boş olamaz' });
+            }
+            data.description = d;
+        }
+        if (b.purchaseCode !== undefined) {
+            data.purchaseCode = normalizeStockPurchaseCode(b.purchaseCode);
+        }
+        if (b.unit !== undefined) {
+            data.unit = String(b.unit || '').trim() === '' ? null : String(b.unit).trim();
+        }
+        if (b.quantity !== undefined) {
+            data.quantity = parseOptionalDecimal(b.quantity);
+        }
+        if (b.supplierName !== undefined) {
+            data.supplierName = String(b.supplierName || '').trim() === '' ? null : String(b.supplierName).trim();
+        }
+        if (b.supplierContact !== undefined) {
+            data.supplierContact =
+                String(b.supplierContact || '').trim() === '' ? null : String(b.supplierContact).trim();
+        }
+
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ error: 'Güncellenecek alan yok' });
+        }
+
+        const updated = await prisma.stockItem.update({
+            where: { id },
+            data,
+            include: { group: { select: { id: true, name: true } } }
+        });
+        res.json(updated);
+    } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        if (error.code === 'P2002') {
+            return res.status(409).json({ error: 'Bu grupta aynı satınalma kodu zaten var' });
+        }
+        console.error('stock item update:', error);
+        res.status(500).json({ error: `Kayıt güncellenemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.post('/api/stock/items/:id/price', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const b = req.body || {};
+        const unitPrice = parseOptionalDecimal(b.unitPrice);
+        if (unitPrice == null) {
+            return res.status(400).json({ error: 'unitPrice gerekli (sayı)' });
+        }
+        const note = b.note != null ? String(b.note).slice(0, 500) : null;
+
+        const item = await prisma.stockItem.findUnique({ where: { id } });
+        if (!item) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        const hist = await prisma.stockUnitPriceHistory.create({
+            data: { stockItemId: id, unitPrice, note }
+        });
+        res.json(hist);
+    } catch (error) {
+        console.error('stock price:', error);
+        res.status(500).json({ error: `Fiyat kaydedilemedi.${stockMigrateHint(error)}` });
+    }
+});
+
 app.get('/api/notifications', requireAuth, async (req, res) => {
     try {
         const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '40'), 10) || 40));

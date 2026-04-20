@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
+import { useAuth } from '@/lib/AuthContext';
 import {
     addStockItemPrice,
     addStockMovement,
     changeStockSupplier,
+    deleteStockPriceHistory,
+    deleteStockSupplierHistory,
     createStockItem,
     getStockGroups,
     getStockItemDetail,
@@ -21,6 +24,7 @@ import {
 import {
     ArrowDownRight,
     ArrowUpRight,
+    ArrowRight,
     BarChart3,
     Building2,
     Hash,
@@ -35,6 +39,7 @@ import {
     RefreshCcw,
     Repeat,
     Search,
+    Trash2,
     TrendingDown,
     TrendingUp,
     X
@@ -63,6 +68,7 @@ function formatPct(p: number | null | undefined) {
 }
 
 export default function StokTakipPage() {
+    const { isAdmin } = useAuth();
     const [groups, setGroups] = useState<StockGroupRow[]>([]);
     const [items, setItems] = useState<StockItemRow[]>([]);
     const [total, setTotal] = useState(0);
@@ -433,6 +439,7 @@ export default function StokTakipPage() {
                     {detailId != null && (
                         <StockDetailModal
                             itemId={detailId}
+                            isAdmin={isAdmin}
                             onClose={() => setDetailId(null)}
                             onMutated={() => void load()}
                             onEditItem={(row) => setItemModal(row)}
@@ -471,85 +478,138 @@ function ItemEditModal({
 
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="stock-modal-title" onClick={onClose}>
-            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540 }}>
+            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
                 <div className="modal-header">
-                    <h2 className="modal-title" id="stock-modal-title">
-                        {mode === 'new' ? 'Yeni stok kalemi' : 'Kalemi düzenle'}
-                    </h2>
+                    <div>
+                        <h2 className="modal-title" id="stock-modal-title">
+                            {mode === 'new' ? 'Yeni stok kalemi' : 'Kalemi düzenle'}
+                        </h2>
+                        <p className="modal-subtitle">
+                            Grup, stok ve tedarikçi bilgilerini güncelleyin. Zorunlu alanlar (*) işaretlidir.
+                        </p>
+                    </div>
                     <button type="button" className="modal-close" onClick={onClose} disabled={saving} aria-label="Kapat">
                         <X size={18} />
                     </button>
                 </div>
-                <div className="modal-body" style={{ padding: '24px' }}>
-                    <div className="stock-modal-section-title">Grup</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <label>
-                            <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Mevcut grup</span>
-                            <select
-                                className="form-select"
-                                style={{ borderRadius: 10 }}
-                                value={groupId === '' ? '' : String(groupId)}
-                                onChange={(e) => setGroupId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                            >
-                                <option value="">Yeni grup oluştur…</option>
-                                {groups.map((g) => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <label>
-                            <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Yeni grup adı</span>
-                            <input
-                                className="form-input"
-                                style={{ borderRadius: 10 }}
-                                value={newGroupName}
-                                onChange={(e) => setNewGroupName(e.target.value)}
-                                placeholder="Örn. 100-ŞASİ GRUBU"
-                            />
-                        </label>
-                    </div>
-
-                    <div className="stock-modal-section-title">Malzeme</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <label>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>
-                                <Hash size={14} aria-hidden />
-                                Satınalma kodu
-                            </span>
-                            <input className="form-input" style={{ borderRadius: 10 }} value={purchaseCode} onChange={(e) => setPurchaseCode(e.target.value)} />
-                        </label>
-                        <label>
-                            <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Malzeme tanımı *</span>
-                            <textarea className="form-input" style={{ borderRadius: 10 }} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} required />
-                        </label>
-                        <div className="stock-form-grid-2">
-                            <label>
-                                <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Birim</span>
-                                <input className="form-input" style={{ borderRadius: 10 }} value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="ADET, KG…" />
+                <div className="modal-body stock-edit-modal">
+                    <section className="stock-modal-card">
+                        <header className="stock-modal-card-head">
+                            <div className="stock-modal-section-title">Grup</div>
+                            <div className="stock-modal-card-hint">Kalemin bağlı olduğu grubu seçin.</div>
+                        </header>
+                        <div className="stock-modal-grid">
+                            <label className="field">
+                                <span className="field-label">Mevcut grup</span>
+                                <select
+                                    className="form-select field-control"
+                                    value={groupId === '' ? '' : String(groupId)}
+                                    onChange={(e) => setGroupId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                                >
+                                    <option value="">Yeni grup oluştur…</option>
+                                    {groups.map((g) => (
+                                        <option key={g.id} value={g.id}>
+                                            {g.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
-                            <label>
-                                <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Güncel stok</span>
-                                <input className="form-input" style={{ borderRadius: 10 }} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+
+                            {groupId === '' ? (
+                                <label className="field">
+                                    <span className="field-label">Yeni grup adı</span>
+                                    <input
+                                        className="form-input field-control"
+                                        value={newGroupName}
+                                        onChange={(e) => setNewGroupName(e.target.value)}
+                                        placeholder="Örn. 100-ŞASİ GRUBU"
+                                    />
+                                </label>
+                            ) : (
+                                <div className="field field--ghost" aria-hidden />
+                            )}
+                        </div>
+                    </section>
+
+                    <section className="stock-modal-card">
+                        <header className="stock-modal-card-head">
+                            <div className="stock-modal-section-title">Malzeme</div>
+                            <div className="stock-modal-card-hint">Arama ve raporlama için kısa ve net yazın.</div>
+                        </header>
+                        <div className="stock-modal-grid">
+                            <label className="field">
+                                <span className="field-label">
+                                    <Hash size={14} aria-hidden /> Satınalma kodu
+                                </span>
+                                <input
+                                    className="form-input field-control"
+                                    value={purchaseCode}
+                                    onChange={(e) => setPurchaseCode(e.target.value)}
+                                    placeholder="Örn. 400003"
+                                />
+                            </label>
+                            <label className="field field--span-2">
+                                <span className="field-label">Malzeme tanımı *</span>
+                                <textarea
+                                    className="form-input field-control"
+                                    rows={3}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="Örn. Tekli bobin"
+                                    required
+                                />
+                            </label>
+                            <label className="field">
+                                <span className="field-label">Birim</span>
+                                <input
+                                    className="form-input field-control"
+                                    value={unit}
+                                    onChange={(e) => setUnit(e.target.value)}
+                                    placeholder="ADET, KG…"
+                                />
+                            </label>
+                            <label className="field">
+                                <span className="field-label">Güncel stok</span>
+                                <input
+                                    className="form-input field-control"
+                                    value={quantity}
+                                    onChange={(e) => setQuantity(e.target.value)}
+                                    placeholder="0"
+                                />
                             </label>
                         </div>
-                    </div>
+                    </section>
 
-                    <div className="stock-modal-section-title">Tedarikçi</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <label>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>
-                                <Building2 size={14} aria-hidden />
-                                Firma adı
-                            </span>
-                            <input className="form-input" style={{ borderRadius: 10 }} value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
-                        </label>
-                        <label>
-                            <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>İletişim (tel / e-posta)</span>
-                            <textarea className="form-input" style={{ borderRadius: 10 }} rows={2} value={supplierContact} onChange={(e) => setSupplierContact(e.target.value)} />
-                        </label>
-                    </div>
+                    <section className="stock-modal-card">
+                        <header className="stock-modal-card-head">
+                            <div className="stock-modal-section-title">Tedarikçi</div>
+                            <div className="stock-modal-card-hint">Tedarikçiyi ekleyin; sonradan “Tedarikçi değiştir” ile güncellenir.</div>
+                        </header>
+                        <div className="stock-modal-grid">
+                            <label className="field">
+                                <span className="field-label">
+                                    <Building2 size={14} aria-hidden /> Firma adı
+                                </span>
+                                <input
+                                    className="form-input field-control"
+                                    value={supplierName}
+                                    onChange={(e) => setSupplierName(e.target.value)}
+                                    placeholder="Örn. Hüseyin Koç"
+                                />
+                            </label>
+                            <label className="field">
+                                <span className="field-label">
+                                    <Phone size={14} aria-hidden /> İletişim
+                                </span>
+                                <input
+                                    className="form-input field-control"
+                                    value={supplierContact}
+                                    onChange={(e) => setSupplierContact(e.target.value)}
+                                    placeholder="Tel / e-posta"
+                                />
+                            </label>
+                        </div>
+                    </section>
                 </div>
                 <div className="modal-footer">
                     <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
@@ -710,12 +770,14 @@ function PriceSparkline({ points }: { points: StockPriceHistoryPoint[] }) {
 
 function StockDetailModal({
     itemId,
+    isAdmin,
     onClose,
     onMutated,
     onEditItem,
     onAddPrice
 }: {
     itemId: number;
+    isAdmin: boolean;
     onClose: () => void;
     onMutated: () => void;
     onEditItem: (row: StockItemRow) => void;
@@ -965,10 +1027,44 @@ function StockDetailModal({
                                                     ) : (
                                                         <span style={{ fontSize: 11, color: 'var(--muted)' }}>ilk</span>
                                                     )}
+                                                    <span
+                                                        className="stock-detail-pricelist-supplier"
+                                                        title={
+                                                            [p.supplierName, p.supplierContact].filter(Boolean).join(' · ') ||
+                                                            undefined
+                                                        }
+                                                    >
+                                                        {p.supplierName ?? (
+                                                            <span style={{ color: 'var(--muted)' }}>—</span>
+                                                        )}
+                                                    </span>
                                                     {p.note ? (
                                                         <span className="stock-detail-pricelist-note" title={p.note}>
                                                             {p.note}
                                                         </span>
+                                                    ) : null}
+                                                    {isAdmin ? (
+                                                        <button
+                                                            type="button"
+                                                            className="icon-btn icon-btn--danger"
+                                                            title="Fiyat kaydını sil"
+                                                            disabled={busy}
+                                                            onClick={async () => {
+                                                                if (!confirm('Bu fiyat kaydını silmek istiyor musunuz?')) return;
+                                                                try {
+                                                                    setBusy(true);
+                                                                    await deleteStockPriceHistory(itemId, p.id);
+                                                                    await refresh();
+                                                                    onMutated();
+                                                                } catch (e) {
+                                                                    alert(e instanceof Error ? e.message : 'Silinemedi');
+                                                                } finally {
+                                                                    setBusy(false);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
                                                     ) : null}
                                                 </li>
                                             );
@@ -1023,16 +1119,77 @@ function StockDetailModal({
                                                         {formatDateTime(s.recordedAt)}
                                                     </span>
                                                     <span className="stock-detail-hist-body">
-                                                        <strong>{s.supplierName ?? '—'}</strong>
-                                                        {s.supplierContact ? ` · ${s.supplierContact}` : ''}
+                                                        <span className="stock-hist-flow">
+                                                            {s.prevSupplierName || s.prevSupplierContact ? (
+                                                                <>
+                                                                    <span
+                                                                        className="stock-hist-chip stock-hist-chip--from"
+                                                                        title={[s.prevSupplierName, s.prevSupplierContact].filter(Boolean).join(' · ') || undefined}
+                                                                    >
+                                                                        <span className="stock-hist-tag stock-hist-tag--from">Eski</span>
+                                                                        <Building2 size={14} aria-hidden className="stock-hist-chip-ic" />
+                                                                        <span className="stock-hist-chip-name">{s.prevSupplierName ?? '—'}</span>
+                                                                        {s.prevSupplierContact ? (
+                                                                            <>
+                                                                                <Phone size={13} aria-hidden className="stock-hist-chip-ic stock-hist-chip-ic--muted" />
+                                                                                <span className="stock-hist-chip-meta">{s.prevSupplierContact}</span>
+                                                                            </>
+                                                                        ) : null}
+                                                                    </span>
+                                                                    <span className="stock-hist-arrow" aria-hidden>
+                                                                        <ArrowRight size={16} />
+                                                                    </span>
+                                                                </>
+                                                            ) : null}
+                                                            <span
+                                                                className="stock-hist-chip stock-hist-chip--to"
+                                                                title={[s.supplierName, s.supplierContact].filter(Boolean).join(' · ') || undefined}
+                                                            >
+                                                                <span className="stock-hist-tag stock-hist-tag--to">Yeni</span>
+                                                                <Building2 size={14} aria-hidden className="stock-hist-chip-ic" />
+                                                                <span className="stock-hist-chip-name">{s.supplierName ?? '—'}</span>
+                                                                {s.supplierContact ? (
+                                                                    <>
+                                                                        <Phone size={13} aria-hidden className="stock-hist-chip-ic stock-hist-chip-ic--muted" />
+                                                                        <span className="stock-hist-chip-meta">{s.supplierContact}</span>
+                                                                    </>
+                                                                ) : null}
+                                                            </span>
+                                                        </span>
                                                         {s.note ? (
-                                                            <em style={{ color: 'var(--muted)' }}> — {s.note}</em>
+                                                            <span className="stock-hist-note" title={s.note}>
+                                                                <span className="stock-hist-note-label">Neden:</span>
+                                                                {s.note}
+                                                            </span>
                                                         ) : null}
                                                     </span>
                                                     {s.user ? (
                                                         <span style={{ fontSize: 11, color: 'var(--muted)' }}>
                                                             {s.user.fullName}
                                                         </span>
+                                                    ) : null}
+                                                    {isAdmin ? (
+                                                        <button
+                                                            type="button"
+                                                            className="icon-btn icon-btn--danger"
+                                                            title="Geçmiş kaydını sil"
+                                                            disabled={busy}
+                                                            onClick={async () => {
+                                                                if (!confirm('Bu tedarikçi geçmiş kaydını silmek istiyor musunuz?')) return;
+                                                                try {
+                                                                    setBusy(true);
+                                                                    await deleteStockSupplierHistory(itemId, s.id);
+                                                                    await refresh();
+                                                                    onMutated();
+                                                                } catch (e) {
+                                                                    alert(e instanceof Error ? e.message : 'Silinemedi');
+                                                                } finally {
+                                                                    setBusy(false);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
                                                     ) : null}
                                                 </li>
                                             ))}
@@ -1168,11 +1325,14 @@ function MovementModal({
             style={{ zIndex: 1100 }}
             onClick={onClose}
         >
-            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
                 <div className="modal-header">
-                    <h2 className="modal-title">
-                        {isIn ? 'Stok girişi' : 'Stok çıkışı'}
-                    </h2>
+                    <div>
+                        <h2 className="modal-title">{isIn ? 'Stok girişi' : 'Stok çıkışı'}</h2>
+                        <p className="modal-subtitle">
+                            Mevcut stoğa göre hareket ekleyin. İsterseniz açıklayıcı bir not bırakın.
+                        </p>
+                    </div>
                     <button type="button" className="modal-close" onClick={onClose} disabled={saving} aria-label="Kapat">
                         <X size={18} />
                     </button>
@@ -1267,9 +1427,14 @@ function SupplierChangeModal({
             style={{ zIndex: 1100 }}
             onClick={onClose}
         >
-            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
                 <div className="modal-header">
-                    <h2 className="modal-title">Tedarikçi değiştir</h2>
+                    <div>
+                        <h2 className="modal-title">Tedarikçi değiştir</h2>
+                        <p className="modal-subtitle">
+                            Yeni tedarikçiyi girin ve mümkünse değişiklik nedenini not edin.
+                        </p>
+                    </div>
                     <button type="button" className="modal-close" onClick={onClose} disabled={saving} aria-label="Kapat">
                         <X size={18} />
                     </button>
@@ -1349,11 +1514,16 @@ function PriceModal({
 
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="stock-price-modal-title" onClick={onClose}>
-            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
                 <div className="modal-header">
-                    <h2 className="modal-title" id="stock-price-modal-title">
-                        Birim fiyat kaydı
-                    </h2>
+                    <div>
+                        <h2 className="modal-title" id="stock-price-modal-title">
+                            Birim fiyat kaydı
+                        </h2>
+                        <p className="modal-subtitle">
+                            Fiyat geçmişi otomatik tutulur. Not alanına fatura/tedarikçi gibi referans ekleyebilirsiniz.
+                        </p>
+                    </div>
                     <button type="button" className="modal-close" onClick={onClose} disabled={saving} aria-label="Kapat">
                         <X size={18} />
                     </button>

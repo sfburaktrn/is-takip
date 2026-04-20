@@ -1054,6 +1054,8 @@ export interface StockMovementRow {
 
 export interface StockSupplierHistoryRow {
     id: number;
+    prevSupplierName: string | null;
+    prevSupplierContact: string | null;
     supplierName: string | null;
     supplierContact: string | null;
     note: string | null;
@@ -1066,6 +1068,8 @@ export interface StockPriceHistoryPoint {
     recordedAt: string;
     unitPrice: number;
     note: string | null;
+    supplierName: string | null;
+    supplierContact: string | null;
 }
 
 export interface StockItemDetail {
@@ -1198,6 +1202,22 @@ export async function changeStockSupplier(
         body: JSON.stringify(body),
     });
     return handleResponse<StockSupplierHistoryRow>(res);
+}
+
+export async function deleteStockSupplierHistory(itemId: number, histId: number): Promise<{ ok: true }> {
+    const res = await apiFetch(`${API_URL}/stock/items/${itemId}/supplier-history/${histId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: true }>(res);
+}
+
+export async function deleteStockPriceHistory(itemId: number, histId: number): Promise<{ ok: true }> {
+    const res = await apiFetch(`${API_URL}/stock/items/${itemId}/price-history/${histId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: true }>(res);
 }
 
 export interface StaleProductsResponse {

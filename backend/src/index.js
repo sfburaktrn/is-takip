@@ -2966,7 +2966,7 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
                     include: { user: { select: { username: true, fullName: true } } }
                 },
                 supplierHistory: {
-                    orderBy: { recordedAt: 'desc' },
+                    orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
                     take: 30,
                     include: { user: { select: { username: true, fullName: true } } }
                 }
@@ -2980,7 +2980,9 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
             id: h.id,
             recordedAt: h.recordedAt,
             unitPrice: Number(h.unitPrice),
-            note: h.note
+            note: h.note,
+            supplierName: h.supplierName,
+            supplierContact: h.supplierContact
         }));
         const latest = priceHistory[0] ?? null;
         const prev = priceHistory[1] ?? null;
@@ -3004,6 +3006,8 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
 
         const supplierHistory = row.supplierHistory.map((s) => ({
             id: s.id,
+            prevSupplierName: s.prevSupplierName,
+            prevSupplierContact: s.prevSupplierContact,
             supplierName: s.supplierName,
             supplierContact: s.supplierContact,
             note: s.note,
@@ -3115,14 +3119,13 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Geçersiz id' });
         }
         const b = req.body || {};
-        const supplierName =
-            b.supplierName != null && String(b.supplierName).trim() !== ''
-                ? String(b.supplierName).trim()
-                : null;
-        const supplierContact =
-            b.supplierContact != null && String(b.supplierContact).trim() !== ''
-                ? String(b.supplierContact).trim()
-                : null;
+        const normalizeSupplierField = (v) => {
+            if (v == null) return null;
+            const s = String(v).replace(/\s+/g, ' ').trim();
+            return s === '' ? null : s;
+        };
+        const supplierName = normalizeSupplierField(b.supplierName);
+        const supplierContact = normalizeSupplierField(b.supplierContact);
         const note = b.note != null ? String(b.note).slice(0, 500) : null;
 
         if (supplierName == null && supplierContact == null) {
@@ -3136,6 +3139,9 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
 
         const uid = req.session?.userId || null;
 
+        const oldName = normalizeSupplierField(item.supplierName);
+        const oldContact = normalizeSupplierField(item.supplierContact);
+
         const [, hist] = await prisma.$transaction([
             prisma.stockItem.update({
                 where: { id },
@@ -3144,6 +3150,8 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
             prisma.stockSupplierHistory.create({
                 data: {
                     stockItemId: id,
+                    prevSupplierName: oldName,
+                    prevSupplierContact: oldContact,
                     supplierName,
                     supplierContact,
                     note,
@@ -3155,6 +3163,8 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
 
         res.json({
             id: hist.id,
+            prevSupplierName: hist.prevSupplierName,
+            prevSupplierContact: hist.prevSupplierContact,
             supplierName: hist.supplierName,
             supplierContact: hist.supplierContact,
             note: hist.note,
@@ -3164,6 +3174,27 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('stock supplier change:', error);
         res.status(500).json({ error: `Tedarikçi güncellenemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+/** Tedarikçi geçmiş satırı sil (admin). */
+app.delete('/api/stock/items/:itemId/supplier-history/:histId', requireAdmin, async (req, res) => {
+    try {
+        const itemId = parseInt(String(req.params.itemId), 10);
+        const histId = parseInt(String(req.params.histId), 10);
+        if (!Number.isFinite(itemId) || itemId < 1 || !Number.isFinite(histId) || histId < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const deleted = await prisma.stockSupplierHistory.deleteMany({
+            where: { id: histId, stockItemId: itemId }
+        });
+        if (deleted.count === 0) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('stock supplier history delete:', error);
+        res.status(500).json({ error: `Silinemedi.${stockMigrateHint(error)}` });
     }
 });
 
@@ -3297,12 +3328,39 @@ app.post('/api/stock/items/:id/price', requireAuth, async (req, res) => {
         }
 
         const hist = await prisma.stockUnitPriceHistory.create({
-            data: { stockItemId: id, unitPrice, note }
+            data: {
+                stockItemId: id,
+                unitPrice,
+                note,
+                supplierName: item.supplierName,
+                supplierContact: item.supplierContact
+            }
         });
         res.json(hist);
     } catch (error) {
         console.error('stock price:', error);
         res.status(500).json({ error: `Fiyat kaydedilemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+/** Birim fiyat geçmiş satırı sil (admin). */
+app.delete('/api/stock/items/:itemId/price-history/:histId', requireAdmin, async (req, res) => {
+    try {
+        const itemId = parseInt(String(req.params.itemId), 10);
+        const histId = parseInt(String(req.params.histId), 10);
+        if (!Number.isFinite(itemId) || itemId < 1 || !Number.isFinite(histId) || histId < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const deleted = await prisma.stockUnitPriceHistory.deleteMany({
+            where: { id: histId, stockItemId: itemId }
+        });
+        if (deleted.count === 0) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('stock price history delete:', error);
+        res.status(500).json({ error: `Silinemedi.${stockMigrateHint(error)}` });
     }
 });
 

@@ -374,6 +374,9 @@ model StockUnitPriceHistory {
   recordedAt  DateTime  @default(now())
   unitPrice   Decimal   @db.Decimal(18, 4)
   note        String?
+  /// Kayıt anındaki tedarikçi (kalem üzerindeki değerin kopyası).
+  supplierName    String?
+  supplierContact String? @db.Text
 
   @@index([stockItemId, recordedAt])
 }
@@ -401,6 +404,8 @@ model StockSupplierHistory {
   id              Int       @id @default(autoincrement())
   stockItemId     Int
   stockItem       StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  prevSupplierName    String?
+  prevSupplierContact String?   @db.Text
   supplierName    String?
   supplierContact String?   @db.Text
   note            String?

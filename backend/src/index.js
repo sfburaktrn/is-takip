@@ -517,6 +517,7 @@ function getStageSubSteps(productType, stageKey) {
         const g = DORSE_STEP_GROUPS[stageKey];
         if (g && Array.isArray(g.subSteps)) return g.subSteps;
         if (stageKey === 'cekici') return ['cekiciElektrik', 'cekiciHidrolik'];
+        if (stageKey === 'sonKontrol') return ['sonKontrol'];
         return [];
     }
     return [];
@@ -598,6 +599,13 @@ function omitProductionStartedFromUpdate(body) {
     return rest;
 }
 
+function normalizeDeliverySasiNo(raw) {
+    const t = String(raw ?? '').trim().toLocaleUpperCase('tr-TR');
+    if (!t) return '';
+    if (!/^[A-Z0-9]+$/.test(t)) return '';
+    return t;
+}
+
 /** İstek gövdesinden Prisma güncellemesi; cardNote uzunluğu sınırlanır, boş string null olur */
 function prepareProductUpdateData(body) {
     const data = omitProductionStartedFromUpdate(body);
@@ -649,6 +657,28 @@ async function writeAuditLog(req, { action, productType, productId, summary, det
         });
     } catch (e) {
         console.error('Audit log write failed:', e);
+    }
+}
+
+async function writeStepToggleEvents(req, productType, productId, changes) {
+    try {
+        if (!Array.isArray(changes) || changes.length === 0) return;
+        const rows = changes
+            .filter(c => c && typeof c.field === 'string')
+            .map(c => ({
+                userId: req.session.userId ?? null,
+                username: req.session.username ?? null,
+                productType,
+                productId,
+                fieldKey: c.field,
+                fromValue: typeof c.from === 'boolean' ? c.from : null,
+                toValue: typeof c.to === 'boolean' ? c.to : null,
+            }))
+            .filter(r => r.fromValue !== null || r.toValue !== null);
+        if (rows.length === 0) return;
+        await prisma.stepToggleEvent.createMany({ data: rows });
+    } catch (e) {
+        console.error('StepToggleEvent write failed:', e);
     }
 }
 
@@ -1181,13 +1211,31 @@ app.put('/api/dampers/:id', requireAuth, async (req, res) => {
         if (!before) {
             return res.status(404).json({ error: 'Damper not found' });
         }
+        const data = prepareProductUpdateData(req.body);
+        const settingDeliveredNow = data?.teslimat === true && before.teslimat !== true;
+        if (settingDeliveredNow) {
+            const teslimSasiNo = normalizeDeliverySasiNo(data.teslimSasiNo);
+            if (!teslimSasiNo) {
+                return res.status(400).json({ error: 'Teslim şasi no geçersiz. Yalnız A–Z ve 0–9 kullanılabilir.' });
+            }
+            if (!data.teslimEden || !String(data.teslimEden).trim()) {
+                return res.status(400).json({ error: 'Teslim eden zorunludur.' });
+            }
+            if (!data.teslimAlan || !String(data.teslimAlan).trim()) {
+                return res.status(400).json({ error: 'Teslim alan zorunludur.' });
+            }
+            data.teslimSasiNo = teslimSasiNo;
+            data.teslimAlanFirma = before.musteri;
+            if (!before.teslimAt) data.teslimAt = new Date();
+        }
         const damper = await prisma.damper.update({
             where: { id: idNum },
-            data: prepareProductUpdateData(req.body)
+            data
         });
         await syncStepCompletionEvents(prisma, 'DAMPER', damper.id, before, damper, getDamperTrackedStatus);
         const changes = collectFieldChanges(before, damper);
         if (changes.length > 0) {
+            await writeStepToggleEvents(req, 'DAMPER', damper.id, changes);
             await writeAuditLog(req, {
                 action: 'UPDATE',
                 productType: 'DAMPER',
@@ -1374,6 +1422,7 @@ app.put('/api/sasis/:id', requireAuth, async (req, res) => {
         await syncStepCompletionEvents(prisma, 'SASI', sasi.id, before, sasi, getSasiTrackedStatus);
         const sasiChanges = collectFieldChanges(before, sasi);
         if (sasiChanges.length > 0) {
+            await writeStepToggleEvents(req, 'SASI', sasi.id, sasiChanges);
             await writeAuditLog(req, {
                 action: 'UPDATE',
                 productType: 'SASI',
@@ -1805,6 +1854,7 @@ app.get('/api/stats', requireAuth, async (req, res) => {
         let tamamlanan = 0;
         let devamEden = 0;
         let baslamayan = 0;
+        let teslimEdilen = 0;
 
         // All step fields to check
         const damperSteps = [
@@ -1813,7 +1863,7 @@ app.get('/api/stats', requireAuth, async (req, res) => {
             'milAltKutuk', 'taban', 'yan', 'onGogus', 'arkaKapak', 'yuklemeMalzemesi',
             'damperKurulmasi', 'damperKaynak', 'sasiKapakSiperlik', 'yukleme',
             'hidrolik', 'boyaHazirlik', 'boya',
-            'elektrik', 'hava', 'tamamlama', 'sonKontrol', 'teslimat'
+            'elektrik', 'hava', 'tamamlama', 'sonKontrol'
         ];
 
         const dorseSteps = [
@@ -1822,7 +1872,7 @@ app.get('/api/stats', requireAuth, async (req, res) => {
             'dorseKurulmasi', 'dorseKaynak', 'kapakSiperlik', 'yukleme', 'hidrolik',
             'boyaHazirlik', 'dorseSasiBoyama',
             'fren', 'dorseElektrik', 'tamamlama', 'cekiciElektrik', 'cekiciHidrolik', 'aracKontrolBypassAyari',
-            'sonKontrol', 'tipOnay', 'fatura', 'akmTseMuayenesi', 'dmoMuayenesi', 'tahsilat', 'teslimat'
+            'sonKontrol', 'tipOnay', 'fatura', 'akmTseMuayenesi', 'dmoMuayenesi', 'tahsilat'
         ];
 
         const sasiSteps = [
@@ -1834,6 +1884,7 @@ app.get('/api/stats', requireAuth, async (req, res) => {
         const allSteps = isDorse ? dorseSteps : (isSasi ? sasiSteps : damperSteps);
 
         items.forEach(item => {
+            if (item.teslimat === true) teslimEdilen++;
             // Count completed steps
             const completedCount = allSteps.filter(step => {
                 if (step === 'akmTseMuayenesi') return item[step] === 'YAPILDI';
@@ -1843,7 +1894,11 @@ app.get('/api/stats', requireAuth, async (req, res) => {
             const totalSteps = allSteps.length;
 
             if (completedCount === totalSteps) {
-                tamamlanan++;
+                if (item.teslimat === true) {
+                    // teslim edilenler tamamlanandan çıkar
+                } else {
+                    tamamlanan++;
+                }
             } else if (completedCount === 0) {
                 baslamayan++;
             } else {
@@ -1898,6 +1953,7 @@ app.get('/api/stats', requireAuth, async (req, res) => {
         res.json({
             total,
             tamamlanan,
+            teslimEdilen,
             devamEden,
             baslamayan
         });
@@ -1927,6 +1983,178 @@ app.get('/api/health/db', async (req, res) => {
 });
 
 // ==================== ANALYTICS ENDPOINTS ====================
+
+// Product step completion timeline (tracked main steps only; excludes teslimat)
+app.get('/api/analytics/step-events', requireAuth, async (req, res) => {
+    try {
+        const productType = String(req.query.productType || '').toUpperCase();
+        const productId = parseInt(String(req.query.productId || ''));
+
+        if (!['DAMPER', 'DORSE', 'SASI'].includes(productType)) {
+            return res.status(400).json({ error: 'productType geçersiz' });
+        }
+        if (!Number.isFinite(productId) || productId <= 0) {
+            return res.status(400).json({ error: 'productId geçersiz' });
+        }
+
+        const product =
+            productType === 'DAMPER'
+                ? await prisma.damper.findUnique({ where: { id: productId } })
+                : productType === 'DORSE'
+                  ? await prisma.dorse.findUnique({ where: { id: productId } })
+                  : await prisma.sasi.findUnique({ where: { id: productId } });
+
+        if (!product) return res.status(404).json({ error: 'Ürün bulunamadı' });
+
+        const keys = TRACKED_MAIN_STEPS[productType] || [];
+        const labels = STEP_LABELS[productType] || {};
+
+        const events = await prisma.stepCompletionEvent.findMany({
+            where: { productType, productId, mainStepKey: { in: keys } },
+            orderBy: { completedAt: 'asc' },
+            select: { mainStepKey: true, completedAt: true }
+        });
+
+        // Derive per-step start/end from AuditLog boolean changes (works for both old and new records).
+        // "Start" = first sub-step approval time under that main step.
+        // "Complete" = when ALL sub-steps under that main step have been approved at least once.
+        const audit = await prisma.auditLog.findMany({
+            where: { productType, productId, action: 'UPDATE' },
+            orderBy: { createdAt: 'asc' },
+            select: { createdAt: true, details: true }
+        });
+
+        function extractAuditChanges(details) {
+            if (!details) return null;
+            let d = details;
+            if (typeof d === 'string') {
+                try {
+                    d = JSON.parse(d);
+                } catch {
+                    return null;
+                }
+            }
+            if (!d || typeof d !== 'object') return null;
+            // expected: { changes: [{ field, from, to }, ...] }
+            if (Array.isArray(d.changes)) return d.changes;
+            // tolerate nesting: { details: { changes: [...] } } or { data: { changes: [...] } }
+            if (d.details && typeof d.details === 'object' && Array.isArray(d.details.changes)) return d.details.changes;
+            if (d.data && typeof d.data === 'object' && Array.isArray(d.data.changes)) return d.data.changes;
+            return null;
+        }
+
+        const subStepFirstTrueAt = new Map(); // field -> Date
+        for (const row of audit) {
+            const changes = extractAuditChanges(row.details);
+            if (!Array.isArray(changes)) continue;
+            for (const ch of changes) {
+                const field = ch && typeof ch === 'object' ? ch.field : null;
+                const to = ch && typeof ch === 'object' ? ch.to : undefined;
+                if (typeof field !== 'string') continue;
+                if (to === true && !subStepFirstTrueAt.has(field)) {
+                    subStepFirstTrueAt.set(field, row.createdAt);
+                }
+            }
+        }
+
+        // Map StepCompletionEvent for fast fallback (prefer first completion time)
+        const byMainKeyCompletedAt = new Map();
+        for (const e of events) {
+            if (!byMainKeyCompletedAt.has(e.mainStepKey)) byMainKeyCompletedAt.set(e.mainStepKey, e.completedAt);
+        }
+
+        const derivedRanges = [];
+        let derivedProductionStartedAt = null;
+        for (const mainStepKey of keys) {
+            const subSteps = getStageSubSteps(productType, mainStepKey) || [];
+            if (!subSteps.length) {
+                const ev = byMainKeyCompletedAt.get(mainStepKey) ?? null;
+                derivedRanges.push({ key: mainStepKey, startedAt: null, completedAt: ev });
+                continue;
+            }
+            const allTimes = subSteps.map((k) => subStepFirstTrueAt.get(k)).filter(Boolean);
+            const startedAt = allTimes.length ? new Date(Math.min(...allTimes.map((d) => d.getTime()))) : null;
+            let completedAt = allTimes.length === subSteps.length ? new Date(Math.max(...allTimes.map((d) => d.getTime()))) : null;
+            if (!completedAt) completedAt = byMainKeyCompletedAt.get(mainStepKey) ?? null;
+            derivedRanges.push({ key: mainStepKey, startedAt, completedAt });
+            if (startedAt) {
+                if (!derivedProductionStartedAt || startedAt.getTime() < derivedProductionStartedAt.getTime()) {
+                    derivedProductionStartedAt = startedAt;
+                }
+            }
+        }
+
+        // If we still don't have per-step start times (common for older data),
+        // approximate each step's startedAt as the previous step's completedAt,
+        // or productionStartedAt as the very first fallback.
+        const productionStart = product.productionStartedAt || derivedProductionStartedAt;
+        let prevEnd = productionStart ? new Date(productionStart) : null;
+        for (const r of derivedRanges) {
+            if (!r.startedAt && r.completedAt && prevEnd && prevEnd.getTime() < r.completedAt.getTime()) {
+                r.startedAt = new Date(prevEnd);
+            }
+            if (r.completedAt) {
+                prevEnd = new Date(r.completedAt);
+            }
+        }
+
+        // Final fallback: if neither StepCompletionEvent nor AuditLog can yield times,
+        // but the product currently shows the step as completed, synthesize a completion time.
+        // This prevents the UI from showing all "—" on completed/delivered records that lack history.
+        const baseCompletedAt = product.updatedAt ? new Date(product.updatedAt) : new Date();
+        for (let i = 0; i < keys.length; i++) {
+            const k = keys[i];
+            const hasAny = derivedRanges.find(r => r.key === k && (r.startedAt || r.completedAt));
+            if (hasAny) continue;
+            let status = 'BAŞLAMADI';
+            if (productType === 'DAMPER') status = getDamperTrackedStatus(product, k);
+            else if (productType === 'DORSE') status = getDorseTrackedStatus(product, k);
+            else status = getSasiTrackedStatus(product, k);
+            if (status === 'TAMAMLANDI') {
+                const synthetic = new Date(baseCompletedAt.getTime() + i * 1000);
+                derivedRanges.push({ key: k, startedAt: null, completedAt: synthetic });
+            }
+        }
+
+        // Normalize ranges order
+        const rangeByKey = new Map(derivedRanges.map(r => [r.key, r]));
+
+        const endKey = productType === 'DAMPER' ? 'tamamlamaBitis' : productType === 'DORSE' ? 'tamamlama' : null;
+        const productionEndAt = endKey ? (rangeByKey.get(endKey)?.completedAt ?? null) : null;
+
+        res.json({
+            productType,
+            productId,
+            createdAt: product.createdAt ? new Date(product.createdAt).toISOString() : null,
+            productionStartedAt:
+                product.productionStartedAt
+                    ? new Date(product.productionStartedAt).toISOString()
+                    : derivedProductionStartedAt
+                      ? derivedProductionStartedAt.toISOString()
+                      : null,
+            productionEndAt: productionEndAt ? new Date(productionEndAt).toISOString() : null,
+            steps: keys.map(k => ({ key: k, label: labels[k] || k })),
+            ranges: keys.map(k => {
+                const r = rangeByKey.get(k) || { key: k, startedAt: null, completedAt: null };
+                return {
+                    key: k,
+                    startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+                    completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+                };
+            }),
+            // keep legacy events too (used by stable frontend); include synthetic completions via ranges fallback
+            events: keys
+                .map(k => {
+                    const ev = byMainKeyCompletedAt.get(k) || rangeByKey.get(k)?.completedAt || null;
+                    return ev ? { key: k, completedAt: ev } : null;
+                })
+                .filter(Boolean)
+        });
+    } catch (e) {
+        console.error('step-events:', e);
+        res.status(500).json({ error: 'step-events alınamadı' });
+    }
+});
 
 // Get analytics step stats (for charts) - with 3 states: başlanmadı, devam ediyor, tamamlandı
 // Get analytics step stats (for charts) - with 3 states
@@ -2377,13 +2605,31 @@ app.put('/api/dorses/:id', requireAuth, async (req, res) => {
         if (!before) {
             return res.status(404).json({ error: 'Dorse not found' });
         }
+        const data = prepareProductUpdateData(req.body);
+        const settingDeliveredNow = data?.teslimat === true && before.teslimat !== true;
+        if (settingDeliveredNow) {
+            const teslimSasiNo = normalizeDeliverySasiNo(data.teslimSasiNo);
+            if (!teslimSasiNo) {
+                return res.status(400).json({ error: 'Dorse şase no geçersiz. Yalnız A–Z ve 0–9 kullanılabilir.' });
+            }
+            if (!data.teslimEden || !String(data.teslimEden).trim()) {
+                return res.status(400).json({ error: 'Teslim eden zorunludur.' });
+            }
+            if (!data.teslimAlan || !String(data.teslimAlan).trim()) {
+                return res.status(400).json({ error: 'Teslim alan zorunludur.' });
+            }
+            data.teslimSasiNo = teslimSasiNo;
+            data.teslimAracSahibi = before.musteri;
+            if (!before.teslimAt) data.teslimAt = new Date();
+        }
         const dorse = await prisma.dorse.update({
             where: { id: idNum },
-            data: prepareProductUpdateData(req.body)
+            data
         });
         await syncStepCompletionEvents(prisma, 'DORSE', dorse.id, before, dorse, getDorseTrackedStatus);
         const dorseChanges = collectFieldChanges(before, dorse);
         if (dorseChanges.length > 0) {
+            await writeStepToggleEvents(req, 'DORSE', dorse.id, dorseChanges);
             await writeAuditLog(req, {
                 action: 'UPDATE',
                 productType: 'DORSE',

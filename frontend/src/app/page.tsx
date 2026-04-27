@@ -195,6 +195,14 @@ function DashboardContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<DashboardSortBy>(null);
+  const [deliveryDraft, setDeliveryDraft] = useState<{
+    kind: 'DAMPER' | 'DORSE';
+    id: number;
+    teslimSasiNo: string;
+    teslimEden: string;
+    teslimAlan: string;
+    teslimNot: string;
+  } | null>(null);
 
   const COLORS = {
     primary: '#022347',
@@ -342,7 +350,7 @@ function DashboardContent() {
       damper.yan, damper.onGogus, damper.arkaKapak, damper.yuklemeMalzemesi,
       damper.damperKurulmasi, damper.damperKaynak, damper.sasiKapakSiperlik,
       damper.yukleme, damper.hidrolik, damper.boyaHazirlik, damper.boya,
-      damper.elektrik, damper.hava, damper.tamamlama, damper.sonKontrol, damper.teslimat
+      damper.elektrik, damper.hava, damper.tamamlama, damper.sonKontrol
     ];
     const completed = steps.filter(Boolean).length;
     return Math.round((completed / steps.length) * 100);
@@ -357,7 +365,7 @@ function DashboardContent() {
       dorse.boyaHazirlik, dorse.dorseSasiBoyama,
       dorse.cekiciElektrik, dorse.cekiciHidrolik,
       dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
-      dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
+      dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat
     ];
     const completed = steps.filter(Boolean).length;
     // akmTseMuayenesi and dmoMuayenesi are excluded from progress calculation
@@ -366,6 +374,7 @@ function DashboardContent() {
   };
 
   const getDamperStatus = (damper: Damper): string => {
+    if (damper.teslimat) return 'teslimEdilen';
     // All step fields to check
     const allSteps = [
       damper.plazmaProgrami, damper.sacMalzemeKontrolu, damper.plazmaKesim,
@@ -374,7 +383,7 @@ function DashboardContent() {
       damper.yan, damper.onGogus, damper.arkaKapak, damper.yuklemeMalzemesi,
       damper.damperKurulmasi, damper.damperKaynak, damper.sasiKapakSiperlik,
       damper.yukleme, damper.hidrolik, damper.boyaHazirlik, damper.boya,
-      damper.elektrik, damper.hava, damper.tamamlama, damper.sonKontrol, damper.teslimat
+      damper.elektrik, damper.hava, damper.tamamlama, damper.sonKontrol
     ];
 
     const completedSteps = allSteps.filter(Boolean).length;
@@ -390,6 +399,7 @@ function DashboardContent() {
   };
 
   const getDorseStatus = (dorse: Dorse): string => {
+    if (dorse.teslimat) return 'teslimEdilen';
     const allSteps = [
       dorse.plazmaProgrami, dorse.sacMalzemeKontrolu, dorse.plazmaKesim,
       dorse.presBukum, dorse.dorseSasi,
@@ -398,7 +408,7 @@ function DashboardContent() {
       dorse.boyaHazirlik, dorse.dorseSasiBoyama,
       dorse.cekiciElektrik, dorse.cekiciHidrolik,
       dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
-      dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
+      dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat
     ];
 
     const completedSteps = allSteps.filter(Boolean).length;
@@ -494,6 +504,11 @@ function DashboardContent() {
   const handleStepToggle = (id: number, stepKey: string, currentValue: boolean, type: ProductType) => {
     const next = !currentValue;
     if (type === 'DAMPER') {
+      if (stepKey === 'teslimat' && next === true) {
+        setExpandedId(id);
+        setDeliveryDraft({ kind: 'DAMPER', id, teslimSasiNo: '', teslimEden: '', teslimAlan: '', teslimNot: '' });
+        return;
+      }
       setDampers(prev =>
         prev.map(d => (d.id === id ? ({ ...d, [stepKey]: next } as Damper) : d))
       );
@@ -511,6 +526,11 @@ function DashboardContent() {
         }
       })();
     } else if (type === 'DORSE') {
+      if (stepKey === 'teslimat' && next === true) {
+        setExpandedId(id);
+        setDeliveryDraft({ kind: 'DORSE', id, teslimSasiNo: '', teslimEden: '', teslimAlan: '', teslimNot: '' });
+        return;
+      }
       setDorses(prev =>
         prev.map(d => (d.id === id ? ({ ...d, [stepKey]: next } as Dorse) : d))
       );
@@ -544,6 +564,39 @@ function DashboardContent() {
           );
         }
       })();
+    }
+  };
+
+  const confirmDelivery = async () => {
+    if (!deliveryDraft) return;
+    const temizNo = deliveryDraft.teslimSasiNo.toLocaleUpperCase('tr-TR').replace(/[^A-Z0-9]/g, '');
+    if (!temizNo) return alert('Şase no zorunludur. Yalnız A–Z ve 0–9 kullanılabilir.');
+    if (!deliveryDraft.teslimEden.trim()) return alert('Teslim eden zorunludur.');
+    if (!deliveryDraft.teslimAlan.trim()) return alert('Teslim alan zorunludur.');
+    try {
+      if (deliveryDraft.kind === 'DAMPER') {
+        const updated = await updateDamper(deliveryDraft.id, {
+          teslimat: true,
+          teslimSasiNo: temizNo,
+          teslimEden: deliveryDraft.teslimEden.trim(),
+          teslimAlan: deliveryDraft.teslimAlan.trim(),
+          teslimNot: deliveryDraft.teslimNot.trim() || null
+        });
+        setDampers(prev => prev.map(d => (d.id === deliveryDraft.id ? updated : d)));
+      } else {
+        const updated = await updateDorse(deliveryDraft.id, {
+          teslimat: true,
+          teslimSasiNo: temizNo,
+          teslimEden: deliveryDraft.teslimEden.trim(),
+          teslimAlan: deliveryDraft.teslimAlan.trim(),
+          teslimNot: deliveryDraft.teslimNot.trim() || null
+        });
+        setDorses(prev => prev.map(d => (d.id === deliveryDraft.id ? updated : d)));
+      }
+      setDeliveryDraft(null);
+      loadData();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Teslim kaydedilemedi');
     }
   };
 
@@ -883,6 +936,7 @@ function DashboardContent() {
       return {
         total: dorses.length,
         tamamlanan: dorses.filter(d => getDorseStatus(d) === 'tamamlanan').length,
+        teslimEdilen: dorses.filter(d => d.teslimat).length,
         devamEden: dorses.filter(d => getDorseStatus(d) === 'devamEden').length,
         baslamayan: dorses.filter(d => getDorseStatus(d) === 'baslamayan').length
       };
@@ -950,26 +1004,6 @@ function DashboardContent() {
               <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
             </button>
           </div>
-
-          {staleHint && (
-            <div
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                background: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
-                fontSize: '13px',
-                color: '#92400e',
-              }}
-            >
-              <strong>Hatırlatma:</strong> Üretimde olup son {staleHint.days} gündür güncellenmeyen{' '}
-              <strong>{staleHint.total}</strong> kayıt var (teslimat bekleyen / şasi montajı bitmemiş).{' '}
-              <Link href="/urun-listesi" style={{ fontWeight: 600, color: 'var(--primary)' }}>
-                Ürün listesine git
-              </Link>
-            </div>
-          )}
 
           {/* Product Toggle */}
           <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', flexWrap: 'wrap' }}>
@@ -1438,6 +1472,35 @@ function DashboardContent() {
                 <div
                   style={{
                     cursor: 'pointer',
+                    borderLeft: `4px solid ${COLORS.info}`,
+                    borderTop: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                    borderRight: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                    borderBottom: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    backgroundColor: 'white',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    display: 'flex', alignItems: 'center', gap: '16px',
+                    transition: 'all 0.2s'
+                  }}
+                  onClick={() => setStatusFilter(statusFilter === 'teslimEdilen' ? null : 'teslimEdilen')}
+                >
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '12px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.info,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Truck size={24} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.teslimEdilen || 0}</div>
+                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Teslim Edilen</div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    cursor: 'pointer',
                     borderLeft: `4px solid ${COLORS.warning}`,
                     borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
                     borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
@@ -1645,6 +1708,26 @@ function DashboardContent() {
         {/* Dampers List */}
         {productType !== 'DORSE_SASI' && (
           <div style={{ marginBottom: '24px' }}>
+            {staleHint && (
+              <div
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(245, 158, 11, 0.10)',
+                  border: '1px solid rgba(245, 158, 11, 0.28)',
+                  fontSize: '13px',
+                  color: '#92400e',
+                  marginBottom: '14px',
+                }}
+              >
+                <strong>Hatırlatma:</strong> Üretimde olup son {staleHint.days} gündür güncellenmeyen{' '}
+                <strong>{staleHint.total}</strong> kayıt var (teslimat bekleyen / şasi montajı bitmemiş).{' '}
+                <Link href="/urun-listesi" style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                  Ürün listesine git
+                </Link>
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600 }}>
                 {statusFilter === 'tamamlanan' && `✅ Tamamlanan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
@@ -2478,6 +2561,80 @@ function DashboardContent() {
                               </div>
                             </div>
                           </div>
+
+                          {deliveryDraft?.kind === 'DAMPER' && deliveryDraft.id === damper.id && (
+                            <div
+                              className="card"
+                              style={{
+                                marginTop: '16px',
+                                padding: '16px',
+                                background: 'rgba(59, 130, 246, 0.06)',
+                                border: '1px solid rgba(59, 130, 246, 0.20)'
+                              }}
+                            >
+                              <div style={{ fontWeight: 700, marginBottom: '10px' }}>Teslim bilgileri</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                  Şase No
+                                  <input
+                                    value={deliveryDraft.teslimSasiNo}
+                                    onChange={(e) =>
+                                      setDeliveryDraft((p) =>
+                                        p
+                                          ? {
+                                              ...p,
+                                              teslimSasiNo: e.target.value.toLocaleUpperCase('tr-TR').replace(/[^A-Z0-9]/g, '')
+                                            }
+                                          : p
+                                      )
+                                    }
+                                    className="input"
+                                    placeholder="Örn: TRAX3077108"
+                                    style={{ marginTop: '6px' }}
+                                  />
+                                </label>
+                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                  Teslim Eden
+                                  <input
+                                    value={deliveryDraft.teslimEden}
+                                    onChange={(e) => setDeliveryDraft((p) => (p ? { ...p, teslimEden: e.target.value } : p))}
+                                    className="input"
+                                    style={{ marginTop: '6px' }}
+                                  />
+                                </label>
+                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                  Teslim Alan
+                                  <input
+                                    value={deliveryDraft.teslimAlan}
+                                    onChange={(e) => setDeliveryDraft((p) => (p ? { ...p, teslimAlan: e.target.value } : p))}
+                                    className="input"
+                                    style={{ marginTop: '6px' }}
+                                  />
+                                </label>
+                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                  Teslim Alan Firma (otomatik)
+                                  <input value={damper.musteri} readOnly className="input" style={{ marginTop: '6px', opacity: 0.75 }} />
+                                </label>
+                              </div>
+                              <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginTop: '12px' }}>
+                                Not
+                                <textarea
+                                  value={deliveryDraft.teslimNot}
+                                  onChange={(e) => setDeliveryDraft((p) => (p ? { ...p, teslimNot: e.target.value } : p))}
+                                  className="input"
+                                  style={{ marginTop: '6px', minHeight: '80px' }}
+                                />
+                              </label>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
+                                <button className="btn btn-secondary" onClick={() => setDeliveryDraft(null)}>
+                                  Vazgeç
+                                </button>
+                                <button className="btn btn-primary" onClick={() => void confirmDelivery()}>
+                                  Teslim Et
+                                </button>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Delete Button */}
                           <div style={{

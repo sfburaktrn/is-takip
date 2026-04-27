@@ -47,6 +47,12 @@ model Damper {
   kurumMuayenesi        String   @default("YOK")
   dmoMuayenesi          String   @default("MUAYENE YOK")
   teslimat              Boolean  @default(false)
+  teslimSasiNo          String?
+  teslimEden            String?
+  teslimAlan            String?
+  teslimAlanFirma       String?
+  teslimNot             String?  @db.Text
+  teslimAt              DateTime?
   branda                Boolean  @default(false)
   brandaMontaji         Boolean  @default(false)
   createdAt             DateTime @default(now())
@@ -112,6 +118,12 @@ model Dorse {
   dmoMuayenesi          String   @default("MUAYENE YOK")
   tahsilat              Boolean  @default(false)
   teslimat              Boolean  @default(false)
+  teslimSasiNo          String?
+  teslimEden            String?
+  teslimAlan            String?
+  teslimAracSahibi      String?
+  teslimNot             String?  @db.Text
+  teslimAt              DateTime?
   branda                Boolean  @default(false)
   brandaMontaji         Boolean  @default(false)
   
@@ -247,6 +259,23 @@ model StepCompletionEvent {
 
   @@index([productType, productId, mainStepKey])
   @@index([productType, completedAt])
+}
+
+/// Ürün kartındaki adım / alt-adım toggle değişiklikleri (silinmez; ileri analiz için ham log).
+model StepToggleEvent {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  username    String?
+  productType String
+  productId   Int
+  fieldKey    String
+  fromValue   Boolean?
+  toValue     Boolean?
+  createdAt   DateTime @default(now())
+
+  @@index([productType, productId])
+  @@index([fieldKey])
+  @@index([createdAt])
 }
 
 /// Haftalık bölüm kapasitesi (Pazartesi hafta başı). normalHours = bölüm toplam kişi-saat (genelde kişi × 45).

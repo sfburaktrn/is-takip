@@ -64,6 +64,14 @@ export interface Damper {
     dmoMuayenesi: string;
     teslimat: boolean;
 
+    teslimSasiNo?: string | null;
+    teslimEden?: string | null;
+    teslimAlan?: string | null;
+    /** Otomatik = musteri (kilitli) */
+    teslimAlanFirma?: string | null;
+    teslimNot?: string | null;
+    teslimAt?: string | null;
+
     branda: boolean;
     brandaMontaji: boolean;
 
@@ -139,6 +147,7 @@ export interface DorseSummary {
 export interface Stats {
     total: number;
     tamamlanan: number;
+    teslimEdilen?: number;
     devamEden: number;
     baslamayan: number;
     stokSasiCount?: number;
@@ -272,6 +281,10 @@ export async function apiFetch(input: string | URL, init?: RequestInit): Promise
             await res.text().catch(() => {});
             lastError = new Error(`HTTP ${res.status}`);
         } catch (e) {
+            // If the caller aborted (timeout/navigation), do NOT retry; it will never succeed.
+            if (e && typeof e === 'object' && 'name' in e && (e as { name?: string }).name === 'AbortError') {
+                throw e;
+            }
             lastError = e;
         }
         if (attempt < MAX_API_ATTEMPTS - 1) {
@@ -498,6 +511,14 @@ export interface Dorse {
     dmoMuayenesi: string;
     tahsilat: boolean;
     teslimat: boolean;
+
+    teslimSasiNo?: string | null;
+    teslimEden?: string | null;
+    teslimAlan?: string | null;
+    /** Otomatik = musteri (kilitli) */
+    teslimAracSahibi?: string | null;
+    teslimNot?: string | null;
+    teslimAt?: string | null;
 
     branda: boolean;
     brandaMontaji: boolean;
@@ -1241,6 +1262,29 @@ export async function getStaleProducts(days = 14): Promise<StaleProductsResponse
         cache: 'no-store',
     });
     return handleResponse<StaleProductsResponse>(res);
+}
+
+export interface StepEventTimelineResponse {
+    productType: string;
+    productId: number;
+    createdAt?: string | null;
+    productionStartedAt: string | null;
+    productionEndAt?: string | null;
+    steps: Array<{ key: string; label: string }>;
+    events: Array<{ key: string; completedAt: string }>;
+    ranges?: Array<{ key: string; startedAt: string | null; completedAt: string | null }>;
+}
+
+export async function getStepEvents(productType: 'DAMPER' | 'DORSE' | 'SASI', productId: number): Promise<StepEventTimelineResponse> {
+    const q = new URLSearchParams({ productType, productId: String(productId) });
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 12_000);
+    const res = await apiFetch(`${API_URL}/analytics/step-events?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal,
+    }).finally(() => clearTimeout(t));
+    return handleResponse<StepEventTimelineResponse>(res);
 }
 
 export async function putCapacityTarget(body: {

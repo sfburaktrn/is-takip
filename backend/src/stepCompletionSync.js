@@ -6,8 +6,8 @@
  */
 
 const TRACKED_MAIN_STEPS = {
-    DAMPER: ['kesimBukum', 'sasiBitis', 'onHazirlik', 'montaj', 'hidrolik', 'boyaBitis', 'tamamlamaBitis'],
-    DORSE: ['kesimBukum', 'onHazirlik', 'montaj', 'boya', 'tamamlama'],
+    DAMPER: ['kesimBukum', 'sasiBitis', 'onHazirlik', 'montaj', 'hidrolik', 'boyaBitis', 'tamamlamaBitis', 'sonKontrol'],
+    DORSE: ['kesimBukum', 'onHazirlik', 'montaj', 'boya', 'cekici', 'tamamlama', 'sonKontrol'],
     SASI: ['kesimBukum', 'onHazirlik', 'montaj']
 };
 
@@ -19,14 +19,17 @@ const STEP_LABELS = {
         montaj: 'MONTAJ',
         hidrolik: 'HİDROLİK',
         boyaBitis: 'BOYA BİTİŞ',
-        tamamlamaBitis: 'TAMAMLAMA BİTİŞ'
+        tamamlamaBitis: 'TAMAMLAMA BİTİŞ',
+        sonKontrol: 'SON KONTROL'
     },
     DORSE: {
         kesimBukum: 'KESİM - BÜKÜM',
         onHazirlik: 'ÖN HAZIRLIK',
         montaj: 'MONTAJ',
         boya: 'BOYA',
-        tamamlama: 'TAMAMLAMA'
+        cekici: 'ÇEKİCİ',
+        tamamlama: 'TAMAMLAMA',
+        sonKontrol: 'SON KONTROL'
     },
     SASI: {
         kesimBukum: 'KESİM - BÜKÜM',

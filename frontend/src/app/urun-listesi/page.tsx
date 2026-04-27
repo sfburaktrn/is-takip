@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -38,7 +39,9 @@ import {
     getStats,
     getDampers,
     getDorses,
+    getStaleProducts,
     getDropdowns,
+    getStepEvents,
     createDamper,
     createDorse,
     updateDamper,
@@ -59,7 +62,301 @@ import {
     deleteSasi
 } from '@/lib/api'; // Correct import path assumption? It was '@/lib/api' in view_file.
 
-type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'HEPSI';
+type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'DORSE_SASI' | 'HEPSI';
+
+type StaleHint = { total: number; days: number } | null;
+
+type StepTimeline = {
+    productType: 'DAMPER' | 'DORSE';
+    productId: number;
+    createdAt: string | null;
+    startedAt: string | null;
+    endedAt: string | null;
+    steps: Array<{ key: string; label: string; completedAt: string | null }>;
+};
+
+type TimelineState = StepTimeline | null | 'loading';
+
+function formatDuration(ms: number): string {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    const d = Math.floor(h / 24);
+    const hh = h % 24;
+    const mm = m % 60;
+    if (d > 0) return `${d}g ${hh}s`;
+    if (h > 0) return `${h}s ${mm}dk`;
+    if (m > 0) return `${m}dk`;
+    return `${s}sn`;
+}
+
+function formatProductionDuration(ms: number): string {
+    const totalMin = Math.max(0, Math.floor(ms / 60000));
+    const d = Math.floor(totalMin / (60 * 24));
+    const h = Math.floor((totalMin - d * 60 * 24) / 60);
+    const m = totalMin % 60;
+    if (d > 0) return h > 0 ? `${d} gün ${h} saat` : `${d} gün`;
+    if (h > 0) return m > 0 ? `${h} saat ${m} dk` : `${h} saat`;
+    return `${m} dk`;
+}
+
+function normalizeDeliverySasiNoClient(raw: string) {
+    const t = String(raw ?? '').trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, '');
+    if (!t) return '';
+    if (!/^[A-Z0-9]+$/.test(t)) return '';
+    return t;
+}
+
+function TimelineMini({ tl }: { tl: StepTimeline }) {
+    const lastCompletedMs = tl.steps.reduce<number | null>((acc, s) => {
+        if (!s.completedAt) return acc;
+        const t = new Date(s.completedAt).getTime();
+        if (!Number.isFinite(t)) return acc;
+        return acc == null ? t : Math.max(acc, t);
+    }, null);
+
+    const firstCompletedMs = tl.steps.reduce<number | null>((acc, s) => {
+        if (!s.completedAt) return acc;
+        const t = new Date(s.completedAt).getTime();
+        if (!Number.isFinite(t)) return acc;
+        return acc == null ? t : Math.min(acc, t);
+    }, null);
+
+    const startIso =
+        tl.createdAt ??
+        tl.startedAt ??
+        (firstCompletedMs != null ? new Date(firstCompletedMs).toISOString() : null);
+    const endIso = tl.endedAt ?? (lastCompletedMs != null ? new Date(lastCompletedMs).toISOString() : null);
+
+    const totalProdMs = startIso && endIso ? new Date(endIso).getTime() - new Date(startIso).getTime() : null;
+    const totalProdLabel = totalProdMs != null && totalProdMs > 0 ? formatProductionDuration(totalProdMs) : '—';
+
+    const startLabel = startIso ? new Date(startIso).toLocaleDateString('tr-TR') : '—';
+    const endLabel = endIso ? new Date(endIso).toLocaleDateString('tr-TR') : '—';
+
+    // Build anonymous segments from completion gaps (no labels).
+    const times = tl.steps
+        .map(s => (s.completedAt ? new Date(s.completedAt).getTime() : null))
+        .filter((x): x is number => x != null)
+        .sort((a, b) => a - b);
+    const startMs = startIso ? new Date(startIso).getTime() : (times[0] ?? null);
+    const endMs = times.length ? Math.max(...times) : null;
+    const hasRange = !!startMs && !!endMs && endMs > startMs;
+    const total = hasRange ? endMs! - startMs! : 0;
+    let prev = startMs ?? 0;
+    const segments = (times.length ? times : []).slice(0, 16).map((t, idx) => {
+        const dur = hasRange ? Math.max(0, t - prev) : 0;
+        prev = t;
+        return { idx, dur, w: total > 0 ? (dur / total) * 100 : 0 };
+    });
+    const labelText = totalProdLabel === '—' ? 'Hesaplanamadı' : `${totalProdLabel}de üretildi`;
+
+    return (
+        <div className="prodTWrap">
+            <div className="prodTHeader">
+                <div className="prodTTitle">
+                    <div className="prodTTitleMain">Üretim süresi</div>
+                    <div className="prodTTitleSub">(teslimat hariç)</div>
+                </div>
+
+                <div className={`prodTChip ${totalProdLabel === '—' ? 'isMuted' : ''}`} title={labelText}>
+                    <span className="prodTDot" />
+                    <span className="prodTChipText">{labelText}</span>
+                </div>
+            </div>
+
+            <div className="prodTBar" aria-label="Üretim timeline grafiği">
+                <div className="prodTBarGlow" />
+                <div className="prodTBarShimmer" />
+                <div className="prodTBarSegments">
+                    {(segments.length ? segments : Array.from({ length: 12 }, (_, idx) => ({ idx, dur: 0, w: 100 / 12 }))).map(seg => (
+                        <div
+                            key={seg.idx}
+                            className="prodTSeg"
+                            style={{
+                                width: hasRange ? `${Math.max(0.5, seg.w)}%` : `${100 / 12}%`,
+                                opacity: hasRange ? 0.22 + (seg.idx % 6) * 0.09 : 0.10,
+                            }}
+                        />
+                    ))}
+                </div>
+                <div className="prodTMark start" />
+                <div className="prodTMark end" />
+                <div className="prodTTicks">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="prodTTick" style={{ left: `${(i + 1) * 20}%` }} />
+                    ))}
+                </div>
+            </div>
+
+            <div className="prodTFooter">
+                <div className="prodTDate" title="Başlangıç">
+                    {startLabel}
+                </div>
+                <div className="prodTDate" title="Bitiş">
+                    {endLabel}
+                </div>
+            </div>
+
+            <style jsx>{`
+                .prodTWrap {
+                    margin-top: 12px;
+                    padding: 16px 16px 14px;
+                    border-radius: 18px;
+                    border: 1px solid rgba(2, 35, 71, 0.12);
+                    background: radial-gradient(1200px 220px at 20% 0%, rgba(99, 102, 241, 0.10), transparent 60%),
+                        radial-gradient(900px 260px at 90% 30%, rgba(16, 185, 129, 0.10), transparent 55%),
+                        linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.65));
+                    box-shadow: 0 18px 40px rgba(2, 35, 71, 0.14);
+                    backdrop-filter: blur(10px);
+                }
+                .prodTHeader {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    margin-bottom: 12px;
+                }
+                .prodTTitleMain {
+                    font-size: 12px;
+                    font-weight: 900;
+                    letter-spacing: 0.3px;
+                    color: var(--foreground);
+                }
+                .prodTTitleSub {
+                    font-size: 11px;
+                    color: var(--muted);
+                    margin-top: 2px;
+                    font-weight: 650;
+                }
+                .prodTChip {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 9px 12px;
+                    border-radius: 9999px;
+                    border: 1px solid rgba(2, 35, 71, 0.16);
+                    background: linear-gradient(180deg, rgba(2, 35, 71, 0.16), rgba(2, 35, 71, 0.06));
+                    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42), 0 10px 18px rgba(2, 35, 71, 0.10);
+                }
+                .prodTChip.isMuted {
+                    opacity: 0.65;
+                }
+                .prodTDot {
+                    width: 9px;
+                    height: 9px;
+                    border-radius: 9999px;
+                    background: linear-gradient(180deg, rgba(16, 185, 129, 0.95), rgba(16, 185, 129, 0.55));
+                    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+                    flex-shrink: 0;
+                }
+                .prodTChip.isMuted .prodTDot {
+                    background: rgba(148, 163, 184, 0.85);
+                    box-shadow: none;
+                }
+                .prodTChipText {
+                    font-size: 12px;
+                    font-weight: 950;
+                    letter-spacing: 0.15px;
+                    color: var(--foreground);
+                    white-space: nowrap;
+                }
+
+                .prodTBar {
+                    position: relative;
+                    height: 18px;
+                    border-radius: 9999px;
+                    overflow: hidden;
+                    border: 1px solid rgba(2, 35, 71, 0.18);
+                    background: linear-gradient(180deg, rgba(15, 23, 42, 0.10), rgba(15, 23, 42, 0.04));
+                    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.60), inset 0 -12px 26px rgba(2, 35, 71, 0.10);
+                }
+                .prodTBarGlow {
+                    position: absolute;
+                    inset: -40px -60px;
+                    background: radial-gradient(circle at 20% 60%, rgba(99, 102, 241, 0.22), transparent 55%),
+                        radial-gradient(circle at 80% 30%, rgba(16, 185, 129, 0.18), transparent 60%);
+                    pointer-events: none;
+                }
+                .prodTBarShimmer {
+                    position: absolute;
+                    inset: 0;
+                    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+                    transform: translateX(-120%);
+                    animation: prodShimmer 2.6s ease-in-out infinite;
+                    opacity: 0.55;
+                    pointer-events: none;
+                }
+                @keyframes prodShimmer {
+                    0% {
+                        transform: translateX(-120%);
+                    }
+                    60% {
+                        transform: translateX(120%);
+                    }
+                    100% {
+                        transform: translateX(120%);
+                    }
+                }
+                .prodTBarSegments {
+                    position: absolute;
+                    inset: 0;
+                    display: flex;
+                }
+                .prodTSeg {
+                    background: linear-gradient(180deg, rgba(2, 35, 71, 0.90), rgba(2, 35, 71, 0.18));
+                    border-right: 1px solid rgba(255, 255, 255, 0.10);
+                }
+                .prodTMark {
+                    position: absolute;
+                    top: 50%;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 9999px;
+                    transform: translateY(-50%);
+                    background: rgba(255, 255, 255, 0.95);
+                    box-shadow: 0 0 0 2px rgba(2, 35, 71, 0.58), 0 10px 18px rgba(2, 35, 71, 0.16);
+                }
+                .prodTMark.start {
+                    left: 10px;
+                }
+                .prodTMark.end {
+                    right: 10px;
+                }
+                .prodTTicks {
+                    position: absolute;
+                    inset: 2px 10px;
+                    pointer-events: none;
+                }
+                .prodTTick {
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    width: 1px;
+                    background: rgba(255, 255, 255, 0.16);
+                }
+
+                .prodTFooter {
+                    margin-top: 10px;
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 12px;
+                    align-items: center;
+                }
+                .prodTDate {
+                    padding: 5px 10px;
+                    border-radius: 9999px;
+                    border: 1px solid rgba(2, 35, 71, 0.10);
+                    background: rgba(255, 255, 255, 0.55);
+                    color: var(--muted);
+                    font-size: 11px;
+                    font-weight: 800;
+                    letter-spacing: 0.15px;
+                }
+            `}</style>
+        </div>
+    );
+}
 
 type ListSortBy =
     | 'progress-asc'
@@ -194,6 +491,7 @@ function UrunListesiContent() {
     const [dorses, setDorses] = useState<Dorse[]>([]);
     const [sasis, setSasis] = useState<Sasi[]>([]);
     const [dropdowns, setDropdowns] = useState<Dropdowns | null>(null);
+    const [staleHint, setStaleHint] = useState<StaleHint>(null);
 
     const COLORS = {
         primary: '#022347',
@@ -209,8 +507,38 @@ function UrunListesiContent() {
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [sasiFilter, setSasiFilter] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [expandedId, setExpandedId] = useState<number | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
     const [sortBy, setSortBy] = useState<ListSortBy>(null);
+    const [deliveryDraft, setDeliveryDraft] = useState<{
+        kind: 'DAMPER' | 'DORSE';
+        id: number;
+        teslimSasiNo: string;
+        teslimEden: string;
+        teslimAlan: string;
+        teslimNot: string;
+    } | null>(null);
+    const [deliveryEdit, setDeliveryEdit] = useState<
+        | {
+              kind: 'DAMPER';
+              id: number;
+              teslimSasiNo: string;
+              teslimEden: string;
+              teslimAlan: string;
+              teslimAlanFirma: string;
+              teslimNot: string;
+          }
+        | {
+              kind: 'DORSE';
+              id: number;
+              teslimSasiNo: string;
+              teslimEden: string;
+              teslimAlan: string;
+              teslimAracSahibi: string;
+              teslimNot: string;
+          }
+        | null
+    >(null);
+    const [timelines, setTimelines] = useState<Record<string, TimelineState>>({});
 
     // Sasi Link Modal State
     const [showLinkModal, setShowLinkModal] = useState(false);
@@ -220,6 +548,151 @@ function UrunListesiContent() {
     const [availableSasis, setAvailableSasis] = useState<Sasi[]>([]);
     const [linkLoading, setLinkLoading] = useState(false);
     const { schedule: persistLater, flush: persistNow } = useDebouncedPersist();
+
+    // Dorse ekleme formu için: şasi listesi (unlinked) doldur.
+    useEffect(() => {
+        if (!showAddModal) return;
+        if (productType !== 'DORSE') return;
+        void (async () => {
+            try {
+                const { getSasis } = await import('@/lib/api');
+                const unlinkedSasis = await getSasis(true);
+                setAvailableSasis(unlinkedSasis);
+            } catch (e) {
+                console.error('Sasi listesi alınamadı:', e);
+                setAvailableSasis([]);
+            }
+        })();
+    }, [showAddModal, productType]);
+
+    useEffect(() => {
+        getStaleProducts(14)
+            .then((d) => {
+                const total = d.dampers.length + d.dorses.length + d.sasis.length;
+                setStaleHint(total > 0 ? { total, days: d.days } : null);
+            })
+            .catch(() => setStaleHint(null));
+    }, []);
+
+    useEffect(() => {
+        if (!expandedId) return;
+        if (productType !== 'DAMPER' && productType !== 'DORSE') return;
+        const [t, idStr] = expandedId.split('-');
+        const productId = Number(idStr);
+        const analyticsKind: 'DAMPER' | 'DORSE' | null = t === 'DAMPER' || t === 'DORSE' ? t : null;
+        if (!analyticsKind || !Number.isFinite(productId) || productId <= 0) return;
+
+        const key = `${analyticsKind}-${productId}`;
+        let shouldFetch = false;
+        setTimelines(prev => {
+            if (prev[key] !== undefined) return prev; // cached (including null)
+            shouldFetch = true;
+            return { ...prev, [key]: 'loading' };
+        });
+        if (!shouldFetch) return;
+
+        void (async () => {
+            try {
+                const res = await getStepEvents(analyticsKind, productId);
+                const byKey = new Map(res.events.map(e => [e.key, e.completedAt]));
+                setTimelines(prev => ({
+                    ...prev,
+                    [key]: {
+                        productType: analyticsKind,
+                        productId,
+                        createdAt: res.createdAt ?? null,
+                        startedAt: res.productionStartedAt,
+                        endedAt: res.productionEndAt ?? null,
+                        steps: res.steps.map(s => ({
+                            key: s.key,
+                            label: s.label,
+                            completedAt: byKey.get(s.key) ?? null
+                        }))
+                    }
+                }));
+            } catch (e) {
+                console.error('step-events fetch failed', analyticsKind, productId, e);
+                setTimelines(prev => ({ ...prev, [key]: null }));
+            }
+        })();
+    }, [expandedId, productType]);
+
+    // Prefetch timelines so "Tamamlanan" cards show instantly.
+    // IMPORTANT: do not reference sortedDampers/sortedDorses here (they are defined later).
+    useEffect(() => {
+        if (productType !== 'DAMPER' && productType !== 'DORSE') return;
+        if (statusFilter !== 'tamamlanan' && statusFilter !== 'teslimEdilen') return;
+
+        const kind: 'DAMPER' | 'DORSE' = productType;
+        const ids =
+            kind === 'DAMPER'
+                ? dampers
+                      .filter(d => {
+                          const st = getDamperStatus(d);
+                          return st === statusFilter;
+                      })
+                      .map(d => d.id)
+                : dorses
+                      .filter(d => {
+                          const st = getDorseStatus(d);
+                          return st === statusFilter;
+                      })
+                      .map(d => d.id);
+
+        // Prefetch only first N to protect UX.
+        const targetIds = ids.slice(0, 60);
+        if (targetIds.length === 0) return;
+
+        let cancelled = false;
+
+        const run = async () => {
+            const queue = [...targetIds];
+            const CONCURRENCY = 6;
+
+            const worker = async () => {
+                while (queue.length && !cancelled) {
+                    const id = queue.shift()!;
+                    const key = `${kind}-${id}`;
+
+                    // skip if already fetched/cached
+                    const existing = timelines[key];
+                    if (existing !== undefined && existing !== 'loading') continue;
+
+                    setTimelines(prev => (prev[key] === undefined ? { ...prev, [key]: 'loading' } : prev));
+                    try {
+                        const res = await getStepEvents(kind, id);
+                        const byKey = new Map(res.events.map(e => [e.key, e.completedAt]));
+                        if (cancelled) return;
+                        setTimelines(prev => ({
+                            ...prev,
+                            [key]: {
+                                productType: kind,
+                                productId: id,
+                                startedAt: res.productionStartedAt,
+                                steps: res.steps.map(s => ({
+                                    key: s.key,
+                                    label: s.label,
+                                    completedAt: byKey.get(s.key) ?? null
+                                }))
+                            }
+                        }));
+                    } catch (e) {
+                        if (cancelled) return;
+                        console.error('step-events prefetch failed', kind, id, e);
+                        setTimelines(prev => ({ ...prev, [key]: null }));
+                    }
+                }
+            };
+
+            await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
+        };
+
+        void run();
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [productType, statusFilter, dampers, dorses]);
 
     // Damper Form State
     const [formData, setFormData] = useState({
@@ -312,7 +785,7 @@ function UrunListesiContent() {
                 getDropdowns()
             ]);
             if (productType === 'DAMPER') setStats(damperStats);
-            else if (productType === 'DORSE') setStats(dorseStats);
+            else if (productType === 'DORSE' || productType === 'DORSE_SASI') setStats(dorseStats);
             else if (productType === 'SASI') setStats(sasiStats);
 
             setDampers(dampersData);
@@ -329,7 +802,7 @@ function UrunListesiContent() {
     // Refresh stats when product type changes
     useEffect(() => {
         async function updateStats() {
-            if (productType === 'HEPSI') return;
+            if (productType === 'HEPSI' || productType === 'DORSE_SASI') return;
             const s = await getStats(productType);
             setStats(s);
         }
@@ -360,7 +833,7 @@ function UrunListesiContent() {
             damper.yan, damper.onGogus, damper.arkaKapak, damper.yuklemeMalzemesi,
             damper.damperKurulmasi, damper.damperKaynak, damper.sasiKapakSiperlik,
             damper.yukleme, damper.hidrolik, damper.boyaHazirlik, damper.boya,
-            damper.elektrik, damper.hava, damper.tamamlama, damper.sonKontrol, damper.teslimat
+            damper.elektrik, damper.hava, damper.tamamlama, damper.sonKontrol
         ];
         const completed = steps.filter(Boolean).length;
         return Math.round((completed / steps.length) * 100);
@@ -375,7 +848,7 @@ function UrunListesiContent() {
             dorse.boyaHazirlik, dorse.dorseSasiBoyama,
             dorse.cekiciElektrik, dorse.cekiciHidrolik,
             dorse.frenProgrami, dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
-            dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
+            dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat
         ];
         const completed = steps.filter(Boolean).length;
         // akmTseMuayenesi and dmoMuayenesi are excluded - they don't block completion
@@ -383,6 +856,7 @@ function UrunListesiContent() {
     };
 
     const getDamperStatus = (damper: Damper): string => {
+        if (damper.teslimat) return 'teslimEdilen';
         // All step fields to check
         const allSteps = [
             damper.plazmaProgrami, damper.sacMalzemeKontrolu, damper.plazmaKesim,
@@ -391,7 +865,7 @@ function UrunListesiContent() {
             damper.yan, damper.onGogus, damper.arkaKapak, damper.yuklemeMalzemesi,
             damper.damperKurulmasi, damper.damperKaynak, damper.sasiKapakSiperlik,
             damper.yukleme, damper.hidrolik, damper.boyaHazirlik, damper.boya,
-            damper.elektrik, damper.hava, damper.tamamlama, damper.sonKontrol, damper.teslimat
+            damper.elektrik, damper.hava, damper.tamamlama, damper.sonKontrol
         ];
 
         const completedSteps = allSteps.filter(Boolean).length;
@@ -407,6 +881,7 @@ function UrunListesiContent() {
     };
 
     const getDorseStatus = (dorse: Dorse): string => {
+        if (dorse.teslimat) return 'teslimEdilen';
         const allSteps = [
             dorse.plazmaProgrami, dorse.sacMalzemeKontrolu, dorse.plazmaKesim,
             dorse.presBukum, dorse.dorseSasi,
@@ -415,7 +890,7 @@ function UrunListesiContent() {
             dorse.boyaHazirlik, dorse.dorseSasiBoyama,
             dorse.cekiciElektrik, dorse.cekiciHidrolik,
             dorse.frenProgrami, dorse.fren, dorse.dorseElektrik, dorse.tamamlama, dorse.aracKontrolBypassAyari,
-            dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat, dorse.teslimat
+            dorse.sonKontrol, dorse.tipOnay, dorse.fatura, dorse.tahsilat
         ];
 
         const completedSteps = allSteps.filter(Boolean).length;
@@ -514,6 +989,18 @@ function UrunListesiContent() {
     const handleStepToggle = (id: number, stepKey: string, currentValue: boolean, type: ProductType) => {
         const next = !currentValue;
         if (type === 'DAMPER') {
+            if (stepKey === 'teslimat' && next === true) {
+                setExpandedId(id);
+                setDeliveryDraft({
+                    kind: 'DAMPER',
+                    id,
+                    teslimSasiNo: '',
+                    teslimEden: '',
+                    teslimAlan: '',
+                    teslimNot: ''
+                });
+                return;
+            }
             setDampers(prev =>
                 prev.map(d => (d.id === id ? ({ ...d, [stepKey]: next } as Damper) : d))
             );
@@ -531,6 +1018,18 @@ function UrunListesiContent() {
                 }
             })();
         } else if (type === 'DORSE') {
+            if (stepKey === 'teslimat' && next === true) {
+                setExpandedId(id);
+                setDeliveryDraft({
+                    kind: 'DORSE',
+                    id,
+                    teslimSasiNo: '',
+                    teslimEden: '',
+                    teslimAlan: '',
+                    teslimNot: ''
+                });
+                return;
+            }
             setDorses(prev =>
                 prev.map(d => (d.id === id ? ({ ...d, [stepKey]: next } as Dorse) : d))
             );
@@ -564,6 +1063,49 @@ function UrunListesiContent() {
                     );
                 }
             })();
+        }
+    };
+
+    const confirmDelivery = async () => {
+        if (!deliveryDraft) return;
+        const temizNo = deliveryDraft.teslimSasiNo.toLocaleUpperCase('tr-TR').replace(/[^A-Z0-9]/g, '');
+        if (!temizNo) {
+            alert('Şase no zorunludur. Yalnız A–Z ve 0–9 kullanılabilir.');
+            return;
+        }
+        if (!deliveryDraft.teslimEden.trim()) {
+            alert('Teslim eden zorunludur.');
+            return;
+        }
+        if (!deliveryDraft.teslimAlan.trim()) {
+            alert('Teslim alan zorunludur.');
+            return;
+        }
+        try {
+            if (deliveryDraft.kind === 'DAMPER') {
+                const updated = await updateDamper(deliveryDraft.id, {
+                    teslimat: true,
+                    teslimSasiNo: temizNo,
+                    teslimEden: deliveryDraft.teslimEden.trim(),
+                    teslimAlan: deliveryDraft.teslimAlan.trim(),
+                    teslimNot: deliveryDraft.teslimNot.trim() || null
+                });
+                setDampers(prev => prev.map(d => (d.id === deliveryDraft.id ? updated : d)));
+            } else {
+                const updated = await updateDorse(deliveryDraft.id, {
+                    teslimat: true,
+                    teslimSasiNo: temizNo,
+                    teslimEden: deliveryDraft.teslimEden.trim(),
+                    teslimAlan: deliveryDraft.teslimAlan.trim(),
+                    teslimNot: deliveryDraft.teslimNot.trim() || null
+                });
+                setDorses(prev => prev.map(d => (d.id === deliveryDraft.id ? updated : d)));
+            }
+            setDeliveryDraft(null);
+            loadData();
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Teslim kaydedilemedi';
+            alert(msg);
         }
     };
 
@@ -743,12 +1285,17 @@ function UrunListesiContent() {
 
     // Filter and sort dorses
     const sortedDorses = useMemo(() => {
-        let result = [...dorses];
+        let result = productType === 'DORSE_SASI' ? dorses.filter(d => d.sasi) : [...dorses];
 
         if (searchTerm) {
             const t = searchTerm.trim();
             result = result.filter(
-                d => trIncludes(d.musteri, t) || (d.imalatNo ?? '').toString().includes(t)
+                d =>
+                    trIncludes(d.musteri, t) ||
+                    (d.imalatNo ?? '').toString().includes(t) ||
+                    trIncludes(d.sasi?.musteri, t) ||
+                    trIncludes(d.sasi?.sasiNo, t) ||
+                    (d.sasi?.imalatNo ?? '').toString().includes(t)
             );
         }
 
@@ -784,7 +1331,7 @@ function UrunListesiContent() {
         }
 
         return result;
-    }, [dorses, statusFilter, sortBy, searchTerm]);
+    }, [dorses, productType, statusFilter, sortBy, searchTerm]);
 
     // Filter and sort sasis
     const sortedSasis = useMemo(() => {
@@ -869,6 +1416,30 @@ function UrunListesiContent() {
 
         return result;
     }, [sasis, statusFilter, sortBy, sasiFilter, searchTerm]);
+
+    const linkedDorseSasis = useMemo(() => {
+        return dorses
+            .filter(d => d.sasi)
+            .map(d => ({
+                dorse: d,
+                sasi: d.sasi!,
+                dorseProgress: calculateDorseProgress(d),
+                sasiProgress: calculateSasiProgress(d.sasi!)
+            }))
+            .sort((a, b) => b.dorseProgress - a.dorseProgress);
+    }, [dorses]);
+
+    const filteredLinkedDorseSasis = useMemo(() => {
+        if (!searchTerm.trim()) return linkedDorseSasis;
+        const term = searchTerm.trim();
+        return linkedDorseSasis.filter(({ dorse, sasi }) =>
+            trIncludes(dorse.musteri, term) ||
+            String(dorse.imalatNo).includes(term) ||
+            trIncludes(sasi.musteri, term) ||
+            trIncludes(sasi.sasiNo, term) ||
+            String(sasi.imalatNo).includes(term)
+        );
+    }, [linkedDorseSasis, searchTerm]);
 
     // Helper functions for status (defined here to be accessible in sortedAllProducts)
 
@@ -1055,6 +1626,7 @@ function UrunListesiContent() {
         const damperStats = {
             total: dampers.length,
             tamamlanan: dampers.filter(d => getDamperStatus(d) === 'tamamlanan').length,
+            teslimEdilen: dampers.filter(d => d.teslimat).length,
             devamEden: dampers.filter(d => getDamperStatus(d) === 'devamEden').length,
             baslamayan: dampers.filter(d => getDamperStatus(d) === 'baslamayan').length
         };
@@ -1062,6 +1634,7 @@ function UrunListesiContent() {
         const dorseStats = {
             total: dorses.length,
             tamamlanan: dorses.filter(d => getDorseStatus(d) === 'tamamlanan').length,
+            teslimEdilen: dorses.filter(d => d.teslimat).length,
             devamEden: dorses.filter(d => getDorseStatus(d) === 'devamEden').length,
             baslamayan: dorses.filter(d => getDorseStatus(d) === 'baslamayan').length
         };
@@ -1072,6 +1645,18 @@ function UrunListesiContent() {
             devamEden: sasis.filter(s => getSasiStatus(s) === 'devamEden').length,
             baslamayan: sasis.filter(s => getSasiStatus(s) === 'baslamayan').length
         };
+
+        if (productType === 'DORSE_SASI') {
+            return {
+                total: sortedDorses.length,
+                tamamlanan: sortedDorses.filter(d => calculateDorseProgress(d) === 100).length,
+                devamEden: sortedDorses.filter(d => {
+                    const p = calculateDorseProgress(d);
+                    return p > 0 && p < 100;
+                }).length,
+                baslamayan: sortedDorses.filter(d => calculateDorseProgress(d) === 0).length,
+            };
+        }
 
         if (productType === 'HEPSI') {
             return {
@@ -1088,10 +1673,10 @@ function UrunListesiContent() {
 
         // Default: DORSE
         return dorseStats;
-    }, [productType, stats, dorses, sasis, dampers]);
+    }, [productType, stats, dorses, sasis, dampers, sortedDorses]);
 
     const handleExportExcel = async () => {
-        if (productType === 'HEPSI') {
+        if (productType === 'HEPSI' || productType === 'DORSE_SASI') {
             alert('Lütfen Excel çıktısı almak için belirli bir ürün grubu (Damper, Dorse veya Şasi) seçiniz.');
             return;
         }
@@ -1471,19 +2056,58 @@ function UrunListesiContent() {
                     <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
                         <div>
                             <h1 className="header-title">Ürün Listesi</h1>
-                            <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Tüm'} imalat süreçlerini görüntüleyin ve yönetin</p>
+                            <p className="header-subtitle">
+                                {(productType === 'DAMPER'
+                                    ? 'Damper'
+                                    : productType === 'DORSE'
+                                      ? 'Dorse'
+                                      : productType === 'SASI'
+                                        ? 'Şasi'
+                                        : productType === 'DORSE_SASI'
+                                          ? 'Dorse+Şasi'
+                                          : 'Tüm')}{' '}
+                                imalat süreçlerini görüntüleyin ve yönetin
+                            </p>
                         </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button className="btn btn-secondary" onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <FileSpreadsheet size={20} /> Excel'e Aktar
                             </button>
-                            {productType !== ('HEPSI' as any) && (
+                            {productType !== ('HEPSI' as any) && productType !== ('DORSE_SASI' as any) && (
                                 <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
-                                    <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Ürün'} Ekle
+                                    <Plus size={20} /> Yeni{' '}
+                                    {productType === 'DAMPER'
+                                        ? 'Damper'
+                                        : productType === 'DORSE'
+                                          ? 'Dorse'
+                                          : productType === 'SASI'
+                                            ? 'Şasi'
+                                            : 'Ürün'}{' '}
+                                    Ekle
                                 </button>
                             )}
                         </div>
                     </div>
+
+                    {staleHint && (
+                        <div
+                            style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                borderRadius: '10px',
+                                background: 'rgba(245, 158, 11, 0.10)',
+                                border: '1px solid rgba(245, 158, 11, 0.28)',
+                                fontSize: '13px',
+                                color: '#92400e',
+                            }}
+                        >
+                            <strong>Hatırlatma:</strong> Üretimde olup son {staleHint.days} gündür güncellenmeyen{' '}
+                            <strong>{staleHint.total}</strong> kayıt var (teslimat bekleyen / şasi montajı bitmemiş).{' '}
+                            <Link href="/urun-listesi" style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                                Ürün listesine git
+                            </Link>
+                        </div>
+                    )}
 
                     {/* Product Toggle & Search */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
@@ -1542,6 +2166,22 @@ function UrunListesiContent() {
                                     padding: '8px 16px',
                                     borderRadius: '6px',
                                     border: 'none',
+                                    background: productType === 'DORSE_SASI' ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
+                                    color: productType === 'DORSE_SASI' ? 'white' : 'var(--muted)',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => setProductType('DORSE_SASI')}
+                            >
+                                Dorse+Şasi
+                            </button>
+                            <button
+                                type="button"
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: 'none',
                                     background: productType === 'HEPSI' ? 'var(--primary)' : 'transparent',
                                     color: productType === 'HEPSI' ? 'white' : 'var(--muted)',
                                     fontWeight: 500,
@@ -1558,7 +2198,15 @@ function UrunListesiContent() {
                             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
                             <input
                                 type="text"
-                                placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Tüm Ürünler'} Ara...`}
+                                placeholder={`${productType === 'DAMPER'
+                                    ? 'Damper'
+                                    : productType === 'DORSE'
+                                      ? 'Dorse'
+                                      : productType === 'SASI'
+                                        ? 'Şasi'
+                                        : productType === 'DORSE_SASI'
+                                          ? 'Dorse+Şasi'
+                                          : 'Tüm Ürünler'} Ara...`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 style={{
@@ -1888,7 +2536,7 @@ function UrunListesiContent() {
 
                     </div>
                 ) : (
-                    <div className="stats-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="stats-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div
                             style={{
                                 cursor: 'pointer',
@@ -1914,7 +2562,14 @@ function UrunListesiContent() {
                             </div>
                             <div>
                                 <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
-                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Ürünler'}</div>
+                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>
+                                    Toplam{' '}
+                                    {productType === 'DAMPER'
+                                        ? 'Damper'
+                                        : productType === 'DORSE' || productType === 'DORSE_SASI'
+                                          ? 'Dorse'
+                                          : 'Ürünler'}
+                                </div>
                             </div>
                         </div>
 
@@ -1944,6 +2599,34 @@ function UrunListesiContent() {
                             <div>
                                 <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
                                 <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Tamamlanan</div>
+                            </div>
+                        </div>
+                        <div
+                            style={{
+                                cursor: 'pointer',
+                                borderLeft: `4px solid ${COLORS.info}`,
+                                borderTop: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                                borderRight: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                                borderBottom: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
+                                borderRadius: '12px',
+                                padding: '16px',
+                                backgroundColor: 'white',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                                display: 'flex', alignItems: 'center', gap: '16px',
+                                transition: 'all 0.2s'
+                            }}
+                            onClick={() => setStatusFilter(statusFilter === 'teslimEdilen' ? null : 'teslimEdilen')}
+                        >
+                            <div style={{
+                                width: '48px', height: '48px', borderRadius: '12px',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.info,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <Truck size={24} strokeWidth={2} />
+                            </div>
+                            <div>
+                                <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{(currentStats as any)?.teslimEdilen || 0}</div>
+                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Teslim Edilen</div>
                             </div>
                         </div>
                         <div
@@ -2009,16 +2692,20 @@ function UrunListesiContent() {
                 <div style={{ marginBottom: '24px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                         <h2 style={{ fontSize: '18px', fontWeight: 600 }}>
-                            {statusFilter === 'tamamlanan' && `✅ Tamamlanan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
-                            {statusFilter === 'devamEden' && `🔄 Devam Eden ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
-                            {statusFilter === 'baslamayan' && `⏸️ Başlamayan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
+                            {statusFilter === 'tamamlanan' &&
+                                `✅ Tamamlanan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' || productType === 'DORSE_SASI' ? 'Dorseler' : 'Şasiler'}`}
+                            {statusFilter === 'devamEden' &&
+                                `🔄 Devam Eden ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' || productType === 'DORSE_SASI' ? 'Dorseler' : 'Şasiler'}`}
+                            {statusFilter === 'baslamayan' &&
+                                `⏸️ Başlamayan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' || productType === 'DORSE_SASI' ? 'Dorseler' : 'Şasiler'}`}
                             {statusFilter === 'eksikNumara' &&
                                 (productType === 'SASI'
                                     ? 'Şasi no girilmeyen şasiler'
                                     : productType === 'HEPSI'
                                       ? 'İmalat veya şasi no eksik kayıtlar'
                                       : `İmalat no girilmeyen ${productType === 'DAMPER' ? 'damperler' : 'dorseler'}`)}
-                            {!statusFilter && `Tüm ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
+                            {!statusFilter &&
+                                `Tüm ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' || productType === 'DORSE_SASI' ? 'Dorseler' : 'Şasiler'}`}
                         </h2>
                         {statusFilter && (
                             <button className="btn btn-secondary" onClick={() => setStatusFilter(null)}>
@@ -2247,13 +2934,13 @@ function UrunListesiContent() {
                                     const damper = item as typeof dampers[0];
                                     const progress = calculateProgress(damper);
                                     const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
-                                    const isExpanded = expandedId === damper.id;
+                                    const isExpanded = expandedId === `DAMPER-${damper.id}`;
 
                                     return (
                                         <div key={`DAMPER-${damper.id}`} id={`urun-row-DAMPER-${damper.id}`} className="damper-card">
                                             <div
                                                 className="damper-card-header"
-                                                onClick={() => setExpandedId(isExpanded ? null : damper.id)}
+                                                onClick={() => setExpandedId(isExpanded ? null : `DAMPER-${damper.id}`)}
                                             >
                                                 <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{damper.imalatNo}</div>
                                                 <div style={{ fontWeight: 500 }}>{damper.musteri}</div>
@@ -2763,11 +3450,11 @@ function UrunListesiContent() {
                                                                                 <div style={{ alignSelf: 'center', flexShrink: 0 }}>
                                                                                     <div
                                                                                         className={`step-toggle ${toggleOn ? 'active' : ''}`}
-                                                                                        onClick={
-                                                                                            isBrandaMontajiLocked
-                                                                                                ? undefined
-                                                                                                : () => handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER')
-                                                                                        }
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            if (isBrandaMontajiLocked) return;
+                                                                                            handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER');
+                                                                                        }}
                                                                                         title={
                                                                                             isBrandaMontajiLocked
                                                                                                 ? 'Branda yok — montaj takip edilmez'
@@ -2835,11 +3522,275 @@ function UrunListesiContent() {
                                                                 <span className="step-item-label">Teslimat</span>
                                                                 <div
                                                                     className={`step-toggle ${damper.teslimat ? 'active' : ''}`}
-                                                                    onClick={() => handleStepToggle(damper.id, 'teslimat', damper.teslimat, 'DAMPER')}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleStepToggle(damper.id, 'teslimat', damper.teslimat, 'DAMPER');
+                                                                    }}
                                                                 ></div>
                                                             </div>
                                                         </div>
                                                     </div>
+
+                                                    {deliveryDraft?.kind === 'DAMPER' && deliveryDraft.id === damper.id && (
+                                                        <div
+                                                            className="card"
+                                                            style={{
+                                                                marginTop: '16px',
+                                                                padding: '16px',
+                                                                borderRadius: '14px',
+                                                                background: 'white',
+                                                                border: '1px solid rgba(2, 35, 71, 0.10)',
+                                                                boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                                <div style={{ fontWeight: 800, letterSpacing: '0.2px' }}>Teslim bilgileri</div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Kaydetmek için “Teslim Et”</div>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    Şase No
+                                                                    <input
+                                                                        value={deliveryDraft.teslimSasiNo}
+                                                                        onChange={(e) =>
+                                                                            setDeliveryDraft((p) =>
+                                                                                p
+                                                                                    ? {
+                                                                                          ...p,
+                                                                                          teslimSasiNo: e.target.value
+                                                                                              .toLocaleUpperCase('tr-TR')
+                                                                                              .replace(/[^A-Z0-9]/g, '')
+                                                                                      }
+                                                                                    : p
+                                                                            )
+                                                                        }
+                                                                        className="input"
+                                                                        placeholder="Örn: TRAX3077108"
+                                                                        style={{ marginTop: '6px' }}
+                                                                    />
+                                                                </label>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    Teslim Eden
+                                                                    <input
+                                                                        value={deliveryDraft.teslimEden}
+                                                                        onChange={(e) =>
+                                                                            setDeliveryDraft((p) => (p ? { ...p, teslimEden: e.target.value } : p))
+                                                                        }
+                                                                        className="input"
+                                                                        style={{ marginTop: '6px' }}
+                                                                    />
+                                                                </label>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    Teslim Alan
+                                                                    <input
+                                                                        value={deliveryDraft.teslimAlan}
+                                                                        onChange={(e) =>
+                                                                            setDeliveryDraft((p) => (p ? { ...p, teslimAlan: e.target.value } : p))
+                                                                        }
+                                                                        className="input"
+                                                                        style={{ marginTop: '6px' }}
+                                                                    />
+                                                                </label>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    Teslim Alan Firma (otomatik)
+                                                                    <input value={damper.musteri} readOnly className="input" style={{ marginTop: '6px', opacity: 0.75 }} />
+                                                                </label>
+                                                            </div>
+                                                            <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginTop: '12px' }}>
+                                                                Not
+                                                                <textarea
+                                                                    value={deliveryDraft.teslimNot}
+                                                                    onChange={(e) =>
+                                                                        setDeliveryDraft((p) => (p ? { ...p, teslimNot: e.target.value } : p))
+                                                                    }
+                                                                    className="input"
+                                                                    style={{ marginTop: '6px', minHeight: '80px' }}
+                                                                />
+                                                            </label>
+                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
+                                                                <button className="btn btn-secondary" onClick={() => setDeliveryDraft(null)}>
+                                                                    Vazgeç
+                                                                </button>
+                                                                <button className="btn btn-primary" onClick={() => void confirmDelivery()}>
+                                                                    Teslim Et
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {!deliveryDraft && damper.teslimat && (
+                                                        <div
+                                                            className="card"
+                                                            style={{
+                                                                marginTop: '16px',
+                                                                padding: '16px',
+                                                                borderRadius: '14px',
+                                                                background: 'linear-gradient(180deg, rgba(16,185,129,0.08), rgba(16,185,129,0.03))',
+                                                                border: '1px solid rgba(16, 185, 129, 0.22)',
+                                                                boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: '10px' }}>
+                                                                <div style={{ fontWeight: 800, letterSpacing: '0.2px' }}>Teslim edildi</div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                        {damper.teslimAt ? new Date(damper.teslimAt).toLocaleString('tr-TR') : ''}
+                                                                    </div>
+                                                                    <button
+                                                                        className="btn btn-secondary"
+                                                                        style={{ padding: '6px 10px', fontSize: 12 }}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setDeliveryEdit({
+                                                                                kind: 'DAMPER',
+                                                                                id: damper.id,
+                                                                                teslimSasiNo: damper.teslimSasiNo || '',
+                                                                                teslimEden: damper.teslimEden || '',
+                                                                                teslimAlan: damper.teslimAlan || '',
+                                                                                teslimAlanFirma: damper.teslimAlanFirma || damper.musteri || '',
+                                                                                teslimNot: damper.teslimNot || '',
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        Düzenle
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {deliveryEdit?.kind === 'DAMPER' && deliveryEdit.id === damper.id ? (
+                                                                <div>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                                        <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                            Şase No
+                                                                            <input
+                                                                                className="input"
+                                                                                style={{ marginTop: 6, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+                                                                                value={deliveryEdit.teslimSasiNo}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => {
+                                                                                    const next = e.target.value.toLocaleUpperCase('tr-TR').replace(/\s+/g, '');
+                                                                                    setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimSasiNo: next } : p));
+                                                                                }}
+                                                                            />
+                                                                        </label>
+                                                                        <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                            Teslim Eden
+                                                                            <input
+                                                                                className="input"
+                                                                                style={{ marginTop: 6 }}
+                                                                                value={deliveryEdit.teslimEden}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimEden: e.target.value } : p))}
+                                                                            />
+                                                                        </label>
+                                                                        <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                            Teslim Alan
+                                                                            <input
+                                                                                className="input"
+                                                                                style={{ marginTop: 6 }}
+                                                                                value={deliveryEdit.teslimAlan}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimAlan: e.target.value } : p))}
+                                                                            />
+                                                                        </label>
+                                                                        <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                            Teslim Alan Firma
+                                                                            <input
+                                                                                className="input"
+                                                                                style={{ marginTop: 6 }}
+                                                                                value={deliveryEdit.teslimAlanFirma}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimAlanFirma: e.target.value } : p))}
+                                                                            />
+                                                                        </label>
+                                                                    </div>
+                                                                    <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginTop: 12 }}>
+                                                                        Not
+                                                                        <textarea
+                                                                            className="input"
+                                                                            style={{ marginTop: 6, minHeight: 80 }}
+                                                                            value={deliveryEdit.teslimNot}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimNot: e.target.value } : p))}
+                                                                        />
+                                                                    </label>
+                                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+                                                                        <button className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setDeliveryEdit(null); }}>
+                                                                            Vazgeç
+                                                                        </button>
+                                                                        <button
+                                                                            className="btn btn-primary"
+                                                                            onClick={async (e) => {
+                                                                                e.stopPropagation();
+                                                                                const normalized = normalizeDeliverySasiNoClient(deliveryEdit.teslimSasiNo);
+                                                                                if (!normalized) return alert('Şase no geçersiz. Yalnız A–Z ve 0–9 kullanılabilir.');
+                                                                                const updated = await updateDamper(damper.id, {
+                                                                                    teslimSasiNo: normalized,
+                                                                                    teslimEden: deliveryEdit.teslimEden,
+                                                                                    teslimAlan: deliveryEdit.teslimAlan,
+                                                                                    teslimAlanFirma: deliveryEdit.teslimAlanFirma,
+                                                                                    teslimNot: deliveryEdit.teslimNot || null,
+                                                                                });
+                                                                                setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                                setDeliveryEdit(null);
+                                                                            }}
+                                                                        >
+                                                                            Kaydet
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                                        <div>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Şase No</div>
+                                                                            <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontWeight: 700 }}>
+                                                                                {damper.teslimSasiNo || '—'}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Teslim Eden</div>
+                                                                            <div style={{ fontWeight: 600 }}>{damper.teslimEden || '—'}</div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Teslim Alan</div>
+                                                                            <div style={{ fontWeight: 600 }}>{damper.teslimAlan || '—'}</div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Teslim Alan Firma</div>
+                                                                            <div style={{ fontWeight: 600 }}>{damper.teslimAlanFirma || damper.musteri || '—'}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {damper.teslimNot ? (
+                                                                        <div style={{ marginTop: 12 }}>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Not</div>
+                                                                            <div style={{ color: 'var(--foreground)' }}>{damper.teslimNot}</div>
+                                                                        </div>
+                                                                    ) : null}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {productType === 'DAMPER' &&
+                                                    (getDamperStatus(damper) === 'tamamlanan' || getDamperStatus(damper) === 'teslimEdilen') ? (
+                                                        (() => {
+                                                            const tl = timelines[`DAMPER-${damper.id}`];
+                                                            if (tl === 'loading') {
+                                                                return (
+                                                                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                                                                        Üretim süresi hazırlanıyor…
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            if (tl) return <TimelineMini tl={tl} />;
+                                                            return (
+                                                                <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                                                                    Üretim süresi verisi bulunamadı.
+                                                                </div>
+                                                            );
+                                                        })()
+                                                    ) : null}
 
                                                     {/* Delete Button */}
                                                     <div style={{
@@ -2883,14 +3834,14 @@ function UrunListesiContent() {
                                     const progress = calculateSasiProgress(sasi);
                                     let overallStatus = getSasiStatus(sasi);
                                     overallStatus = overallStatus === 'tamamlanan' ? 'TAMAMLANDI' : overallStatus === 'baslamayan' ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
-                                    const isExpanded = expandedId === sasi.id;
+                                    const isExpanded = expandedId === `SASI-${sasi.id}`;
 
                                     return (
                                         <div key={`SASI-${sasi.id}`} id={`urun-row-SASI-${sasi.id}`} className="damper-card">
                                             {/* Header */}
                                             <div
                                                 className="damper-card-header"
-                                                onClick={() => setExpandedId(isExpanded ? null : sasi.id)}
+                                                onClick={() => setExpandedId(isExpanded ? null : `SASI-${sasi.id}`)}
                                             >
                                                 <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{sasi.imalatNo}</div>
                                                 <div style={{ fontWeight: 500 }}>{sasi.musteri}</div>
@@ -3127,13 +4078,13 @@ function UrunListesiContent() {
                                     const dorse = item as typeof dorses[0];
                                     const progress = calculateDorseProgress(dorse);
                                     const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
-                                    const isExpanded = expandedId === dorse.id;
+                                    const isExpanded = expandedId === `DORSE-${dorse.id}`;
 
                                     return (
                                         <div key={`DORSE-${dorse.id}`} id={`urun-row-DORSE-${dorse.id}`} className="damper-card">
                                             <div
                                                 className="damper-card-header"
-                                                onClick={() => setExpandedId(isExpanded ? null : dorse.id)}
+                                                onClick={() => setExpandedId(isExpanded ? null : `DORSE-${dorse.id}`)}
                                             >
                                                 <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{dorse.imalatNo}</div>
                                                 <div style={{ fontWeight: 500 }}>{dorse.musteri}</div>
@@ -3763,6 +4714,26 @@ function UrunListesiContent() {
                                                         );
                                                     })}
 
+                                                    {productType === 'DORSE' &&
+                                                    (getDorseStatus(dorse) === 'tamamlanan' || getDorseStatus(dorse) === 'teslimEdilen') ? (
+                                                        (() => {
+                                                            const tl = timelines[`DORSE-${dorse.id}`];
+                                                            if (tl === 'loading') {
+                                                                return (
+                                                                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                                                                        Üretim süresi hazırlanıyor…
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            if (tl) return <TimelineMini tl={tl} />;
+                                                            return (
+                                                                <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                                                                    Üretim süresi verisi bulunamadı.
+                                                                </div>
+                                                            );
+                                                        })()
+                                                    ) : null}
+
                                                     {/* Delete Button */}
                                                     <div style={{
                                                         marginTop: '20px',
@@ -3808,13 +4779,13 @@ function UrunListesiContent() {
                             sortedDampers.map((damper) => {
                                 const progress = calculateProgress(damper);
                                 const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
-                                const isExpanded = expandedId === damper.id;
+                                const isExpanded = expandedId === `DAMPER-${damper.id}`;
 
                                 return (
                                     <div key={damper.id} id={`urun-row-DAMPER-${damper.id}`} className="damper-card">
                                         <div
                                             className="damper-card-header"
-                                            onClick={() => setExpandedId(isExpanded ? null : damper.id)}
+                                            onClick={() => setExpandedId(isExpanded ? null : `DAMPER-${damper.id}`)}
                                         >
                                             <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{damper.imalatNo}</div>
                                             <div style={{ fontWeight: 500 }}>{damper.musteri}</div>
@@ -4324,11 +5295,11 @@ function UrunListesiContent() {
                                                                             <div style={{ alignSelf: 'center', flexShrink: 0 }}>
                                                                                 <div
                                                                                     className={`step-toggle ${toggleOn ? 'active' : ''}`}
-                                                                                    onClick={
-                                                                                        isBrandaMontajiLocked
-                                                                                            ? undefined
-                                                                                            : () => handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER')
-                                                                                    }
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        if (isBrandaMontajiLocked) return;
+                                                                                        handleStepToggle(damper.id, step.key, isCompleted, 'DAMPER');
+                                                                                    }}
                                                                                     title={
                                                                                         isBrandaMontajiLocked
                                                                                             ? 'Branda yok — montaj takip edilmez'
@@ -4396,11 +5367,275 @@ function UrunListesiContent() {
                                                             <span className="step-item-label">Teslimat</span>
                                                             <div
                                                                 className={`step-toggle ${damper.teslimat ? 'active' : ''}`}
-                                                                onClick={() => handleStepToggle(damper.id, 'teslimat', damper.teslimat, 'DAMPER')}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleStepToggle(damper.id, 'teslimat', damper.teslimat, 'DAMPER');
+                                                                }}
                                                             ></div>
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                    {deliveryDraft?.kind === 'DAMPER' && deliveryDraft.id === damper.id && (
+                                                        <div
+                                                            className="card"
+                                                            style={{
+                                                                marginTop: '16px',
+                                                                padding: '16px',
+                                                                borderRadius: '14px',
+                                                                background: 'white',
+                                                                border: '1px solid rgba(2, 35, 71, 0.10)',
+                                                                boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                                <div style={{ fontWeight: 800, letterSpacing: '0.2px' }}>Teslim bilgileri</div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Kaydetmek için “Teslim Et”</div>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    Şase No
+                                                                    <input
+                                                                        value={deliveryDraft.teslimSasiNo}
+                                                                        onChange={(e) =>
+                                                                            setDeliveryDraft((p) =>
+                                                                                p
+                                                                                    ? {
+                                                                                          ...p,
+                                                                                          teslimSasiNo: e.target.value
+                                                                                              .toLocaleUpperCase('tr-TR')
+                                                                                              .replace(/[^A-Z0-9]/g, '')
+                                                                                      }
+                                                                                    : p
+                                                                            )
+                                                                        }
+                                                                        className="input"
+                                                                        placeholder="Örn: TRAX3077108"
+                                                                        style={{ marginTop: '6px' }}
+                                                                    />
+                                                                </label>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    Teslim Eden
+                                                                    <input
+                                                                        value={deliveryDraft.teslimEden}
+                                                                        onChange={(e) =>
+                                                                            setDeliveryDraft((p) => (p ? { ...p, teslimEden: e.target.value } : p))
+                                                                        }
+                                                                        className="input"
+                                                                        style={{ marginTop: '6px' }}
+                                                                    />
+                                                                </label>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    Teslim Alan
+                                                                    <input
+                                                                        value={deliveryDraft.teslimAlan}
+                                                                        onChange={(e) =>
+                                                                            setDeliveryDraft((p) => (p ? { ...p, teslimAlan: e.target.value } : p))
+                                                                        }
+                                                                        className="input"
+                                                                        style={{ marginTop: '6px' }}
+                                                                    />
+                                                                </label>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    Teslim Alan Firma (otomatik)
+                                                                    <input value={damper.musteri} readOnly className="input" style={{ marginTop: '6px', opacity: 0.75 }} />
+                                                                </label>
+                                                            </div>
+                                                            <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginTop: '12px' }}>
+                                                                Not
+                                                                <textarea
+                                                                    value={deliveryDraft.teslimNot}
+                                                                    onChange={(e) =>
+                                                                        setDeliveryDraft((p) => (p ? { ...p, teslimNot: e.target.value } : p))
+                                                                    }
+                                                                    className="input"
+                                                                    style={{ marginTop: '6px', minHeight: '80px' }}
+                                                                />
+                                                            </label>
+                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
+                                                                <button className="btn btn-secondary" onClick={() => setDeliveryDraft(null)}>
+                                                                    Vazgeç
+                                                                </button>
+                                                                <button className="btn btn-primary" onClick={() => void confirmDelivery()}>
+                                                                    Teslim Et
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {!deliveryDraft && damper.teslimat && (
+                                                        <div
+                                                            className="card"
+                                                            style={{
+                                                                marginTop: '16px',
+                                                                padding: '16px',
+                                                                borderRadius: '14px',
+                                                                background: 'linear-gradient(180deg, rgba(16,185,129,0.08), rgba(16,185,129,0.03))',
+                                                                border: '1px solid rgba(16, 185, 129, 0.22)',
+                                                                boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: '10px' }}>
+                                                                <div style={{ fontWeight: 800, letterSpacing: '0.2px' }}>Teslim edildi</div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                        {damper.teslimAt ? new Date(damper.teslimAt).toLocaleString('tr-TR') : ''}
+                                                                    </div>
+                                                                    <button
+                                                                        className="btn btn-secondary"
+                                                                        style={{ padding: '6px 10px', fontSize: 12 }}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setDeliveryEdit({
+                                                                                kind: 'DAMPER',
+                                                                                id: damper.id,
+                                                                                teslimSasiNo: damper.teslimSasiNo || '',
+                                                                                teslimEden: damper.teslimEden || '',
+                                                                                teslimAlan: damper.teslimAlan || '',
+                                                                                teslimAlanFirma: damper.teslimAlanFirma || damper.musteri || '',
+                                                                                teslimNot: damper.teslimNot || '',
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        Düzenle
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {deliveryEdit?.kind === 'DAMPER' && deliveryEdit.id === damper.id ? (
+                                                                <div>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                                        <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                            Şase No
+                                                                            <input
+                                                                                className="input"
+                                                                                style={{ marginTop: 6, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+                                                                                value={deliveryEdit.teslimSasiNo}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => {
+                                                                                    const next = e.target.value.toLocaleUpperCase('tr-TR').replace(/\s+/g, '');
+                                                                                    setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimSasiNo: next } : p));
+                                                                                }}
+                                                                            />
+                                                                        </label>
+                                                                        <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                            Teslim Eden
+                                                                            <input
+                                                                                className="input"
+                                                                                style={{ marginTop: 6 }}
+                                                                                value={deliveryEdit.teslimEden}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimEden: e.target.value } : p))}
+                                                                            />
+                                                                        </label>
+                                                                        <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                            Teslim Alan
+                                                                            <input
+                                                                                className="input"
+                                                                                style={{ marginTop: 6 }}
+                                                                                value={deliveryEdit.teslimAlan}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimAlan: e.target.value } : p))}
+                                                                            />
+                                                                        </label>
+                                                                        <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                            Teslim Alan Firma
+                                                                            <input
+                                                                                className="input"
+                                                                                style={{ marginTop: 6 }}
+                                                                                value={deliveryEdit.teslimAlanFirma}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimAlanFirma: e.target.value } : p))}
+                                                                            />
+                                                                        </label>
+                                                                    </div>
+                                                                    <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginTop: 12 }}>
+                                                                        Not
+                                                                        <textarea
+                                                                            className="input"
+                                                                            style={{ marginTop: 6, minHeight: 80 }}
+                                                                            value={deliveryEdit.teslimNot}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DAMPER' ? { ...p, teslimNot: e.target.value } : p))}
+                                                                        />
+                                                                    </label>
+                                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+                                                                        <button className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setDeliveryEdit(null); }}>
+                                                                            Vazgeç
+                                                                        </button>
+                                                                        <button
+                                                                            className="btn btn-primary"
+                                                                            onClick={async (e) => {
+                                                                                e.stopPropagation();
+                                                                                const normalized = normalizeDeliverySasiNoClient(deliveryEdit.teslimSasiNo);
+                                                                                if (!normalized) return alert('Şase no geçersiz. Yalnız A–Z ve 0–9 kullanılabilir.');
+                                                                                const updated = await updateDamper(damper.id, {
+                                                                                    teslimSasiNo: normalized,
+                                                                                    teslimEden: deliveryEdit.teslimEden,
+                                                                                    teslimAlan: deliveryEdit.teslimAlan,
+                                                                                    teslimAlanFirma: deliveryEdit.teslimAlanFirma,
+                                                                                    teslimNot: deliveryEdit.teslimNot || null,
+                                                                                });
+                                                                                setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
+                                                                                setDeliveryEdit(null);
+                                                                            }}
+                                                                        >
+                                                                            Kaydet
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                                        <div>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Şase No</div>
+                                                                            <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontWeight: 700 }}>
+                                                                                {damper.teslimSasiNo || '—'}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Teslim Eden</div>
+                                                                            <div style={{ fontWeight: 600 }}>{damper.teslimEden || '—'}</div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Teslim Alan</div>
+                                                                            <div style={{ fontWeight: 600 }}>{damper.teslimAlan || '—'}</div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Teslim Alan Firma</div>
+                                                                            <div style={{ fontWeight: 600 }}>{damper.teslimAlanFirma || damper.musteri || '—'}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {damper.teslimNot ? (
+                                                                        <div style={{ marginTop: 12 }}>
+                                                                            <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Not</div>
+                                                                            <div style={{ color: 'var(--foreground)' }}>{damper.teslimNot}</div>
+                                                                        </div>
+                                                                    ) : null}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {productType === 'DAMPER' &&
+                                                    (getDamperStatus(damper) === 'tamamlanan' || getDamperStatus(damper) === 'teslimEdilen') ? (
+                                                        (() => {
+                                                            const tl = timelines[`DAMPER-${damper.id}`];
+                                                            if (tl === 'loading') {
+                                                                return (
+                                                                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                                                                        Üretim süresi hazırlanıyor…
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            if (tl) return <TimelineMini tl={tl} />;
+                                                            return (
+                                                                <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                                                                    Üretim süresi verisi bulunamadı.
+                                                                </div>
+                                                            );
+                                                        })()
+                                                    ) : null}
 
                                                 {/* Delete Button */}
                                                 <div style={{
@@ -4452,14 +5687,14 @@ function UrunListesiContent() {
                                 const progress = calculateSasiProgress(sasi);
                                 let overallStatus = getSasiStatus(sasi);
                                 overallStatus = overallStatus === 'tamamlanan' ? 'TAMAMLANDI' : overallStatus === 'baslamayan' ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
-                                const isExpanded = expandedId === sasi.id;
+                                const isExpanded = expandedId === `SASI-${sasi.id}`;
 
                                 return (
                                     <div key={sasi.id} id={`urun-row-SASI-${sasi.id}`} className="damper-card">
                                         {/* Header */}
                                         <div
                                             className="damper-card-header"
-                                            onClick={() => setExpandedId(isExpanded ? null : sasi.id)}
+                                            onClick={() => setExpandedId(isExpanded ? null : `SASI-${sasi.id}`)}
                                         >
                                             <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{sasi.imalatNo}</div>
                                             <div style={{ fontWeight: 500 }}>{sasi.musteri}</div>
@@ -4694,6 +5929,217 @@ function UrunListesiContent() {
                                 );
                             })
                         )
+                    ) : productType === 'DORSE_SASI' ? (
+                        <div style={{ marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                <h2 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span
+                                        style={{
+                                            background: 'var(--primary)',
+                                            color: 'white',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        {filteredLinkedDorseSasis.length} Çift
+                                    </span>
+                                    Bağlı Dorse-Şasi Listesi
+                                </h2>
+                            </div>
+
+                            {filteredLinkedDorseSasis.length === 0 ? (
+                                <div
+                                    style={{
+                                        padding: '60px 40px',
+                                        textAlign: 'center',
+                                        background: 'var(--card-bg)',
+                                        borderRadius: '16px',
+                                        border: '1px dashed var(--border)'
+                                    }}
+                                >
+                                    <div style={{ fontSize: '40px', marginBottom: '16px', opacity: 0.2 }}>🔍</div>
+                                    <h3 style={{ marginBottom: '8px', color: 'var(--foreground)' }}>
+                                        {linkedDorseSasis.length > 0 ? 'Sonuç bulunamadı' : 'Henüz Bağlı Çift Yok'}
+                                    </h3>
+                                    {linkedDorseSasis.length === 0 && (
+                                        <>
+                                            <p style={{ color: 'var(--muted)', marginBottom: '16px' }}>
+                                                Dorseler sekmesinden bir dorseye şasi bağlayabilirsiniz.
+                                            </p>
+                                            <button className="btn btn-primary" onClick={() => setProductType('DORSE')}>
+                                                Dorseler'e Git
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gap: '16px' }}>
+                                    {filteredLinkedDorseSasis.map(({ dorse, sasi, dorseProgress, sasiProgress }) => (
+                                        <div
+                                            key={dorse.id}
+                                            style={{
+                                                background: 'var(--card-bg)',
+                                                borderRadius: '12px',
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                                                border: '1px solid var(--border)',
+                                                overflow: 'hidden'
+                                            }}
+                                        >
+                                            <div className="dorse-sasi-grid">
+                                                <div style={{ padding: '24px' }}>
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'flex-start',
+                                                            marginBottom: '16px'
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <span
+                                                                style={{
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 700,
+                                                                    color: '#4f46e5',
+                                                                    background: '#eef2ff',
+                                                                    padding: '4px 8px',
+                                                                    borderRadius: '4px',
+                                                                    letterSpacing: '0.5px'
+                                                                }}
+                                                            >
+                                                                DORSE #{dorse.imalatNo}
+                                                            </span>
+                                                            <div style={{ marginTop: '8px', fontWeight: 600, fontSize: '16px' }}>
+                                                                {dorse.musteri}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right', fontSize: '13px', color: 'var(--muted)' }}>
+                                                            <div>{dorse.malzemeCinsi || '-'}</div>
+                                                            <div>{dorse.m3}m³</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                        style={{
+                                                            marginBottom: '8px',
+                                                            fontSize: '13px',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            color: 'var(--muted)'
+                                                        }}
+                                                    >
+                                                        <span>Tamamlanma</span>
+                                                        <span
+                                                            style={{
+                                                                fontWeight: 600,
+                                                                color: dorseProgress === 100 ? 'var(--success)' : 'var(--primary)'
+                                                            }}
+                                                        >
+                                                            %{dorseProgress}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        style={{
+                                                            height: '6px',
+                                                            background: 'var(--secondary)',
+                                                            borderRadius: '3px',
+                                                            overflow: 'hidden'
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                width: `${dorseProgress}%`,
+                                                                height: '100%',
+                                                                background: dorseProgress === 100 ? 'var(--success)' : '#4f46e5',
+                                                                borderRadius: '3px',
+                                                                transition: 'width 0.3s'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="dorse-sasi-divider">
+                                                    <div style={{ color: 'var(--muted)', opacity: 0.5 }}>🔗</div>
+                                                </div>
+
+                                                <div style={{ padding: '24px' }}>
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'flex-start',
+                                                            marginBottom: '16px'
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <span
+                                                                style={{
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 700,
+                                                                    color: '#059669',
+                                                                    background: '#ecfdf5',
+                                                                    padding: '4px 8px',
+                                                                    borderRadius: '4px',
+                                                                    letterSpacing: '0.5px'
+                                                                }}
+                                                            >
+                                                                ŞASİ #{sasi.imalatNo}
+                                                            </span>
+                                                            <div style={{ marginTop: '8px', fontWeight: 600, fontSize: '16px' }}>
+                                                                {sasi.musteri}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right', fontSize: '13px', color: 'var(--muted)' }}>
+                                                            <div>{sasi.dingil}</div>
+                                                            <div>{formatSasiNoLabel(sasi.sasiNo)}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                        style={{
+                                                            marginBottom: '8px',
+                                                            fontSize: '13px',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            color: 'var(--muted)'
+                                                        }}
+                                                    >
+                                                        <span>Tamamlanma</span>
+                                                        <span
+                                                            style={{
+                                                                fontWeight: 600,
+                                                                color: sasiProgress === 100 ? 'var(--success)' : 'var(--primary)'
+                                                            }}
+                                                        >
+                                                            %{sasiProgress}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        style={{
+                                                            height: '6px',
+                                                            background: 'var(--secondary)',
+                                                            borderRadius: '3px',
+                                                            overflow: 'hidden'
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                width: `${sasiProgress}%`,
+                                                                height: '100%',
+                                                                background: sasiProgress === 100 ? 'var(--success)' : '#10b981',
+                                                                borderRadius: '3px',
+                                                                transition: 'width 0.3s'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         sortedDorses.length === 0 ? (
                             <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
@@ -4703,13 +6149,13 @@ function UrunListesiContent() {
                             sortedDorses.map((dorse) => {
                                 const progress = calculateDorseProgress(dorse);
                                 const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
-                                const isExpanded = expandedId === dorse.id;
+                                const isExpanded = expandedId === `DORSE-${dorse.id}`;
 
                                 return (
                                     <div key={dorse.id} id={`urun-row-DORSE-${dorse.id}`} className="damper-card">
                                         <div
                                             className="damper-card-header"
-                                            onClick={() => setExpandedId(isExpanded ? null : dorse.id)}
+                                            onClick={() => setExpandedId(isExpanded ? null : `DORSE-${dorse.id}`)}
                                         >
                                             <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{dorse.imalatNo}</div>
                                             <div style={{ fontWeight: 500 }}>{dorse.musteri}</div>
@@ -5313,11 +6759,10 @@ function UrunListesiContent() {
                                                                             <div style={{ alignSelf: 'center', flexShrink: 0 }}>
                                                                                 <div
                                                                                     className={`step-toggle ${toggleOn ? 'active' : ''}`}
-                                                                                    onClick={
-                                                                                        isBrandaMontajiLocked
-                                                                                            ? undefined
-                                                                                            : () => handleStepToggle(dorse.id, step.key, isCompleted, 'DORSE')
-                                                                                    }
+                                                                                        onClick={() => {
+                                                                                            if (isBrandaMontajiLocked) return;
+                                                                                            handleStepToggle(dorse.id, step.key, isCompleted, 'DORSE');
+                                                                                        }}
                                                                                     title={
                                                                                         isBrandaMontajiLocked
                                                                                             ? 'Branda yok — montaj takip edilmez'
@@ -5338,6 +6783,260 @@ function UrunListesiContent() {
                                                         </div>
                                                     );
                                                 })}
+
+                                                {deliveryDraft?.kind === 'DORSE' && deliveryDraft.id === dorse.id && (
+                                                    <div
+                                                        className="card"
+                                                        style={{
+                                                            marginTop: '16px',
+                                                            padding: '16px',
+                                                            borderRadius: '14px',
+                                                            background: 'white',
+                                                            border: '1px solid rgba(2, 35, 71, 0.10)',
+                                                            boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                            <div style={{ fontWeight: 800, letterSpacing: '0.2px' }}>Teslim bilgileri</div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Kaydetmek için “Teslim Et”</div>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                            <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                Dorse Şase No
+                                                                <input
+                                                                    value={deliveryDraft.teslimSasiNo}
+                                                                    onChange={(e) =>
+                                                                        setDeliveryDraft((p) =>
+                                                                            p
+                                                                                ? {
+                                                                                      ...p,
+                                                                                      teslimSasiNo: e.target.value
+                                                                                          .toLocaleUpperCase('tr-TR')
+                                                                                          .replace(/[^A-Z0-9]/g, '')
+                                                                                  }
+                                                                                : p
+                                                                        )
+                                                                    }
+                                                                    className="input"
+                                                                    style={{ marginTop: '6px' }}
+                                                                />
+                                                            </label>
+                                                            <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                Teslim Eden
+                                                                <input
+                                                                    value={deliveryDraft.teslimEden}
+                                                                    onChange={(e) => setDeliveryDraft((p) => (p ? { ...p, teslimEden: e.target.value } : p))}
+                                                                    className="input"
+                                                                    style={{ marginTop: '6px' }}
+                                                                />
+                                                            </label>
+                                                            <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                Teslim Alan
+                                                                <input
+                                                                    value={deliveryDraft.teslimAlan}
+                                                                    onChange={(e) => setDeliveryDraft((p) => (p ? { ...p, teslimAlan: e.target.value } : p))}
+                                                                    className="input"
+                                                                    style={{ marginTop: '6px' }}
+                                                                />
+                                                            </label>
+                                                            <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                Aracın Sahibi (otomatik)
+                                                                <input value={dorse.musteri} readOnly className="input" style={{ marginTop: '6px', opacity: 0.75 }} />
+                                                            </label>
+                                                        </div>
+                                                        <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginTop: '12px' }}>
+                                                            Not
+                                                            <textarea
+                                                                value={deliveryDraft.teslimNot}
+                                                                onChange={(e) => setDeliveryDraft((p) => (p ? { ...p, teslimNot: e.target.value } : p))}
+                                                                className="input"
+                                                                style={{ marginTop: '6px', minHeight: '80px' }}
+                                                            />
+                                                        </label>
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
+                                                            <button className="btn btn-secondary" onClick={() => setDeliveryDraft(null)}>
+                                                                Vazgeç
+                                                            </button>
+                                                            <button className="btn btn-primary" onClick={() => void confirmDelivery()}>
+                                                                Teslim Et
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {!deliveryDraft && dorse.teslimat && (
+                                                    <div
+                                                        className="card"
+                                                        style={{
+                                                            marginTop: '16px',
+                                                            padding: '16px',
+                                                            borderRadius: '14px',
+                                                            background: 'linear-gradient(180deg, rgba(16,185,129,0.08), rgba(16,185,129,0.03))',
+                                                            border: '1px solid rgba(16, 185, 129, 0.22)',
+                                                            boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: '10px' }}>
+                                                            <div style={{ fontWeight: 800, letterSpacing: '0.2px' }}>Teslim edildi</div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                    {dorse.teslimAt ? new Date(dorse.teslimAt).toLocaleString('tr-TR') : ''}
+                                                                </div>
+                                                                <button
+                                                                    className="btn btn-secondary"
+                                                                    style={{ padding: '6px 10px', fontSize: 12 }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setDeliveryEdit({
+                                                                            kind: 'DORSE',
+                                                                            id: dorse.id,
+                                                                            teslimSasiNo: dorse.teslimSasiNo || '',
+                                                                            teslimEden: dorse.teslimEden || '',
+                                                                            teslimAlan: dorse.teslimAlan || '',
+                                                                            teslimAracSahibi: dorse.teslimAracSahibi || dorse.musteri || '',
+                                                                            teslimNot: dorse.teslimNot || '',
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    Düzenle
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {deliveryEdit?.kind === 'DORSE' && deliveryEdit.id === dorse.id ? (
+                                                            <div>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                                    <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                        Dorse Şase No
+                                                                        <input
+                                                                            className="input"
+                                                                            style={{ marginTop: 6, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+                                                                            value={deliveryEdit.teslimSasiNo}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => {
+                                                                                const next = e.target.value.toLocaleUpperCase('tr-TR').replace(/\s+/g, '');
+                                                                                setDeliveryEdit(p => (p && p.kind === 'DORSE' ? { ...p, teslimSasiNo: next } : p));
+                                                                            }}
+                                                                        />
+                                                                    </label>
+                                                                    <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                        Teslim Eden
+                                                                        <input
+                                                                            className="input"
+                                                                            style={{ marginTop: 6 }}
+                                                                            value={deliveryEdit.teslimEden}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DORSE' ? { ...p, teslimEden: e.target.value } : p))}
+                                                                        />
+                                                                    </label>
+                                                                    <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                        Teslim Alan
+                                                                        <input
+                                                                            className="input"
+                                                                            style={{ marginTop: 6 }}
+                                                                            value={deliveryEdit.teslimAlan}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DORSE' ? { ...p, teslimAlan: e.target.value } : p))}
+                                                                        />
+                                                                    </label>
+                                                                    <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                                                        Aracın Sahibi
+                                                                        <input
+                                                                            className="input"
+                                                                            style={{ marginTop: 6 }}
+                                                                            value={deliveryEdit.teslimAracSahibi}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DORSE' ? { ...p, teslimAracSahibi: e.target.value } : p))}
+                                                                        />
+                                                                    </label>
+                                                                </div>
+                                                                <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginTop: 12 }}>
+                                                                    Not
+                                                                    <textarea
+                                                                        className="input"
+                                                                        style={{ marginTop: 6, minHeight: 80 }}
+                                                                        value={deliveryEdit.teslimNot}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        onChange={(e) => setDeliveryEdit(p => (p && p.kind === 'DORSE' ? { ...p, teslimNot: e.target.value } : p))}
+                                                                    />
+                                                                </label>
+                                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+                                                                    <button className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); setDeliveryEdit(null); }}>
+                                                                        Vazgeç
+                                                                    </button>
+                                                                    <button
+                                                                        className="btn btn-primary"
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            const normalized = normalizeDeliverySasiNoClient(deliveryEdit.teslimSasiNo);
+                                                                            if (!normalized) return alert('Şase no geçersiz. Yalnız A–Z ve 0–9 kullanılabilir.');
+                                                                            const updated = await updateDorse(dorse.id, {
+                                                                                teslimSasiNo: normalized,
+                                                                                teslimEden: deliveryEdit.teslimEden,
+                                                                                teslimAlan: deliveryEdit.teslimAlan,
+                                                                                teslimAracSahibi: deliveryEdit.teslimAracSahibi,
+                                                                                teslimNot: deliveryEdit.teslimNot || null,
+                                                                            });
+                                                                            setDorses(prev => prev.map(d => (d.id === dorse.id ? updated : d)));
+                                                                            setDeliveryEdit(null);
+                                                                        }}
+                                                                    >
+                                                                        Kaydet
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                                                                    <div>
+                                                                        <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Dorse Şase No</div>
+                                                                        <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontWeight: 700 }}>
+                                                                            {dorse.teslimSasiNo || '—'}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Teslim Eden</div>
+                                                                        <div style={{ fontWeight: 600 }}>{dorse.teslimEden || '—'}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Teslim Alan</div>
+                                                                        <div style={{ fontWeight: 600 }}>{dorse.teslimAlan || '—'}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Aracın Sahibi</div>
+                                                                        <div style={{ fontWeight: 600 }}>{dorse.teslimAracSahibi || dorse.musteri || '—'}</div>
+                                                                    </div>
+                                                                </div>
+                                                                {dorse.teslimNot ? (
+                                                                    <div style={{ marginTop: 12 }}>
+                                                                        <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Not</div>
+                                                                        <div style={{ color: 'var(--foreground)' }}>{dorse.teslimNot}</div>
+                                                                    </div>
+                                                                ) : null}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {productType === 'DORSE' &&
+                                                (getDorseStatus(dorse) === 'tamamlanan' || getDorseStatus(dorse) === 'teslimEdilen') ? (
+                                                    (() => {
+                                                        const tl = timelines[`DORSE-${dorse.id}`];
+                                                        if (tl === 'loading') {
+                                                            return (
+                                                                <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                                                                    Üretim süresi hazırlanıyor…
+                                                                </div>
+                                                            );
+                                                        }
+                                                        if (tl) return <TimelineMini tl={tl} />;
+                                                        return (
+                                                            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                                                                Üretim süresi verisi bulunamadı.
+                                                            </div>
+                                                        );
+                                                    })()
+                                                ) : null}
 
                                                 {/* Delete Button */}
                                                 <div style={{

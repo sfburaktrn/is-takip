@@ -7,7 +7,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import { getSearch, type SearchResponse } from '@/lib/api';
 import {
-    LayoutDashboard,
     Truck,
     ClipboardList,
     Building2,
@@ -74,7 +73,6 @@ export default function Sidebar() {
     }, [searchQ, user]);
 
     const menuItems = [
-        { href: '/', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/urun-listesi', label: 'Ürün Listesi', icon: Truck },
         { href: '/ozet', label: 'Özet Görünüm', icon: ClipboardList },
         { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
@@ -267,6 +265,7 @@ export default function Sidebar() {
                 </nav>
 
                 <div className="sidebar-footer" style={{ paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
+                    {/* Dashboard link intentionally hidden (commented out in code). */}
                     {user && isAdmin && (
                         <>
                             <div

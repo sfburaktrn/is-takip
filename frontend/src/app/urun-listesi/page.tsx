@@ -668,7 +668,9 @@ function UrunListesiContent() {
                             [key]: {
                                 productType: kind,
                                 productId: id,
+                                createdAt: res.createdAt ?? null,
                                 startedAt: res.productionStartedAt,
+                                endedAt: res.productionEndAt ?? null,
                                 steps: res.steps.map(s => ({
                                     key: s.key,
                                     label: s.label,
@@ -754,7 +756,7 @@ function UrunListesiContent() {
         const id = parseInt(exp, 10);
         if (Number.isNaN(id)) return;
         setProductType(t);
-        setExpandedId(id);
+        setExpandedId(`${t}-${id}`);
         const tick = window.setTimeout(() => {
             document.getElementById(`urun-row-${t}-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 150);
@@ -990,7 +992,7 @@ function UrunListesiContent() {
         const next = !currentValue;
         if (type === 'DAMPER') {
             if (stepKey === 'teslimat' && next === true) {
-                setExpandedId(id);
+                setExpandedId(`${type}-${id}`);
                 setDeliveryDraft({
                     kind: 'DAMPER',
                     id,
@@ -1019,7 +1021,7 @@ function UrunListesiContent() {
             })();
         } else if (type === 'DORSE') {
             if (stepKey === 'teslimat' && next === true) {
-                setExpandedId(id);
+                setExpandedId(`${type}-${id}`);
                 setDeliveryDraft({
                     kind: 'DORSE',
                     id,
@@ -3772,25 +3774,7 @@ function UrunListesiContent() {
                                                         </div>
                                                     )}
 
-                                                    {productType === 'DAMPER' &&
-                                                    (getDamperStatus(damper) === 'tamamlanan' || getDamperStatus(damper) === 'teslimEdilen') ? (
-                                                        (() => {
-                                                            const tl = timelines[`DAMPER-${damper.id}`];
-                                                            if (tl === 'loading') {
-                                                                return (
-                                                                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-                                                                        Üretim süresi hazırlanıyor…
-                                                                    </div>
-                                                                );
-                                                            }
-                                                            if (tl) return <TimelineMini tl={tl} />;
-                                                            return (
-                                                                <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-                                                                    Üretim süresi verisi bulunamadı.
-                                                                </div>
-                                                            );
-                                                        })()
-                                                    ) : null}
+                                                    {/* Timeline intentionally hidden in HEPSI view */}
 
                                                     {/* Delete Button */}
                                                     <div style={{
@@ -4714,25 +4698,7 @@ function UrunListesiContent() {
                                                         );
                                                     })}
 
-                                                    {productType === 'DORSE' &&
-                                                    (getDorseStatus(dorse) === 'tamamlanan' || getDorseStatus(dorse) === 'teslimEdilen') ? (
-                                                        (() => {
-                                                            const tl = timelines[`DORSE-${dorse.id}`];
-                                                            if (tl === 'loading') {
-                                                                return (
-                                                                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-                                                                        Üretim süresi hazırlanıyor…
-                                                                    </div>
-                                                                );
-                                                            }
-                                                            if (tl) return <TimelineMini tl={tl} />;
-                                                            return (
-                                                                <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-                                                                    Üretim süresi verisi bulunamadı.
-                                                                </div>
-                                                            );
-                                                        })()
-                                                    ) : null}
+                                                    {/* Timeline intentionally hidden in HEPSI view */}
 
                                                     {/* Delete Button */}
                                                     <div style={{

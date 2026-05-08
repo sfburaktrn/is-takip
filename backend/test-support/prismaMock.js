@@ -60,6 +60,8 @@ const mem = {
     stockMovements: [],
     stockSupplierHistory: [],
     stockUnitPriceHistory: [],
+    vehicleDeliveryEvents: [],
+    auditLogs: [],
 };
 
 function pick(obj, keys) {
@@ -309,6 +311,118 @@ const base = {
             const before = mem.stockSupplierHistory.length;
             mem.stockSupplierHistory = mem.stockSupplierHistory.filter((r) => !(r.id === where?.id && r.stockItemId === where?.stockItemId));
             return { count: before - mem.stockSupplierHistory.length };
+        },
+    },
+    vehicleDeliveryEvent: {
+        findUnique: async ({ where } = {}) => {
+            if (!where) return null;
+            if (where.sourceDeliveryId != null) {
+                const sid =
+                    typeof where.sourceDeliveryId === 'string'
+                        ? where.sourceDeliveryId
+                        : String(where.sourceDeliveryId);
+                return (
+                    mem.vehicleDeliveryEvents.find((r) => r.sourceDeliveryId === sid) || null
+                );
+            }
+            if (where.id != null) return mem.vehicleDeliveryEvents.find((r) => r.id === where.id) || null;
+            return null;
+        },
+        create: async ({ data } = {}) => {
+            const now = new Date();
+            const row = {
+                id: nextId(),
+                sourceDeliveryId: data.sourceDeliveryId,
+                companyName: data.companyName,
+                payloadJson: data.payloadJson ?? null,
+                deliveredPayloadJson: data.deliveredPayloadJson ?? null,
+                arrivedAt: data.arrivedAt ?? null,
+                deliveredAt: data.deliveredAt ?? null,
+                createdAt: data.createdAt || now,
+                updatedAt: data.updatedAt || now,
+            };
+            mem.vehicleDeliveryEvents.push(row);
+            return { ...row };
+        },
+        update: async ({ where, data } = {}) => {
+            const sid =
+                where && where.sourceDeliveryId != null
+                    ? String(where.sourceDeliveryId)
+                    : null;
+            const idx = mem.vehicleDeliveryEvents.findIndex((r) =>
+                sid != null ? r.sourceDeliveryId === sid : r.id === where?.id,
+            );
+            if (idx < 0) return null;
+            const cur = { ...mem.vehicleDeliveryEvents[idx] };
+            const patch = data || {};
+            for (const key of Object.keys(patch)) {
+                if (patch[key] !== undefined) cur[key] = patch[key];
+            }
+            cur.updatedAt = new Date();
+            mem.vehicleDeliveryEvents[idx] = cur;
+            return { ...cur };
+        },
+        findMany: async ({ where, orderBy, take } = {}) => {
+            let rows = [...mem.vehicleDeliveryEvents];
+            if (where && where.sourceDeliveryId != null) {
+                rows = rows.filter((r) => r.sourceDeliveryId === where.sourceDeliveryId);
+            }
+            const ob = orderBy || {};
+            if (ob.updatedAt === 'desc') {
+                rows.sort(
+                    (a, b) =>
+                        new Date(b.updatedAt ?? b.createdAt).getTime() -
+                        new Date(a.updatedAt ?? a.createdAt).getTime(),
+                );
+            } else if (ob.createdAt === 'desc') {
+                rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            }
+            if (typeof take === 'number' && take > 0) rows = rows.slice(0, take);
+            return rows;
+        },
+        deleteMany: async ({ where } = {}) => {
+            if (!where || where.sourceDeliveryId == null) return { count: 0 };
+            const sid = where.sourceDeliveryId;
+            const n = mem.vehicleDeliveryEvents.filter((r) => r.sourceDeliveryId === sid).length;
+            mem.vehicleDeliveryEvents = mem.vehicleDeliveryEvents.filter((r) => r.sourceDeliveryId !== sid);
+            return { count: n };
+        },
+    },
+    auditLog: {
+        create: async ({ data } = {}) => {
+            const row = {
+                id: nextId(),
+                userId: data.userId ?? null,
+                username: data.username ?? null,
+                action: data.action,
+                productType: data.productType,
+                productId: data.productId,
+                summary: data.summary ?? null,
+                details: data.details ?? null,
+                createdAt: new Date(),
+            };
+            mem.auditLogs.unshift(row);
+            return { ...row };
+        },
+        findMany: async ({ where, orderBy, take, select } = {}) => {
+            let rows = [...mem.auditLogs];
+            if (where) {
+                if (where.action) rows = rows.filter((r) => r.action === where.action);
+                if (where.productType) rows = rows.filter((r) => r.productType === where.productType);
+            }
+            if (orderBy && orderBy.createdAt === 'desc') {
+                rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            }
+            if (typeof take === 'number' && take > 0) rows = rows.slice(0, take);
+            if (select && typeof select === 'object') {
+                const keys = Object.keys(select).filter((k) => select[k]);
+                return rows.map((r) => {
+                    const o = {};
+                    for (const k of keys) o[k] = r[k];
+                    return o;
+                });
+            }
+            return rows;
         },
     },
     stockUnitPriceHistory: {

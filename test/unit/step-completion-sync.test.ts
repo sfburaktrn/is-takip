@@ -19,15 +19,15 @@ const mod = require(path.join(dir, '../../backend/src/stepCompletionSync.js')) a
 };
 
 describe('stepCompletionSync sabitleri', () => {
-  it('DAMPER ana adımları tanımlı ve sonKontrol yok', () => {
+  it('DAMPER ana adımları tanımlı (sonKontrol dahil)', () => {
     const keys = mod.TRACKED_MAIN_STEPS.DAMPER;
     expect(keys).toContain('montaj');
-    expect(keys).not.toContain('sonKontrol');
+    expect(keys).toContain('sonKontrol');
     expect(keys.length).toBeGreaterThan(0);
   });
 
-  it('DORSE son kontrol grubu yok', () => {
-    expect(mod.TRACKED_MAIN_STEPS.DORSE).not.toContain('sonKontrol');
+  it('DORSE son kontrol dahil', () => {
+    expect(mod.TRACKED_MAIN_STEPS.DORSE).toContain('sonKontrol');
     expect(mod.TRACKED_MAIN_STEPS.DORSE).toContain('tamamlama');
   });
 

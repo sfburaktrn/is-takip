@@ -308,6 +308,23 @@ model WeeklyStepTarget {
   @@index([productType, weekStart])
 }
 
+/// Teklif Takip → tek satır / teslimat: aynı sourceDeliveryId = tek kart (inbound + delivered güncellemesi).
+model VehicleDeliveryEvent {
+  id                    Int       @id @default(autoincrement())
+  sourceDeliveryId      String    @unique @map("source_delivery_id")
+  companyName           String    @map("company_name")
+  payloadJson           Json?     @map("payload_json")
+  deliveredPayloadJson  Json?     @map("delivered_payload_json")
+  arrivedAt             DateTime? @map("arrived_at")
+  deliveredAt           DateTime? @map("delivered_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([companyName])
+  @@index([createdAt])
+  @@map("vehicle_delivery_event")
+}
+
 /// Teklif Takip → İmalat Takip: onaylı teklif özeti (Damper/Dorse satırlarına dokunmaz).
 model ProposalIngest {
   id                 Int       @id @default(autoincrement())

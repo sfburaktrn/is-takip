@@ -180,6 +180,79 @@ docker-compose down
 Frontend: http://localhost:3000
 Backend: http://localhost:3001
 
+Teklif Takip uygulamasından **araç giriş** ve **teslim** olaylarını bu API ile İmalat Takip veritabanına gönderebilirsiniz. Frontend’de **`/arac-bilgileri`** sayfası bu kayıtları ~10 sn aralıkla canlı listeler (oturum gerekir).
+
+### Endpoint
+
+| | |
+|---|---|
+| URL | `POST /api/integrations/vehicle-delivery-ingest` |
+| Auth | `Authorization: Bearer <IMALAT_VEHICLE_INGEST_SECRET>` |
+| Gövde | `Content-Type: application/json` |
+
+Sunucuda `.env` içinde `IMALAT_VEHICLE_INGEST_SECRET` tanımlı olmalıdır.
+
+### Payload örnekleri
+
+**Giriş (`VEHICLE_INBOUND`):**
+
+```json
+{
+  "eventType": "VEHICLE_INBOUND",
+  "sourceDeliveryId": "550e8400-e29b-41d4-a716-446655440000",
+  "companyName": "Örnek A.Ş.",
+  "vehicleBrand": "Mercedes",
+  "vehicleModel": "Axor",
+  "chassisNo": "WDB123456789",
+  "fuelLevel": "1/2",
+  "mileageKm": 120000,
+  "arrivedAt": "2026-05-08T07:30:00.000Z"
+}
+```
+
+**Teslim (`VEHICLE_DELIVERED`):**
+
+```json
+{
+  "eventType": "VEHICLE_DELIVERED",
+  "sourceDeliveryId": "550e8400-e29b-41d4-a716-446655440000",
+  "companyName": "Örnek A.Ş.",
+  "deliveredAt": "2026-05-10T16:45:00.000Z"
+}
+```
+
+İsteğe bağlı teslim anı okumaları (UI’da “Teslim” bölümünde gösterilir): `vehicleBrand`, `vehicleModel`, `chassisNo`, `fuelLevel`, `mileageKm` — tam JSON gövde `delivered_payload_json` sütununda saklanır; giriş detayları `payload_json` içinde kalır.
+
+**Tek kart kuralı:** Veritabanında `sourceDeliveryId` benzersizdir; giriş ve teslim aynı satırda güncellenir (`arrived_at`, `delivered_at`). UI’da tek kart görünür.
+
+İdempotent: aynı `VEHICLE_INBOUND` için (aynı `sourceDeliveryId`, `companyName`, `arrivedAt`) veya aynı `VEHICLE_DELIVERED` için (`sourceDeliveryId` ve `deliveredAt`) tekrar gönderiminde yeni satır oluşmaz; `already_processed: true`. Farklı alan gelirse kayıt güncellenir (ör. yanlışlıkla farklı saat ile inbound tekrarı).
+
+### cURL örnekleri
+
+```bash
+curl -sS -X POST "http://localhost:3001/api/integrations/vehicle-delivery-ingest" \
+  -H "Authorization: Bearer YOUR_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"eventType":"VEHICLE_INBOUND","sourceDeliveryId":"id-1","companyName":"Firma","arrivedAt":"2026-05-08T08:00:00.000Z"}'
+```
+
+```bash
+curl -sS -X POST "http://localhost:3001/api/integrations/vehicle-delivery-ingest" \
+  -H "Authorization: Bearer YOUR_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"eventType":"VEHICLE_DELIVERED","sourceDeliveryId":"id-1","companyName":"Firma","deliveredAt":"2026-05-09T17:00:00.000Z"}'
+```
+
+### Başarı / hata yanıt şekilleri
+
+- Yeni kayıt: `{ "ok": true, "processed": true, "already_processed": false }` (HTTP 201)
+- Yinelenen istek: `{ "ok": true, "processed": true, "already_processed": true }` (HTTP 200)
+- Hata: `{ "ok": false, "error": "açıklama" }` (4xx / 5xx)
+
+### Veritabanı
+
+Şema güncellemesi için backend dizininde: `npx prisma migrate deploy` (veya geliştirme için `npx prisma db push`). Sunucu açılışında `ensureSchema` eksik tabloyu oluşturabilir.
+
 ## 📝 Lisans
 
 MIT License

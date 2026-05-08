@@ -256,6 +256,26 @@ function requireTeklifLiveSecret(req, res, next) {
     next();
 }
 
+/** Teklif Takip → İmalat Takip araç hareketi ingest: Bearer IMALAT_VEHICLE_INGEST_SECRET */
+function requireVehicleIngestSecret(req, res, next) {
+    const secret = process.env.IMALAT_VEHICLE_INGEST_SECRET;
+    if (!secret || String(secret).trim() === '') {
+        console.warn('[vehicle-delivery-ingest] IMALAT_VEHICLE_INGEST_SECRET tanımlı değil');
+        return res.status(503).json({ ok: false, error: 'Entegrasyon yapılandırılmamış' });
+    }
+    const h = req.headers.authorization;
+    if (!h || typeof h !== 'string' || !h.startsWith('Bearer ')) {
+        console.warn('[vehicle-delivery-ingest] Authorization eksik veya Bearer değil');
+        return res.status(401).json({ ok: false, error: 'Yetkisiz' });
+    }
+    const token = h.slice(7).trim();
+    if (token !== secret) {
+        console.warn('[vehicle-delivery-ingest] token eşleşmedi');
+        return res.status(401).json({ ok: false, error: 'Yetkisiz' });
+    }
+    next();
+}
+
 function strOrNull(v) {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
@@ -282,6 +302,13 @@ function parseOptionalIsoDate(val) {
         return { ok: false, error: 'Geçersiz tarih' };
     }
     return { ok: true, date: d };
+}
+
+function deliveryTimestampsEqual(a, b) {
+    if (a === null || a === undefined || b === null || b === undefined) return false;
+    const ta = a instanceof Date ? a.getTime() : new Date(a).getTime();
+    const tb = b instanceof Date ? b.getTime() : new Date(b).getTime();
+    return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb;
 }
 
 // Step group definitions - which sub-steps belong to which main step
@@ -4203,6 +4230,249 @@ app.get('/api/integrations/teklif-takip/live/production', requireTeklifLiveSecre
     } catch (error) {
         console.error('Error fetching live production:', error);
         res.status(500).json({ error: 'Failed to fetch live production' });
+    }
+});
+
+/**
+ * Teklif Takip → İmalat Takip: tek satır / sourceDeliveryId (inbound sonrası delivered aynı kart).
+ * Auth: Bearer IMALAT_VEHICLE_INGEST_SECRET
+ */
+app.post('/api/integrations/vehicle-delivery-ingest', requireVehicleIngestSecret, async (req, res) => {
+    try {
+        const b = req.body;
+        if (!b || typeof b !== 'object' || Array.isArray(b)) {
+            console.warn('[vehicle-delivery-ingest] geçersiz gövde');
+            return res.status(400).json({ ok: false, error: 'Geçersiz JSON gövdesi' });
+        }
+
+        const rawType = String(b.eventType || '').trim();
+        const VALID_TYPES = new Set(['VEHICLE_INBOUND', 'VEHICLE_DELIVERED']);
+        if (!rawType || !VALID_TYPES.has(rawType)) {
+            console.warn('[vehicle-delivery-ingest] eventType geçersiz:', rawType || '(boş)');
+            return res.status(400).json({
+                ok: false,
+                error: `eventType zorunlu; izin verilenler: ${[...VALID_TYPES].join(', ')}`
+            });
+        }
+
+        const sourceDeliveryId =
+            typeof b.sourceDeliveryId === 'string' ? b.sourceDeliveryId.trim() : '';
+        if (!sourceDeliveryId) {
+            console.warn('[vehicle-delivery-ingest] sourceDeliveryId eksik');
+            return res.status(400).json({ ok: false, error: 'sourceDeliveryId zorunlu' });
+        }
+
+        const companyName = typeof b.companyName === 'string' ? b.companyName.trim() : '';
+        if (!companyName) {
+            console.warn('[vehicle-delivery-ingest] companyName boş');
+            return res.status(400).json({ ok: false, error: 'companyName zorunlu' });
+        }
+
+        const existing = await prisma.vehicleDeliveryEvent.findUnique({
+            where: { sourceDeliveryId }
+        });
+
+        if (rawType === 'VEHICLE_INBOUND') {
+            const arr = parseRequiredIsoDate(b.arrivedAt, 'arrivedAt');
+            if (!arr.ok) {
+                console.warn('[vehicle-delivery-ingest] arrivedAt:', arr.error);
+                return res.status(400).json({ ok: false, error: arr.error });
+            }
+
+            const mkRaw = b.mileageKm;
+            if (
+                mkRaw !== null &&
+                mkRaw !== undefined &&
+                !(typeof mkRaw === 'number' && Number.isFinite(mkRaw))
+            ) {
+                console.warn('[vehicle-delivery-ingest] mileageKm number değil');
+                return res.status(400).json({ ok: false, error: 'mileageKm varsa sayı olmalı' });
+            }
+
+            if (!existing) {
+                await prisma.vehicleDeliveryEvent.create({
+                    data: {
+                        sourceDeliveryId,
+                        companyName,
+                        arrivedAt: arr.date,
+                        deliveredAt: null,
+                        payloadJson: b
+                    }
+                });
+                return res.status(201).json({ ok: true, processed: true, already_processed: false });
+            }
+
+            const duplicateInbound =
+                existing.arrivedAt &&
+                deliveryTimestampsEqual(existing.arrivedAt, arr.date) &&
+                existing.companyName === companyName;
+            if (duplicateInbound) {
+                return res.status(200).json({ ok: true, processed: true, already_processed: true });
+            }
+
+            await prisma.vehicleDeliveryEvent.update({
+                where: { sourceDeliveryId },
+                data: {
+                    companyName,
+                    arrivedAt: arr.date,
+                    payloadJson: b
+                }
+            });
+            return res.status(200).json({ ok: true, processed: true, already_processed: false });
+        }
+
+        const dev = parseRequiredIsoDate(b.deliveredAt, 'deliveredAt');
+        if (!dev.ok) {
+            console.warn('[vehicle-delivery-ingest] deliveredAt:', dev.error);
+            return res.status(400).json({ ok: false, error: dev.error });
+        }
+
+        if (!existing) {
+            await prisma.vehicleDeliveryEvent.create({
+                data: {
+                    sourceDeliveryId,
+                    companyName,
+                    arrivedAt: null,
+                    deliveredAt: dev.date,
+                    deliveredPayloadJson: b
+                }
+            });
+            return res.status(201).json({ ok: true, processed: true, already_processed: false });
+        }
+
+        if (existing.deliveredAt && deliveryTimestampsEqual(existing.deliveredAt, dev.date)) {
+            return res.status(200).json({ ok: true, processed: true, already_processed: true });
+        }
+
+        await prisma.vehicleDeliveryEvent.update({
+            where: { sourceDeliveryId },
+            data: {
+                companyName,
+                deliveredAt: dev.date,
+                deliveredPayloadJson: b
+            }
+        });
+        return res.status(200).json({ ok: true, processed: true, already_processed: false });
+    } catch (error) {
+        console.error('[vehicle-delivery-ingest] DB/create hatası:', error.code || '', error.message);
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması eksik olabilir: backend klasöründe npx prisma migrate deploy'
+                : '';
+        return res.status(500).json({
+            ok: false,
+            error: `Kayıt işlenemedi.${hint}`
+        });
+    }
+});
+
+/** Oturum açmış kullanıcı: araç ingest olay listesi (UI canlı panel). */
+app.get('/api/vehicle-delivery-events', requireAuth, async (req, res) => {
+    try {
+        let limit = parseInt(String(req.query.limit || ''), 10);
+        if (!Number.isFinite(limit) || limit < 1) limit = 120;
+        if (limit > 300) limit = 300;
+        const items = await prisma.vehicleDeliveryEvent.findMany({
+            orderBy: { updatedAt: 'desc' },
+            take: limit
+        });
+        res.json({ items });
+    } catch (error) {
+        console.error('[vehicle-delivery-events] liste hatası:', error.code || '', error.message);
+        const hint =
+            error.code === 'P2021' || error.code === 'P2022'
+                ? ' Veritabanı şeması eksik olabilir: npx prisma migrate deploy'
+                : '';
+        res.status(500).json({ ok: false, error: `Liste alınamadı.${hint}` });
+    }
+});
+
+const VEHICLE_DELIVERY_AUDIT_ACTION = 'VEHICLE_DELIVERY_RECORD_DELETE';
+const VEHICLE_DELIVERY_AUDIT_TYPE = 'VEHICLE_DELIVERY';
+
+/**
+ * Oturum: aynı sourceDeliveryId altındaki tüm ingest satırlarını siler (giriş+teslim).
+ * AuditLog'a kim sildiği ve silinen olay özeti yazılır.
+ */
+app.delete('/api/vehicle-delivery-events', requireAuth, async (req, res) => {
+    try {
+        const raw = req.body?.sourceDeliveryId ?? req.query?.sourceDeliveryId;
+        const sourceDeliveryId = typeof raw === 'string' ? raw.trim() : '';
+        if (!sourceDeliveryId) {
+            return res.status(400).json({ ok: false, error: 'sourceDeliveryId zorunlu' });
+        }
+
+        const rows = await prisma.vehicleDeliveryEvent.findMany({ where: { sourceDeliveryId } });
+        if (!rows.length) {
+            console.warn('[vehicle-delivery-events] silme: kayıt yok', sourceDeliveryId);
+            return res.status(404).json({ ok: false, error: 'Kayıt bulunamadı' });
+        }
+
+        const snapshot = rows.map((r) => ({
+            id: r.id,
+            companyName: r.companyName,
+            arrivedAt: r.arrivedAt,
+            deliveredAt: r.deliveredAt,
+            payloadJson: r.payloadJson,
+            deliveredPayloadJson: r.deliveredPayloadJson,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt
+        }));
+
+        await prisma.vehicleDeliveryEvent.deleteMany({ where: { sourceDeliveryId } });
+
+        await writeAuditLog(req, {
+            action: VEHICLE_DELIVERY_AUDIT_ACTION,
+            productType: VEHICLE_DELIVERY_AUDIT_TYPE,
+            productId: rows[0].id,
+            summary: `Araç teslimat kaydı silindi (${sourceDeliveryId})`,
+            details: {
+                sourceDeliveryId,
+                companyName: rows[0].companyName ?? null,
+                deletedCount: rows.length,
+                deletedEventIds: rows.map((x) => x.id),
+                events: snapshot
+            }
+        });
+
+        res.json({ ok: true, deletedCount: rows.length });
+    } catch (error) {
+        console.error('[vehicle-delivery-events] silme hatası:', error.code || '', error.message);
+        res.status(500).json({ ok: false, error: 'Silinemedi' });
+    }
+});
+
+/** Araç kaydı silme geçmişi (AuditLog). */
+app.get('/api/vehicle-delivery-events/deletion-logs', requireAuth, async (req, res) => {
+    try {
+        let limit = parseInt(String(req.query.limit || ''), 10);
+        if (!Number.isFinite(limit) || limit < 1) limit = 80;
+        if (limit > 200) limit = 200;
+        const rows = await prisma.auditLog.findMany({
+            where: {
+                action: VEHICLE_DELIVERY_AUDIT_ACTION,
+                productType: VEHICLE_DELIVERY_AUDIT_TYPE
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            select: {
+                id: true,
+                userId: true,
+                username: true,
+                summary: true,
+                details: true,
+                createdAt: true
+            }
+        });
+        res.json({
+            items: rows.map((r) => ({
+                ...r,
+                createdAt: r.createdAt.toISOString()
+            }))
+        });
+    } catch (error) {
+        console.error('[vehicle-delivery-events] silme logları:', error.code || '', error.message);
+        res.status(500).json({ ok: false, error: 'Loglar alınamadı' });
     }
 });
 

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
@@ -119,9 +119,9 @@ function normalizeSasiNoValue(s: unknown): string {
   t = t.replace(/\s+/g, ' ');
   if (
     t === '-' ||
-    t === '—' ||
-    t === '–' ||
-    /^[\s\-–—]+$/u.test(t)
+    t === 'ÔÇö' ||
+    t === 'ÔÇô' ||
+    /^[\s\-ÔÇôÔÇö]+$/u.test(t)
   ) {
     return '';
   }
@@ -333,9 +333,9 @@ function DashboardContent() {
       case 'TAMAMLANDI':
       case 'YAPILDI':
         return <span className="badge badge-success">{status}</span>;
-      case 'DEVAM EDİYOR':
+      case 'DEVAM ED─░YOR':
         return <span className="badge badge-warning">{status}</span>;
-      case 'BAŞLAMADI':
+      case 'BA┼ŞLAMADI':
         return <span className="badge badge-danger">{status}</span>;
       default:
         return <span className="badge badge-muted">{status}</span>;
@@ -466,14 +466,14 @@ function DashboardContent() {
       loadData(); // Refresh stats and list
     } catch (error) {
       console.error('Error linking sasi:', error);
-      alert('Şasi bağlanırken hata oluştu');
+      alert('┼Şasi ba─şlan─▒rken hata olu┼ştu');
     } finally {
       setLinkLoading(false);
     }
   };
 
   const handleUnlinkSasi = async (dorseId: number) => {
-    if (!confirm('Şasi bağlantısını kaldırmak istediğinize emin misiniz?')) return;
+    if (!confirm('┼Şasi ba─şlant─▒s─▒n─▒ kald─▒rmak istedi─şinize emin misiniz?')) return;
 
     try {
       setLinkLoading(true);
@@ -483,7 +483,7 @@ function DashboardContent() {
       loadData(); // Refresh stats and list
     } catch (error) {
       console.error('Error unlinking sasi:', error);
-      alert('Şasi bağlantısı kaldırılırken hata oluştu');
+      alert('┼Şasi ba─şlant─▒s─▒ kald─▒r─▒l─▒rken hata olu┼ştu');
     } finally {
       setLinkLoading(false);
     }
@@ -570,7 +570,7 @@ function DashboardContent() {
   const confirmDelivery = async () => {
     if (!deliveryDraft) return;
     const temizNo = deliveryDraft.teslimSasiNo.toLocaleUpperCase('tr-TR').replace(/[^A-Z0-9]/g, '');
-    if (!temizNo) return alert('Şase no zorunludur. Yalnız A–Z ve 0–9 kullanılabilir.');
+    if (!temizNo) return alert('┼Şase no zorunludur. Yaln─▒z AÔÇôZ ve 0ÔÇô9 kullan─▒labilir.');
     if (!deliveryDraft.teslimEden.trim()) return alert('Teslim eden zorunludur.');
     if (!deliveryDraft.teslimAlan.trim()) return alert('Teslim alan zorunludur.');
     try {
@@ -636,11 +636,11 @@ function DashboardContent() {
         });
         loadData();
         if (quantity > 1) {
-          alert(`${quantity} adet damper başarıyla oluşturuldu!\n(${formData.musteri} 1 - ${formData.musteri} ${quantity})`);
+          alert(`${quantity} adet damper ba┼şar─▒yla olu┼şturuldu!\n(${formData.musteri} 1 - ${formData.musteri} ${quantity})`);
         }
       } catch (error) {
         console.error('Error creating damper:', error);
-        alert('Damper oluşturulurken hata oluştu');
+        alert('Damper olu┼şturulurken hata olu┼ştu');
       }
     } else if (productType === 'DORSE') {
       // Dorse Creation
@@ -684,11 +684,11 @@ function DashboardContent() {
         });
         loadData();
         if (quantity > 1) {
-          alert(`${quantity} adet dorse başarıyla oluşturuldu!`);
+          alert(`${quantity} adet dorse ba┼şar─▒yla olu┼şturuldu!`);
         }
       } catch (error) {
         console.error('Error creating dorse:', error);
-        alert('Dorse oluşturulurken hata oluştu');
+        alert('Dorse olu┼şturulurken hata olu┼ştu');
       }
     } else if (productType === 'SASI') {
       // Sasi Creation
@@ -714,11 +714,11 @@ function DashboardContent() {
         });
         loadData();
         if (quantity > 1) {
-          alert(`${quantity} adet şasi başarıyla oluşturuldu!`);
+          alert(`${quantity} adet ┼şasi ba┼şar─▒yla olu┼şturuldu!`);
         }
       } catch (error) {
         console.error('Error creating sasi:', error);
-        alert('Şasi oluşturulurken hata oluştu');
+        alert('┼Şasi olu┼şturulurken hata olu┼ştu');
       }
     }
   };
@@ -864,8 +864,8 @@ function DashboardContent() {
 
     if (sasiFilter) {
       result = result.filter(s => {
-        if (sasiFilter === 'Kırma-BPW') return s.tampon === 'Kırma Tampon' && s.dingil === 'BPW';
-        if (sasiFilter === 'Kırma-TRAX') return s.tampon === 'Kırma Tampon' && s.dingil === 'TRAX';
+        if (sasiFilter === 'K─▒rma-BPW') return s.tampon === 'K─▒rma Tampon' && s.dingil === 'BPW';
+        if (sasiFilter === 'K─▒rma-TRAX') return s.tampon === 'K─▒rma Tampon' && s.dingil === 'TRAX';
         if (sasiFilter === 'Sabit-TRAX') return s.tampon === 'Sabit Tampon' && s.dingil === 'TRAX';
         if (sasiFilter === 'Sabit-BPW') return s.tampon === 'Sabit Tampon' && s.dingil === 'BPW';
         return true;
@@ -998,10 +998,10 @@ function DashboardContent() {
           <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
             <div>
               <h1 className="header-title">Dashboard</h1>
-              <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} imalat süreçlerine genel bakış</p>
+              <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : '┼Şasi'} imalat s├╝re├ğlerine genel bak─▒┼ş</p>
             </div>
             <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
-              <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
+              <Plus size={20} /> Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : '┼Şasi'} Ekle
             </button>
           </div>
 
@@ -1053,7 +1053,7 @@ function DashboardContent() {
               }}
               onClick={() => setProductType('SASI')}
             >
-              Şasiler
+              ┼Şasiler
             </button>
             <button
               type="button"
@@ -1069,7 +1069,7 @@ function DashboardContent() {
               }}
               onClick={() => setProductType('DORSE_SASI')}
             >
-              <LinkIcon size={16} style={{ display: 'inline', marginRight: '4px' }} /> Dorse+Şasi
+              <LinkIcon size={16} style={{ display: 'inline', marginRight: '4px' }} /> Dorse+┼Şasi
             </button>
           </div>
 
@@ -1077,7 +1077,7 @@ function DashboardContent() {
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
             <input
               type="text"
-              placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Dorse veya Şasi'} ara...`}
+              placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? '┼Şasi' : 'Dorse veya ┼Şasi'} ara...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -1132,7 +1132,7 @@ function DashboardContent() {
                     </div>
                     <div>
                       <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
-                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam Şasi</div>
+                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam ┼Şasi</div>
                     </div>
                   </div>
                   <div
@@ -1165,7 +1165,7 @@ function DashboardContent() {
                   </div>
                 </div>
 
-                {/* 2. GENEL DURUM (Sağ) - 2 Kart */}
+                {/* 2. GENEL DURUM (Sa─ş) - 2 Kart */}
                 <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div
                     style={{
@@ -1220,14 +1220,14 @@ function DashboardContent() {
                     </div>
                     <div>
                       <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
-                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Başlamayan</div>
+                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Ba┼şlamayan</div>
                     </div>
                   </div>
                 </div>
 
-                {/* 3. STOK ŞASİLER GRUBU - 3 Kart */}
+                {/* 3. STOK ┼ŞAS─░LER GRUBU - 3 Kart */}
                 <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '1px solid var(--border)', paddingLeft: '16px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>STOK ŞASİLER</div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>STOK ┼ŞAS─░LER</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div
                       style={{
@@ -1254,7 +1254,7 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.primary, fontWeight: 700 }}>{stats?.stokSasiCount || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Boş Stok</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bo┼ş Stok</div>
                       </div>
                     </div>
                     <div
@@ -1316,9 +1316,9 @@ function DashboardContent() {
                   </div>
                 </div>
 
-                {/* 4. MÜŞTERİ ŞASİLER GRUBU - 3 Kart */}
+                {/* 4. M├£┼ŞTER─░ ┼ŞAS─░LER GRUBU - 3 Kart */}
                 <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '1px solid var(--border)', paddingLeft: '16px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>MÜŞTERİ ŞASİLER</div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', height: '20px' }}>M├£┼ŞTER─░ ┼ŞAS─░LER</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div
                       style={{
@@ -1345,7 +1345,7 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.info, fontWeight: 700 }}>{stats?.musteriSasiCount || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Boş Müşteri</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bo┼ş M├╝┼şteri</div>
                       </div>
                     </div>
                     <div
@@ -1373,7 +1373,7 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.success, fontWeight: 700 }}>{stats?.tamamlananMusteri || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bitmiş Müşteri</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bitmi┼ş M├╝┼şteri</div>
                       </div>
                     </div>
                     <div
@@ -1552,7 +1552,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
-                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Başlamayan</div>
+                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Ba┼şlamayan</div>
                   </div>
                 </div>
               </>
@@ -1566,9 +1566,9 @@ function DashboardContent() {
             <div className="dashboard-header-row">
               <h2 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ background: 'var(--primary)', color: 'white', padding: '4px 10px', borderRadius: '6px', fontSize: '14px' }}>
-                  {filteredLinkedDorseSasis.length} Çift
+                  {filteredLinkedDorseSasis.length} ├çift
                 </span>
-                Bağlı Dorse-Şasi Listesi
+                Ba─şl─▒ Dorse-┼Şasi Listesi
               </h2>
             </div>
 
@@ -1580,13 +1580,13 @@ function DashboardContent() {
                 borderRadius: '16px',
                 border: '1px dashed var(--border)'
               }}>
-                <div style={{ fontSize: '40px', marginBottom: '16px', opacity: 0.2 }}>🔍</div>
+                <div style={{ fontSize: '40px', marginBottom: '16px', opacity: 0.2 }}>­şöı</div>
                 <h3 style={{ marginBottom: '8px', color: 'var(--foreground)' }}>
-                  {filteredLinkedDorseSasis.length === 0 && linkedDorseSasis.length > 0 ? 'Sonuç bulunamadı' : 'Henüz Bağlı Çift Yok'}
+                  {filteredLinkedDorseSasis.length === 0 && linkedDorseSasis.length > 0 ? 'Sonu├ğ bulunamad─▒' : 'Hen├╝z Ba─şl─▒ ├çift Yok'}
                 </h3>
                 {linkedDorseSasis.length === 0 && (
                   <>
-                    <p style={{ color: 'var(--muted)', marginBottom: '16px' }}>Dorseler sekmesinden bir dorseye şasi bağlayabilirsiniz.</p>
+                    <p style={{ color: 'var(--muted)', marginBottom: '16px' }}>Dorseler sekmesinden bir dorseye ┼şasi ba─şlayabilirsiniz.</p>
                     <button className="btn btn-primary" onClick={() => setProductType('DORSE')}>
                       Dorseler'e Git
                     </button>
@@ -1626,7 +1626,7 @@ function DashboardContent() {
                           </div>
                           <div style={{ textAlign: 'right', fontSize: '13px', color: 'var(--muted)' }}>
                             <div>{dorse.malzemeCinsi || '-'}</div>
-                            <div>{dorse.m3}m³</div>
+                            <div>{dorse.m3}m┬│</div>
                           </div>
                         </div>
 
@@ -1652,7 +1652,7 @@ function DashboardContent() {
 
                       {/* Divider / Link */}
                       <div className="dorse-sasi-divider">
-                        <div style={{ color: 'var(--muted)', opacity: 0.5 }}>🔗</div>
+                        <div style={{ color: 'var(--muted)', opacity: 0.5 }}>­şöù</div>
                       </div>
 
                       {/* Sasi Section */}
@@ -1668,7 +1668,7 @@ function DashboardContent() {
                               borderRadius: '4px',
                               letterSpacing: '0.5px'
                             }}>
-                              ŞASİ #{sasi.imalatNo}
+                              ┼ŞAS─░ #{sasi.imalatNo}
                             </span>
                             <div style={{ marginTop: '8px', fontWeight: 600, fontSize: '16px' }}>{sasi.musteri}</div>
                           </div>
@@ -1721,32 +1721,32 @@ function DashboardContent() {
                   marginBottom: '14px',
                 }}
               >
-                <strong>Hatırlatma:</strong> Üretimde olup son {staleHint.days} gündür güncellenmeyen{' '}
-                <strong>{staleHint.total}</strong> kayıt var (teslimat bekleyen / şasi montajı bitmemiş).{' '}
+                <strong>Hat─▒rlatma:</strong> ├£retimde olup son {staleHint.days} g├╝nd├╝r g├╝ncellenmeyen{' '}
+                <strong>{staleHint.total}</strong> kay─▒t var (teslimat bekleyen / ┼şasi montaj─▒ bitmemi┼ş).{' '}
                 <Link href="/urun-listesi" style={{ fontWeight: 600, color: 'var(--primary)' }}>
-                  Ürün listesine git
+                  ├£r├╝n listesine git
                 </Link>
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 600 }}>
-                {statusFilter === 'tamamlanan' && `✅ Tamamlanan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
-                {statusFilter === 'devamEden' && `🔄 Devam Eden ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
-                {statusFilter === 'baslamayan' && `⏸️ Başlamayan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
+                {statusFilter === 'tamamlanan' && `Ô£à Tamamlanan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : '┼Şasiler'}`}
+                {statusFilter === 'devamEden' && `­şöä Devam Eden ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : '┼Şasiler'}`}
+                {statusFilter === 'baslamayan' && `ÔÅ©´©Å Ba┼şlamayan ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : '┼Şasiler'}`}
                 {statusFilter === 'eksikNumara' &&
                   (productType === 'SASI'
-                    ? 'Şasi no girilmeyen şasiler'
-                    : `İmalat no girilmeyen ${productType === 'DAMPER' ? 'damperler' : 'dorseler'}`)}
-                {!statusFilter && `Son Eklenen ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : 'Şasiler'}`}
+                    ? '┼Şasi no girilmeyen ┼şasiler'
+                    : `─░malat no girilmeyen ${productType === 'DAMPER' ? 'damperler' : 'dorseler'}`)}
+                {!statusFilter && `Son Eklenen ${productType === 'DAMPER' ? 'Damperler' : productType === 'DORSE' ? 'Dorseler' : '┼Şasiler'}`}
               </h2>
               {statusFilter && (
                 <button className="btn btn-secondary" onClick={() => setStatusFilter(null)}>
-                  ✕ Filtreyi Kaldır
+                  Ô£ò Filtreyi Kald─▒r
                 </button>
               )}
               {!statusFilter && (
                 <Link href="/urun-listesi" className="btn btn-secondary">
-                  Tümünü Gör →
+                  T├╝m├╝n├╝ G├Âr ÔåÆ
                 </Link>
               )}
             </div>
@@ -1759,26 +1759,26 @@ function DashboardContent() {
                   style={{
                     fontSize: '12px',
                     padding: '6px 12px',
-                    background: sasiFilter === 'Kırma-BPW' ? 'var(--primary)' : undefined,
-                    color: sasiFilter === 'Kırma-BPW' ? 'white' : undefined,
-                    border: sasiFilter === 'Kırma-BPW' ? 'none' : undefined
+                    background: sasiFilter === 'K─▒rma-BPW' ? 'var(--primary)' : undefined,
+                    color: sasiFilter === 'K─▒rma-BPW' ? 'white' : undefined,
+                    border: sasiFilter === 'K─▒rma-BPW' ? 'none' : undefined
                   }}
-                  onClick={() => setSasiFilter(sasiFilter === 'Kırma-BPW' ? null : 'Kırma-BPW')}
+                  onClick={() => setSasiFilter(sasiFilter === 'K─▒rma-BPW' ? null : 'K─▒rma-BPW')}
                 >
-                  Kırma-BPW
+                  K─▒rma-BPW
                 </button>
                 <button
                   className={`btn btn-secondary`}
                   style={{
                     fontSize: '12px',
                     padding: '6px 12px',
-                    background: sasiFilter === 'Kırma-TRAX' ? 'var(--primary)' : undefined,
-                    color: sasiFilter === 'Kırma-TRAX' ? 'white' : undefined,
-                    border: sasiFilter === 'Kırma-TRAX' ? 'none' : undefined
+                    background: sasiFilter === 'K─▒rma-TRAX' ? 'var(--primary)' : undefined,
+                    color: sasiFilter === 'K─▒rma-TRAX' ? 'white' : undefined,
+                    border: sasiFilter === 'K─▒rma-TRAX' ? 'none' : undefined
                   }}
-                  onClick={() => setSasiFilter(sasiFilter === 'Kırma-TRAX' ? null : 'Kırma-TRAX')}
+                  onClick={() => setSasiFilter(sasiFilter === 'K─▒rma-TRAX' ? null : 'K─▒rma-TRAX')}
                 >
-                  Kırma-TRAX
+                  K─▒rma-TRAX
                 </button>
                 <button
                   className={`btn btn-secondary`}
@@ -1808,15 +1808,15 @@ function DashboardContent() {
                 </button>
                 {sasiFilter && (
                   <button className="btn btn-secondary" onClick={() => setSasiFilter(null)} style={{ color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    ✕ Filtreyi Kaldır
+                    Ô£ò Filtreyi Kald─▒r
                   </button>
                 )}
               </div>
             )}
 
-            {/* Sıralama Butonları */}
+            {/* S─▒ralama Butonlar─▒ */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px', marginBottom: '20px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--muted)', alignSelf: 'center', marginRight: '4px' }}>Sırala:</span>
+              <span style={{ fontSize: '13px', color: 'var(--muted)', alignSelf: 'center', marginRight: '4px' }}>S─▒rala:</span>
 
               {/* Tamamlama % */}
               <button
@@ -1836,7 +1836,7 @@ function DashboardContent() {
                 <LineChart size={16} /> Tamamlama % {sortBy === 'progress-asc' ? <ArrowUp size={14} /> : sortBy === 'progress-desc' ? <ArrowDown size={14} /> : ''}
               </button>
 
-              {/* İsim */}
+              {/* ─░sim */}
               <button
                 className={`btn btn-secondary`}
                 style={{
@@ -1851,7 +1851,7 @@ function DashboardContent() {
                   else setSortBy('name-asc');
                 }}
               >
-                <Type size={16} /> İsim {sortBy === 'name-asc' ? 'A→Z' : sortBy === 'name-desc' ? 'Z→A' : ''}
+                <Type size={16} /> ─░sim {sortBy === 'name-asc' ? 'AÔåÆZ' : sortBy === 'name-desc' ? 'ZÔåÆA' : ''}
               </button>
 
               {/* Tarih */}
@@ -1869,7 +1869,7 @@ function DashboardContent() {
                   else setSortBy('date-desc');
                 }}
               >
-                <Calendar size={16} /> Tarih {sortBy === 'date-desc' ? 'Yeni→Eski' : sortBy === 'date-asc' ? 'Eski→Yeni' : ''}
+                <Calendar size={16} /> Tarih {sortBy === 'date-desc' ? 'YeniÔåÆEski' : sortBy === 'date-asc' ? 'EskiÔåÆYeni' : ''}
               </button>
 
               {(productType === 'DAMPER' || productType === 'DORSE' || productType === 'SASI') && (
@@ -1888,10 +1888,10 @@ function DashboardContent() {
                     else if (sortBy === 'imalat-asc') setSortBy(null);
                     else setSortBy('imalat-desc');
                   }}
-                  title="İmalat no: önce büyükten küçüğe, tekrar küçükten büyüğe; boş/0 olanlar her zaman sonda"
+                  title="─░malat no: ├Ânce b├╝y├╝kten k├╝├ğ├╝─şe, tekrar k├╝├ğ├╝kten b├╝y├╝─şe; bo┼ş/0 olanlar her zaman sonda"
                 >
-                  <Hash size={16} /> İmalat no{' '}
-                  {sortBy === 'imalat-desc' ? '↓' : sortBy === 'imalat-asc' ? '↑' : ''}
+                  <Hash size={16} /> ─░malat no{' '}
+                  {sortBy === 'imalat-desc' ? 'Ôåô' : sortBy === 'imalat-asc' ? 'Ôåæ' : ''}
                 </button>
               )}
 
@@ -1911,10 +1911,10 @@ function DashboardContent() {
                     else if (sortBy === 'sasiNo-asc') setSortBy(null);
                     else setSortBy('sasiNo-desc');
                   }}
-                  title="Şasi no: önce büyükten küçüğe, tekrar küçükten büyüğe; boş olanlar sonda"
+                  title="┼Şasi no: ├Ânce b├╝y├╝kten k├╝├ğ├╝─şe, tekrar k├╝├ğ├╝kten b├╝y├╝─şe; bo┼ş olanlar sonda"
                 >
-                  <Hash size={16} /> Şasi no{' '}
-                  {sortBy === 'sasiNo-desc' ? '↓' : sortBy === 'sasiNo-asc' ? '↑' : ''}
+                  <Hash size={16} /> ┼Şasi no{' '}
+                  {sortBy === 'sasiNo-desc' ? 'Ôåô' : sortBy === 'sasiNo-asc' ? 'Ôåæ' : ''}
                 </button>
               )}
 
@@ -1932,13 +1932,13 @@ function DashboardContent() {
                   onClick={() => setStatusFilter(statusFilter === 'eksikNumara' ? null : 'eksikNumara')}
                   title={
                     productType === 'SASI'
-                      ? 'Şasi numarası girilmemiş şasiler'
-                      : 'İmalat numarası girilmemiş damper/dorse kayıtları'
+                      ? '┼Şasi numaras─▒ girilmemi┼ş ┼şasiler'
+                      : '─░malat numaras─▒ girilmemi┼ş damper/dorse kay─▒tlar─▒'
                   }
                 >
                   {productType === 'SASI'
-                    ? `Şasi no yok (${eksikNumaraCount})`
-                    : `İmalat no eksik (${eksikNumaraCount})`}
+                    ? `┼Şasi no yok (${eksikNumaraCount})`
+                    : `─░malat no eksik (${eksikNumaraCount})`}
                 </button>
               )}
 
@@ -1948,7 +1948,7 @@ function DashboardContent() {
                   style={{ fontSize: '12px', padding: '6px 12px', color: 'var(--danger)' }}
                   onClick={() => setSortBy(null)}
                 >
-                  ✕ Sıralamayı Kaldır
+                  Ô£ò S─▒ralamay─▒ Kald─▒r
                 </button>
               )}
             </div>
@@ -1956,12 +1956,12 @@ function DashboardContent() {
             {productType === 'DAMPER' ? (
               sortedDampers.length === 0 ? (
                 <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
-                  Bu kategoride damper bulunamadı
+                  Bu kategoride damper bulunamad─▒
                 </div>
               ) : (
                 sortedDampers.map((damper) => {
                   const progress = calculateProgress(damper);
-                  const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
+                  const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BA┼ŞLAMADI' : 'DEVAM ED─░YOR';
                   const isExpanded = expandedId === damper.id;
 
                   return (
@@ -1984,7 +1984,7 @@ function DashboardContent() {
                           </span>
                         </div>
                         <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                          {damper.malzemeCinsi} | {damper.m3} M³{damper.renk ? ` | ${damper.renk}` : ''}
+                          {damper.malzemeCinsi} | {damper.m3} M┬│{damper.renk ? ` | ${damper.renk}` : ''}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
@@ -1998,8 +1998,8 @@ function DashboardContent() {
                           height: '10px',
                           borderRadius: '50%',
                           background: damper.aracGeldiMi ? 'var(--success)' : 'var(--danger)'
-                        }} title={damper.aracGeldiMi ? 'Araç Geldi' : 'Araç Gelmedi'}></div>
-                        <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                        }} title={damper.aracGeldiMi ? 'Ara├ğ Geldi' : 'Ara├ğ Gelmedi'}></div>
+                        <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>Ôû╝</div>
                       </div>
 
                       {isExpanded && (
@@ -2013,8 +2013,8 @@ function DashboardContent() {
                               setDampers(prev => prev.map(d => (d.id === damper.id ? updated : d)));
                             }}
                           />
-                          {/* Araç Geldi Mi */}
-                          {/* Bilgi Kartları (İmalat No, Araç Durumu & Tarih) */}
+                          {/* Ara├ğ Geldi Mi */}
+                          {/* Bilgi Kartlar─▒ (─░malat No, Ara├ğ Durumu & Tarih) */}
                           <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -2023,7 +2023,7 @@ function DashboardContent() {
                             paddingBottom: '20px',
                             borderBottom: '1px solid var(--border)'
                           }}>
-                            {/* İmalat No - Düzenlenebilir */}
+                            {/* ─░malat No - D├╝zenlenebilir */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -2035,7 +2035,7 @@ function DashboardContent() {
                               gap: '12px'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>─░MALAT NO</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500, color: !damper.imalatNo ? 'var(--warning)' : 'var(--foreground)' }}>
                                   {damper.imalatNo ?? 'Girilmedi'}
                                 </div>
@@ -2052,7 +2052,7 @@ function DashboardContent() {
                                   textAlign: 'center',
                                   height: '34px'
                                 }}
-                                placeholder="İmalat No"
+                                placeholder="─░malat No"
                                 value={damper.imalatNo != null ? String(damper.imalatNo) : ''}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) => {
@@ -2073,7 +2073,7 @@ function DashboardContent() {
                               />
                             </div>
 
-                            {/* Şasi No - Düzenlenebilir */}
+                            {/* ┼Şasi No - D├╝zenlenebilir */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -2086,7 +2086,7 @@ function DashboardContent() {
                               minWidth: 0
                             }}>
                               <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>┼ŞAS─░ NO</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500, color: damper.sasiNo ? 'var(--foreground)' : 'var(--muted)' }}>
                                   {damper.sasiNo || 'Girilmedi'}
                                 </div>
@@ -2101,7 +2101,7 @@ function DashboardContent() {
                                   height: '34px',
                                   flexShrink: 0
                                 }}
-                                placeholder="Şasi No"
+                                placeholder="┼Şasi No"
                                 value={damper.sasiNo || ''}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) => {
@@ -2121,7 +2121,7 @@ function DashboardContent() {
                               />
                             </div>
 
-                            {/* Renk - İmalat / Şasi ile aynı satırda (auto-fit ızgara) */}
+                            {/* Renk - ─░malat / ┼Şasi ile ayn─▒ sat─▒rda (auto-fit ─▒zgara) */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -2219,7 +2219,7 @@ function DashboardContent() {
                               </select>
                             </div>
 
-                            {/* Araç markası — tam satır */}
+                            {/* Ara├ğ markas─▒ ÔÇö tam sat─▒r */}
                             <div style={{
                               gridColumn: '1 / -1',
                               background: 'var(--card-bg-secondary)',
@@ -2231,7 +2231,7 @@ function DashboardContent() {
                               gap: '12px',
                               minWidth: 0
                             }}>
-                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>ARAÇ MARKASI</div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>ARA├ç MARKASI</div>
                               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                                 <div
                                   style={{
@@ -2262,7 +2262,7 @@ function DashboardContent() {
                                     height: '40px',
                                     boxSizing: 'border-box'
                                   }}
-                                  placeholder="Araç markası"
+                                  placeholder="Ara├ğ markas─▒"
                                   value={damper.aracMarka ?? ''}
                                   onClick={(e) => e.stopPropagation()}
                                   onChange={(e) => {
@@ -2297,7 +2297,7 @@ function DashboardContent() {
                                 minWidth: 0
                               }}>
                                 <div style={{ minWidth: 0 }}>
-                                  <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
+                                  <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLU┼ŞTURULMA TAR─░H─░</div>
                                   <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
                                     {damper.createdAt ? new Date(damper.createdAt).toLocaleString('tr-TR', {
                                       year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -2321,7 +2321,7 @@ function DashboardContent() {
                                     right: '16px',
                                     zIndex: 10
                                   }}
-                                  title="Tarihi Düzenle"
+                                  title="Tarihi D├╝zenle"
                                   onChange={(e) => {
                                     if (!e.target.value) return;
                                     const iso = new Date(e.target.value).toISOString();
@@ -2355,7 +2355,7 @@ function DashboardContent() {
                                 <div>
                                   <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
                                   <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                    {damper.adet > 0 ? damper.adet : '–'}
+                                    {damper.adet > 0 ? damper.adet : 'ÔÇô'}
                                   </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -2424,9 +2424,9 @@ function DashboardContent() {
                                 minWidth: 0
                               }}>
                                 <div>
-                                  <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ARAÇ DURUMU</div>
+                                  <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ARA├ç DURUMU</div>
                                   <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                    {damper.aracGeldiMi ? 'Araç Fabrikada' : 'Araç Gelmedi'}
+                                    {damper.aracGeldiMi ? 'Ara├ğ Fabrikada' : 'Ara├ğ Gelmedi'}
                                   </div>
                                 </div>
                                 <div
@@ -2436,7 +2436,7 @@ function DashboardContent() {
                                     handleStepToggle(damper.id, 'aracGeldiMi', damper.aracGeldiMi, 'DAMPER');
                                   }}
                                   style={{ transform: 'scale(1.1)' }}
-                                  title="Değiştirmek için tıklayın"
+                                  title="De─şi┼ştirmek i├ğin t─▒klay─▒n"
                                 ></div>
                               </div>
                             </div>
@@ -2473,7 +2473,7 @@ function DashboardContent() {
                                                 lineHeight: 1.35,
                                               }}
                                             >
-                                              Bu siparişte branda yok; bu adım kullanılmıyor.
+                                              Bu sipari┼şte branda yok; bu ad─▒m kullan─▒lm─▒yor.
                                             </div>
                                           ) : null}
                                         </div>
@@ -2487,8 +2487,8 @@ function DashboardContent() {
                                             }
                                             title={
                                               isBrandaMontajiLocked
-                                                ? 'Branda yok — montaj takip edilmez'
-                                                : 'Değiştirmek için tıklayın'
+                                                ? 'Branda yok ÔÇö montaj takip edilmez'
+                                                : 'De─şi┼ştirmek i├ğin t─▒klay─▒n'
                                             }
                                             style={
                                               isBrandaMontajiLocked
@@ -2507,7 +2507,7 @@ function DashboardContent() {
 
                           {/* Muayene ve Teslimat */}
                           <div className="step-group">
-                            <div className="step-group-title">MUAYENE & TESLİMAT</div>
+                            <div className="step-group-title">MUAYENE & TESL─░MAT</div>
                             <div className="step-items">
 
                               <div className="step-item">
@@ -2575,7 +2575,7 @@ function DashboardContent() {
                               <div style={{ fontWeight: 700, marginBottom: '10px' }}>Teslim bilgileri</div>
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
                                 <label style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                                  Şase No
+                                  ┼Şase No
                                   <input
                                     value={deliveryDraft.teslimSasiNo}
                                     onChange={(e) =>
@@ -2589,7 +2589,7 @@ function DashboardContent() {
                                       )
                                     }
                                     className="input"
-                                    placeholder="Örn: TRAX3077108"
+                                    placeholder="├ûrn: TRAX3077108"
                                     style={{ marginTop: '6px' }}
                                   />
                                 </label>
@@ -2627,7 +2627,7 @@ function DashboardContent() {
                               </label>
                               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px' }}>
                                 <button className="btn btn-secondary" onClick={() => setDeliveryDraft(null)}>
-                                  Vazgeç
+                                  Vazge├ğ
                                 </button>
                                 <button className="btn btn-primary" onClick={() => void confirmDelivery()}>
                                   Teslim Et
@@ -2653,7 +2653,7 @@ function DashboardContent() {
                               }}
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                if (window.confirm(`"${damper.musteri}" - İmalat No: ${damper.imalatNo}\n\nBu damperi silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+                                if (window.confirm(`"${damper.musteri}" - ─░malat No: ${damper.imalatNo}\n\nBu damperi silmek istedi─şinize emin misiniz?\n\nBu i┼şlem geri al─▒namaz!`)) {
                                   try {
                                     await deleteDamper(damper.id);
                                     setDampers(prev => prev.filter(d => d.id !== damper.id));
@@ -2661,7 +2661,7 @@ function DashboardContent() {
                                     loadData(); // Refresh stats
                                   } catch (error) {
                                     console.error('Error deleting damper:', error);
-                                    alert('Damper silinirken hata oluştu');
+                                    alert('Damper silinirken hata olu┼ştu');
                                   }
                                 }
                               }}
@@ -2678,12 +2678,12 @@ function DashboardContent() {
             ) : productType === 'DORSE' ? (
               sortedDorses.length === 0 ? (
                 <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
-                  Bu kategoride dorse bulunamadı
+                  Bu kategoride dorse bulunamad─▒
                 </div>
               ) : (
                 sortedDorses.map((dorse) => {
                   const progress = calculateDorseProgress(dorse);
-                  const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BAŞLAMADI' : 'DEVAM EDİYOR';
+                  const overallStatus = progress === 100 ? 'TAMAMLANDI' : progress === 0 ? 'BA┼ŞLAMADI' : 'DEVAM ED─░YOR';
                   const isExpanded = expandedId === dorse.id;
 
                   return (
@@ -2706,7 +2706,7 @@ function DashboardContent() {
                           </span>
                         </div>
                         <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                          {dorse.dingil} | {dorse.m3} M³{dorse.renk ? ` | ${dorse.renk}` : ''}
+                          {dorse.dingil} | {dorse.m3} M┬│{dorse.renk ? ` | ${dorse.renk}` : ''}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
@@ -2720,8 +2720,8 @@ function DashboardContent() {
                           height: '10px',
                           borderRadius: '50%',
                           background: dorse.cekiciGeldiMi ? 'var(--success)' : 'var(--danger)'
-                        }} title={dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}></div>
-                        <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                        }} title={dorse.cekiciGeldiMi ? '├çekici Geldi' : '├çekici Gelmedi'}></div>
+                        <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>Ôû╝</div>
                       </div>
 
                       {isExpanded && (
@@ -2743,8 +2743,8 @@ function DashboardContent() {
                             paddingBottom: '20px',
                             borderBottom: '1px solid var(--border)'
                           }}>
-                            {/* İmalat No */}
-                            {/* İmalat No */}
+                            {/* ─░malat No */}
+                            {/* ─░malat No */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -2756,7 +2756,7 @@ function DashboardContent() {
                               gap: '12px'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>─░MALAT NO</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500, color: !dorse.imalatNo ? 'var(--warning)' : 'var(--foreground)' }}>
                                   {dorse.imalatNo ?? 'Girilmedi'}
                                 </div>
@@ -2802,7 +2802,7 @@ function DashboardContent() {
                               gap: '12px'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>SİLİNDİR</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>S─░L─░ND─░R</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>
                                   {dorse.silindir || '-'}
                                 </div>
@@ -2843,7 +2843,7 @@ function DashboardContent() {
                               gap: '12px'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MALZEME CİNSİ</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MALZEME C─░NS─░</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>
                                   {dorse.malzemeCinsi || '-'}
                                 </div>
@@ -2863,14 +2863,14 @@ function DashboardContent() {
                                   })();
                                 }}
                               >
-                                <option value="">Seçiniz</option>
+                                <option value="">Se├ğiniz</option>
                                 {dropdowns?.malzemeCinsi.map(m => (
                                   <option key={m} value={m}>{m}</option>
                                 ))}
                               </select>
                             </div>
 
-                            {/* Kalınlık */}
+                            {/* Kal─▒nl─▒k */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -2891,7 +2891,7 @@ function DashboardContent() {
                                 type="text"
                                 className="input"
                                 style={{ width: '80px', padding: '6px 10px', fontSize: '13px', textAlign: 'center', height: '34px' }}
-                                placeholder="Kalınlık"
+                                placeholder="Kal─▒nl─▒k"
                                 value={dorse.kalinlik ?? ''}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) => {
@@ -2943,14 +2943,14 @@ function DashboardContent() {
                                   })();
                                 }}
                               >
-                                <option value="">Seçiniz</option>
+                                <option value="">Se├ğiniz</option>
                                 {(dropdowns?.dorseFren ?? ['Wabco', 'Knorr']).map((f) => (
                                   <option key={f} value={f}>{f}</option>
                                 ))}
                               </select>
                             </div>
 
-                            {/* Şasi Bağlantısı */}
+                            {/* ┼Şasi Ba─şlant─▒s─▒ */}
                             <div style={{
                               gridColumn: '1 / -1',
                               background: 'var(--card-bg-secondary)',
@@ -2967,12 +2967,12 @@ function DashboardContent() {
                                   <Truck size={24} />
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>ŞASİ BAĞLANTISI</div>
+                                  <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>┼ŞAS─░ BA─ŞLANTISI</div>
                                   <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--primary)' }}>
                                     {dorse.sasi ? (
                                       <span>#{dorse.sasi.imalatNo} - {dorse.sasi.musteri} ({dorse.sasi.sasiNo})</span>
                                     ) : (
-                                      <span style={{ color: 'var(--muted)' }}>Şasi bağlı değil</span>
+                                      <span style={{ color: 'var(--muted)' }}>┼Şasi ba─şl─▒ de─şil</span>
                                     )}
                                   </div>
                                 </div>
@@ -2983,7 +2983,7 @@ function DashboardContent() {
                                   onClick={(e) => { e.stopPropagation(); openLinkModal(dorse); }}
                                   style={{ fontSize: '13px', padding: '8px 16px' }}
                                 >
-                                  {dorse.sasi ? <><LinkIcon size={14} /> Şasiyi Değiştir</> : <><LinkIcon size={14} /> Şasi Bağla</>}
+                                  {dorse.sasi ? <><LinkIcon size={14} /> ┼Şasiyi De─şi┼ştir</> : <><LinkIcon size={14} /> ┼Şasi Ba─şla</>}
                                 </button>
                                 {dorse.sasi && (
                                   <button
@@ -2991,13 +2991,13 @@ function DashboardContent() {
                                     onClick={(e) => { e.stopPropagation(); handleUnlinkSasi(dorse.id); }}
                                     style={{ fontSize: '13px', padding: '8px 16px' }}
                                   >
-                                    <X size={14} /> Şasiyi Kaldır
+                                    <X size={14} /> ┼Şasiyi Kald─▒r
                                   </button>
                                 )}
                               </div>
                             </div>
 
-                            {/* Dorse Durumu -> Çekici Durumu */}
+                            {/* Dorse Durumu -> ├çekici Durumu */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -3008,9 +3008,9 @@ function DashboardContent() {
                               justifyContent: 'space-between'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ÇEKİCİ DURUMU</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>├çEK─░C─░ DURUMU</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                  {dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}
+                                  {dorse.cekiciGeldiMi ? '├çekici Geldi' : '├çekici Gelmedi'}
                                 </div>
                               </div>
                               <div
@@ -3020,7 +3020,7 @@ function DashboardContent() {
                                   handleStepToggle(dorse.id, 'cekiciGeldiMi', dorse.cekiciGeldiMi, 'DORSE');
                                 }}
                                 style={{ transform: 'scale(1.1)' }}
-                                title="Değiştirmek için tıklayın"
+                                title="De─şi┼ştirmek i├ğin t─▒klay─▒n"
                               ></div>
                             </div>
 
@@ -3038,7 +3038,7 @@ function DashboardContent() {
                               <div>
                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ADET</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>
-                                  {dorse.adet > 0 ? dorse.adet : '–'}
+                                  {dorse.adet > 0 ? dorse.adet : 'ÔÇô'}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3090,7 +3090,7 @@ function DashboardContent() {
                               </div>
                             </div>
 
-                            {/* Renk - Düzenlenebilir */}
+                            {/* Renk - D├╝zenlenebilir */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -3199,7 +3199,7 @@ function DashboardContent() {
                               position: 'relative'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLUŞTURULMA TARİHİ</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>OLU┼ŞTURULMA TAR─░H─░</div>
                                 <div style={{ fontSize: '13px', color: 'var(--foreground)' }}>
                                   {dorse.createdAt ? new Date(dorse.createdAt).toLocaleString('tr-TR', {
                                     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -3210,7 +3210,7 @@ function DashboardContent() {
                                 type="datetime-local"
                                 className="input"
                                 style={{ padding: '4px 8px', fontSize: '12px', width: '40px', height: '30px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'transparent', cursor: 'pointer', opacity: 0, position: 'absolute', right: '16px', zIndex: 10 }}
-                                title="Tarihi Düzenle"
+                                title="Tarihi D├╝zenle"
                                 onChange={(e) => {
                                   if (!e.target.value) return;
                                   const iso = new Date(e.target.value).toISOString();
@@ -3269,7 +3269,7 @@ function DashboardContent() {
                                               })();
                                             }}
                                           >
-                                            <option value="">Seçiniz</option>
+                                            <option value="">Se├ğiniz</option>
                                             {options?.map(v => (
                                               <option key={v} value={v}>{v}</option>
                                             ))}
@@ -3300,7 +3300,7 @@ function DashboardContent() {
                                                 lineHeight: 1.35,
                                               }}
                                             >
-                                              Bu siparişte branda yok; bu adım kullanılmıyor.
+                                              Bu sipari┼şte branda yok; bu ad─▒m kullan─▒lm─▒yor.
                                             </div>
                                           ) : null}
                                         </div>
@@ -3314,8 +3314,8 @@ function DashboardContent() {
                                             }
                                             title={
                                               isBrandaMontajiLocked
-                                                ? 'Branda yok — montaj takip edilmez'
-                                                : 'Değiştirmek için tıklayın'
+                                                ? 'Branda yok ÔÇö montaj takip edilmez'
+                                                : 'De─şi┼ştirmek i├ğin t─▒klay─▒n'
                                             }
                                             style={
                                               isBrandaMontajiLocked
@@ -3346,7 +3346,7 @@ function DashboardContent() {
                               style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                if (window.confirm(`"${dorse.musteri}" - İmalat No: ${dorse.imalatNo}\n\nBu dorseyi silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+                                if (window.confirm(`"${dorse.musteri}" - ─░malat No: ${dorse.imalatNo}\n\nBu dorseyi silmek istedi─şinize emin misiniz?\n\nBu i┼şlem geri al─▒namaz!`)) {
                                   try {
                                     await deleteDorse(dorse.id);
                                     setDorses(prev => prev.filter(d => d.id !== dorse.id));
@@ -3354,7 +3354,7 @@ function DashboardContent() {
                                     loadData();
                                   } catch (error) {
                                     console.error('Error deleting dorse:', error);
-                                    alert('Dorse silinirken hata oluştu');
+                                    alert('Dorse silinirken hata olu┼ştu');
                                   }
                                 }
                               }}
@@ -3371,7 +3371,7 @@ function DashboardContent() {
             ) : (
               sortedSasis.length === 0 ? (
                 <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
-                  Bu kategoride şasi bulunamadı
+                  Bu kategoride ┼şasi bulunamad─▒
                 </div>
               ) : (
                 sortedSasis.map((sasi) => {
@@ -3407,8 +3407,8 @@ function DashboardContent() {
                           </div>
                           <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
                         </div>
-                        <div>{getStatusBadge(overallStatus === 'TAMAMLANAN' ? 'TAMAMLANDI' : overallStatus === 'BASLAMAYAN' ? 'BAŞLAMADI' : 'DEVAM EDİYOR')}</div>
-                        <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                        <div>{getStatusBadge(overallStatus === 'TAMAMLANAN' ? 'TAMAMLANDI' : overallStatus === 'BASLAMAYAN' ? 'BA┼ŞLAMADI' : 'DEVAM ED─░YOR')}</div>
+                        <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>Ôû╝</div>
                       </div>
 
                       {isExpanded && (
@@ -3430,7 +3430,7 @@ function DashboardContent() {
                             paddingBottom: '20px',
                             borderBottom: '1px solid var(--border)'
                           }}>
-                            {/* İmalat no */}
+                            {/* ─░malat no */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -3441,7 +3441,7 @@ function DashboardContent() {
                               justifyContent: 'space-between'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>─░MALAT NO</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500, color: !hasDamperDorseImalatNo(sasi.imalatNo) ? 'var(--warning)' : 'var(--foreground)' }}>{sasi.imalatNo ?? 'Girilmedi'}</div>
                               </div>
                               <input
@@ -3471,7 +3471,7 @@ function DashboardContent() {
                               />
                             </div>
 
-                            {/* Şasi no */}
+                            {/* ┼Şasi no */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -3484,7 +3484,7 @@ function DashboardContent() {
                               minWidth: 0
                             }}>
                               <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>┼ŞAS─░ NO</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500, color: hasSasiNoWritten(sasi.sasiNo) ? 'var(--foreground)' : 'var(--warning)' }}>{hasSasiNoWritten(sasi.sasiNo) ? normalizeSasiNoValue(sasi.sasiNo) : 'Girilmedi'}</div>
                               </div>
                               <input
@@ -3492,7 +3492,7 @@ function DashboardContent() {
                                 autoComplete="off"
                                 className="input"
                                 style={{ width: '140px', padding: '4px', fontSize: '13px', flexShrink: 0 }}
-                                placeholder="Şasi no"
+                                placeholder="┼Şasi no"
                                 value={sasi.sasiNo ?? ''}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) => {
@@ -3513,7 +3513,7 @@ function DashboardContent() {
                               />
                             </div>
 
-                            {/* Müşteri */}
+                            {/* M├╝┼şteri */}
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
@@ -3524,7 +3524,7 @@ function DashboardContent() {
                               justifyContent: 'space-between'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MÜŞTERİ / İSİM</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>M├£┼ŞTER─░ / ─░S─░M</div>
                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.musteri}</div>
                               </div>
                               <input
@@ -3547,7 +3547,7 @@ function DashboardContent() {
                                 }}
                                 onBlur={() => void persistNow(`sasi-${sasi.id}-musteri`)}
                                 onClick={(e) => e.stopPropagation()}
-                                placeholder="İsim Giriniz"
+                                placeholder="─░sim Giriniz"
                               />
                             </div>
 
@@ -3581,9 +3581,9 @@ function DashboardContent() {
                                   })();
                                 }}
                               >
-                                <option style={{ color: 'black' }} value="">Seçiniz</option>
-                                <option style={{ color: 'black' }} value="Kırma Tampon">KIRMA</option>
-                                <option style={{ color: 'black' }} value="Sabit Tampon">SABİT</option>
+                                <option style={{ color: 'black' }} value="">Se├ğiniz</option>
+                                <option style={{ color: 'black' }} value="K─▒rma Tampon">KIRMA</option>
+                                <option style={{ color: 'black' }} value="Sabit Tampon">SAB─░T</option>
                               </select>
                             </div>
 
@@ -3594,7 +3594,7 @@ function DashboardContent() {
                               borderRadius: '10px',
                               border: '1px solid var(--border)'
                             }}>
-                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
+                              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>D─░NG─░L</div>
                               <select
                                 className="select"
                                 style={{
@@ -3617,7 +3617,7 @@ function DashboardContent() {
                                   })();
                                 }}
                               >
-                                <option style={{ color: 'black' }} value="">Seçiniz</option>
+                                <option style={{ color: 'black' }} value="">Se├ğiniz</option>
                                 <option style={{ color: 'black' }} value="TRAX">TRAX</option>
                                 <option style={{ color: 'black' }} value="BPW">BPW</option>
                               </select>
@@ -3634,7 +3634,7 @@ function DashboardContent() {
                               justifyContent: 'space-between'
                             }}>
                               <div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TARİH</div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAR─░H</div>
                                 <div style={{ fontSize: '13px' }}>{sasi.createdAt ? new Date(sasi.createdAt).toLocaleDateString() : '-'}</div>
                               </div>
                               <input
@@ -3700,7 +3700,7 @@ function DashboardContent() {
                               style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                if (window.confirm(`"${sasi.musteri}" - İmalat No: ${sasi.imalatNo}\n\nBu şasiyi silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+                                if (window.confirm(`"${sasi.musteri}" - ─░malat No: ${sasi.imalatNo}\n\nBu ┼şasiyi silmek istedi─şinize emin misiniz?\n\nBu i┼şlem geri al─▒namaz!`)) {
                                   try {
                                     await deleteSasi(sasi.id);
                                     setSasis(prev => prev.filter(s => s.id !== sasi.id));
@@ -3708,12 +3708,12 @@ function DashboardContent() {
                                     loadData();
                                   } catch (error) {
                                     console.error('Error deleting sasi:', error);
-                                    alert('Şasi silinirken hata oluştu');
+                                    alert('┼Şasi silinirken hata olu┼ştu');
                                   }
                                 }
                               }}
                             >
-                              <Trash2 size={16} /> Şasiyi Sil
+                              <Trash2 size={16} /> ┼Şasiyi Sil
                             </button>
                           </div>
                         </div>
@@ -3731,15 +3731,15 @@ function DashboardContent() {
           <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle</h2>
-                <button className="modal-close" onClick={() => setShowAddModal(false)}>✕</button>
+                <h2 className="modal-title">Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : '┼Şasi'} Ekle</h2>
+                <button className="modal-close" onClick={() => setShowAddModal(false)}>Ô£ò</button>
               </div>
               <form onSubmit={handleCreate}>
                 <div className="modal-body">
                   {productType === 'DAMPER' ? (
                     <div className="form-grid">
                       <div className="form-group">
-                        <label className="form-label">İmalat No <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>(sonra doldurulabilir)</span></label>
+                        <label className="form-label">─░malat No <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>(sonra doldurulabilir)</span></label>
                         <input
                           type="number"
                           className="input"
@@ -3749,7 +3749,7 @@ function DashboardContent() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Müşteri *</label>
+                        <label className="form-label">M├╝┼şteri *</label>
                         <input
                           type="text"
                           className="input"
@@ -3759,7 +3759,7 @@ function DashboardContent() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Araç Geldi Mi *</label>
+                        <label className="form-label">Ara├ğ Geldi Mi *</label>
                         <select
                           className="select"
                           value={formData.aracGeldiMi ? 'EVET' : 'HAYIR'}
@@ -3770,11 +3770,11 @@ function DashboardContent() {
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Araç Marka</label>
+                        <label className="form-label">Ara├ğ Marka</label>
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: FORD, MERCEDES..."
+                          placeholder="├ûrn: FORD, MERCEDES..."
                           value={formData.aracMarka}
                           onChange={(e) => setFormData(prev => ({ ...prev, aracMarka: e.target.value }))}
                         />
@@ -3784,7 +3784,7 @@ function DashboardContent() {
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: 3545 D, 3345 K..."
+                          placeholder="├ûrn: 3545 D, 3345 K..."
                           value={formData.model}
                           onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
                         />
@@ -3797,7 +3797,7 @@ function DashboardContent() {
                           value={formData.tip}
                           onChange={(e) => setFormData(prev => ({ ...prev, tip: e.target.value }))}
                         >
-                          <option value="">Seçiniz</option>
+                          <option value="">Se├ğiniz</option>
                           {dropdowns?.tip.map(t => (
                             <option key={t} value={t}>{t}</option>
                           ))}
@@ -3811,7 +3811,7 @@ function DashboardContent() {
                           value={formData.malzemeCinsi}
                           onChange={(e) => setFormData(prev => ({ ...prev, malzemeCinsi: e.target.value }))}
                         >
-                          <option value="">Seçiniz</option>
+                          <option value="">Se├ğiniz</option>
                           {dropdowns?.malzemeCinsi.map(m => (
                             <option key={m} value={m}>{m}</option>
                           ))}
@@ -3829,11 +3829,11 @@ function DashboardContent() {
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">M³</label>
+                        <label className="form-label">M┬│</label>
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: 18+2"
+                          placeholder="├ûrn: 18+2"
                           value={formData.m3}
                           onChange={(e) => setFormData(prev => ({ ...prev, m3: e.target.value }))}
                         />
@@ -3843,7 +3843,7 @@ function DashboardContent() {
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: Beyaz, Kırmızı..."
+                          placeholder="├ûrn: Beyaz, K─▒rm─▒z─▒..."
                           value={formData.renk}
                           onChange={(e) => setFormData(prev => ({ ...prev, renk: e.target.value }))}
                         />
@@ -3861,7 +3861,7 @@ function DashboardContent() {
                         {parseInt(formData.adet) > 1 && (
                           <div style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <Lightbulb size={18} /> {formData.adet} ayrı damper oluşturulacak: {formData.musteri || 'Firma'} 1, {formData.musteri || 'Firma'} 2, ... {formData.musteri || 'Firma'} {formData.adet}
+                              <Lightbulb size={18} /> {formData.adet} ayr─▒ damper olu┼şturulacak: {formData.musteri || 'Firma'} 1, {formData.musteri || 'Firma'} 2, ... {formData.musteri || 'Firma'} {formData.adet}
                             </div>
                           </div>
                         )}
@@ -3871,7 +3871,7 @@ function DashboardContent() {
                     // DORSE FORM fields
                     <div className="form-grid">
                       <div className="form-group">
-                        <label className="form-label">İmalat No <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>(sonra doldurulabilir)</span></label>
+                        <label className="form-label">─░malat No <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>(sonra doldurulabilir)</span></label>
                         <input
                           type="number"
                           className="input"
@@ -3881,7 +3881,7 @@ function DashboardContent() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Şasi Bağla <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>(Opsiyonel)</span></label>
+                        <label className="form-label">┼Şasi Ba─şla <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>(Opsiyonel)</span></label>
                         <select
                           className="select"
                           value={dorseFormData.sasiId}
@@ -3889,7 +3889,7 @@ function DashboardContent() {
                           disabled={parseInt(dorseFormData.adet) > 1}
                           style={parseInt(dorseFormData.adet) > 1 ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                         >
-                          <option value="">Şasi Seçiniz...</option>
+                          <option value="">┼Şasi Se├ğiniz...</option>
                           {availableSasis.map(s => (
                             <option key={s.id} value={s.id}>
                               #{s.imalatNo} - {s.musteri} ({s.sasiNo})
@@ -3898,7 +3898,7 @@ function DashboardContent() {
                         </select>
                         {parseInt(dorseFormData.adet) > 1 && (
                           <div style={{ fontSize: '10px', color: 'var(--warning)', marginTop: '4px' }}>
-                            ⚠️ Çoklu eklemede şasi otomatik bağlanamaz.
+                            ÔÜá´©Å ├çoklu eklemede ┼şasi otomatik ba─şlanamaz.
                           </div>
                         )}
                       </div>
@@ -3919,14 +3919,14 @@ function DashboardContent() {
                           value={dorseFormData.malzemeCinsi}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, malzemeCinsi: e.target.value }))}
                         >
-                          <option value="">Seçiniz</option>
+                          <option value="">Se├ğiniz</option>
                           {dropdowns?.malzemeCinsi.map(m => (
                             <option key={m} value={m}>{m}</option>
                           ))}
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Müşteri *</label>
+                        <label className="form-label">M├╝┼şteri *</label>
                         <input
                           type="text"
                           className="input"
@@ -3936,7 +3936,7 @@ function DashboardContent() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Çekici Geldi Mi *</label>
+                        <label className="form-label">├çekici Geldi Mi *</label>
                         <select
                           className="select"
                           value={dorseFormData.cekiciGeldiMi ? 'EVET' : 'HAYIR'}
@@ -3951,7 +3951,7 @@ function DashboardContent() {
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: PIRLANTA..."
+                          placeholder="├ûrn: PIRLANTA..."
                           value={dorseFormData.dingil}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, dingil: e.target.value }))}
                         />
@@ -3961,7 +3961,7 @@ function DashboardContent() {
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: BRIDGESTONE..."
+                          placeholder="├ûrn: BRIDGESTONE..."
                           value={dorseFormData.lastik}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, lastik: e.target.value }))}
                         />
@@ -3973,17 +3973,17 @@ function DashboardContent() {
                           value={dorseFormData.tampon}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, tampon: e.target.value }))}
                         >
-                          <option value="">Seçiniz</option>
-                          <option value="Kırma">Kırma</option>
+                          <option value="">Se├ğiniz</option>
+                          <option value="K─▒rma">K─▒rma</option>
                           <option value="Sabit">Sabit</option>
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Kalınlık</label>
+                        <label className="form-label">Kal─▒nl─▒k</label>
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: 4mm..."
+                          placeholder="├ûrn: 4mm..."
                           value={dorseFormData.kalinlik}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: e.target.value }))}
                         />
@@ -3995,7 +3995,7 @@ function DashboardContent() {
                           value={dorseFormData.frenMarka}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, frenMarka: e.target.value }))}
                         >
-                          <option value="">Seçiniz</option>
+                          <option value="">Se├ğiniz</option>
                           {(dropdowns?.dorseFren ?? ['Wabco', 'Knorr']).map((f) => (
                             <option key={f} value={f}>{f}</option>
                           ))}
@@ -4013,11 +4013,11 @@ function DashboardContent() {
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">M³</label>
+                        <label className="form-label">M┬│</label>
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: 18+2"
+                          placeholder="├ûrn: 18+2"
                           value={dorseFormData.m3}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, m3: e.target.value }))}
                         />
@@ -4027,7 +4027,7 @@ function DashboardContent() {
                         <input
                           type="text"
                           className="input"
-                          placeholder="Örn: Beyaz, Kırmızı..."
+                          placeholder="├ûrn: Beyaz, K─▒rm─▒z─▒..."
                           value={dorseFormData.renk}
                           onChange={(e) => setDorseFormData(prev => ({ ...prev, renk: e.target.value }))}
                         />
@@ -4048,7 +4048,7 @@ function DashboardContent() {
                     // SASI FORM fields
                     <div className="form-grid">
                       <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                        <label className="form-label">Kayıt Tipi *</label>
+                        <label className="form-label">Kay─▒t Tipi *</label>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
                             type="button"
@@ -4056,7 +4056,7 @@ function DashboardContent() {
                             style={{ flex: 1 }}
                             onClick={() => setSasiFormData(prev => ({ ...prev, isStok: true }))}
                           >
-                            <Package size={16} /> Stok Kaydı
+                            <Package size={16} /> Stok Kayd─▒
                           </button>
                           <button
                             type="button"
@@ -4064,19 +4064,19 @@ function DashboardContent() {
                             style={{ flex: 1 }}
                             onClick={() => setSasiFormData(prev => ({ ...prev, isStok: false }))}
                           >
-                            <User size={16} /> Müşteri Kaydı
+                            <User size={16} /> M├╝┼şteri Kayd─▒
                           </button>
                         </div>
                       </div>
 
                       {!sasiFormData.isStok && (
                         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                          <label className="form-label">Müşteri Adı *</label>
+                          <label className="form-label">M├╝┼şteri Ad─▒ *</label>
                           <input
                             type="text"
                             className="input"
                             required
-                            placeholder="Müşteri adını giriniz..."
+                            placeholder="M├╝┼şteri ad─▒n─▒ giriniz..."
                             value={sasiFormData.musteri}
                             onChange={(e) => setSasiFormData(prev => ({ ...prev, musteri: e.target.value }))}
                           />
@@ -4090,7 +4090,7 @@ function DashboardContent() {
                           value={sasiFormData.dingil}
                           onChange={(e) => setSasiFormData(prev => ({ ...prev, dingil: e.target.value }))}
                         >
-                          <option value="">Seçiniz</option>
+                          <option value="">Se├ğiniz</option>
                           <option value="TRAX">TRAX</option>
                           <option value="BPW">BPW</option>
                         </select>
@@ -4102,9 +4102,9 @@ function DashboardContent() {
                           value={sasiFormData.tampon}
                           onChange={(e) => setSasiFormData(prev => ({ ...prev, tampon: e.target.value }))}
                         >
-                          <option value="">Seçiniz</option>
-                          <option value="Kırma Tampon">KIRMA</option>
-                          <option value="Sabit Tampon">SABİT</option>
+                          <option value="">Se├ğiniz</option>
+                          <option value="K─▒rma Tampon">KIRMA</option>
+                          <option value="Sabit Tampon">SAB─░T</option>
                         </select>
                       </div>
                       <div className="form-group">
@@ -4123,10 +4123,10 @@ function DashboardContent() {
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
-                    İptal
+                    ─░ptal
                   </button>
                   <button type="submit" className="btn btn-primary">
-                    {productType === 'DAMPER' ? 'Damper Ekle' : productType === 'DORSE' ? 'Dorse Ekle' : 'Şasi Ekle'}
+                    {productType === 'DAMPER' ? 'Damper Ekle' : productType === 'DORSE' ? 'Dorse Ekle' : '┼Şasi Ekle'}
                   </button>
                 </div>
               </form>
@@ -4134,7 +4134,7 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Şasi Bağlantısı Modalı */}
+        {/* ┼Şasi Ba─şlant─▒s─▒ Modal─▒ */}
         {showLinkModal && activeDorseForLink && (
           <div className="modal-overlay" onClick={() => setShowLinkModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', background: 'rgba(0, 0, 0, 0.6)' }}>
             <div
@@ -4177,9 +4177,9 @@ function DashboardContent() {
                     <LinkIcon size={24} />
                   </div>
                   <div>
-                    <h3 className="modal-title" style={{ margin: 0, color: '#fff', fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em' }}>Şasi Bağlantısı</h3>
+                    <h3 className="modal-title" style={{ margin: 0, color: '#fff', fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em' }}>┼Şasi Ba─şlant─▒s─▒</h3>
                     <p style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.6)', margin: '4px 0 0 0', fontWeight: 500 }}>
-                      <span style={{ color: '#fff' }}>{activeDorseForLink.musteri}</span> için şasi seçimi
+                      <span style={{ color: '#fff' }}>{activeDorseForLink.musteri}</span> i├ğin ┼şasi se├ğimi
                     </p>
                   </div>
                 </div>
@@ -4211,7 +4211,7 @@ function DashboardContent() {
                   <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
                   <input
                     type="text"
-                    placeholder="Şasi ara (Müşteri adı, Stok no veya İmalat no...)"
+                    placeholder="┼Şasi ara (M├╝┼şteri ad─▒, Stok no veya ─░malat no...)"
                     style={{
                       width: '100%',
                       padding: '12px 16px 12px 48px',
@@ -4248,7 +4248,7 @@ function DashboardContent() {
                         transition: 'all 0.2s'
                       }}
                     >
-                      {filter === 'hepsi' ? 'Tüm Şasiler' : filter === 'stok' ? 'Stok Şasileri' : 'Müşteri Şasileri'}
+                      {filter === 'hepsi' ? 'T├╝m ┼Şasiler' : filter === 'stok' ? 'Stok ┼Şasileri' : 'M├╝┼şteri ┼Şasileri'}
                     </button>
                   ))}
                 </div>
@@ -4259,12 +4259,12 @@ function DashboardContent() {
                 {availableSasis.length === 0 ? (
                   <div style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>
                     <Package size={64} style={{ opacity: 0.2, marginBottom: '16px' }} />
-                    <p style={{ fontSize: '16px', fontWeight: 500, color: '#64748b' }}>Bağlanabilir şasi bulunamadı.</p>
+                    <p style={{ fontSize: '16px', fontWeight: 500, color: '#64748b' }}>Ba─şlanabilir ┼şasi bulunamad─▒.</p>
                     <button
                       style={{ marginTop: '16px', padding: '10px 20px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
                       onClick={() => { setShowLinkModal(false); setShowAddModal(true); setProductType('SASI'); }}
                     >
-                      + Yeni Şasi Oluştur
+                      + Yeni ┼Şasi Olu┼ştur
                     </button>
                   </div>
                 ) : (
@@ -4329,7 +4329,7 @@ function DashboardContent() {
                                 </span>
                                 {isMatch && (
                                   <span style={{ fontSize: '11px', background: '#4f46e5', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, letterSpacing: '0.5px' }}>
-                                    ÖNERİLEN
+                                    ├ûNER─░LEN
                                   </span>
                                 )}
                                 {progress === 100 && (
@@ -4339,7 +4339,7 @@ function DashboardContent() {
                                 )}
                               </div>
                               <div style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: '16px', color: '#64748b', fontSize: '13px', fontWeight: 500 }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Info size={14} /> {sasi.sasiNo || 'Şasi No Yok'}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Info size={14} /> {sasi.sasiNo || '┼Şasi No Yok'}</span>
                                 <span style={{ width: '4px', height: '4px', background: '#cbd5e1', borderRadius: '50%' }}></span>
                                 <span>{sasi.dingil}</span>
                                 <span style={{ width: '4px', height: '4px', background: '#cbd5e1', borderRadius: '50%' }}></span>
@@ -4349,7 +4349,7 @@ function DashboardContent() {
 
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                               <span style={{ fontSize: '12px', fontWeight: 700, color: progress === 100 ? '#059669' : '#3b82f6' }}>
-                                %{progress} Tamamlandı
+                                %{progress} Tamamland─▒
                               </span>
                               <div style={{ width: '100px', height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
                                 <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#059669' : '#3b82f6', borderRadius: '3px', transition: 'width 0.5s' }}></div>
@@ -4384,7 +4384,7 @@ function DashboardContent() {
                   onMouseOver={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
                 >
-                  İptal
+                  ─░ptal
                 </button>
               </div>
             </div>

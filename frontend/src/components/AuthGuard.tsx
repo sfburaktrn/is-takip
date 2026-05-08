@@ -19,7 +19,7 @@ export default function AuthGuard({ children, requireAdmin = false }: AuthGuardP
             if (!user) {
                 router.push('/login');
             } else if (requireAdmin && !isAdmin) {
-                router.push('/');
+                router.push('/urun-listesi');
             }
         }
     }, [user, isLoading, isAdmin, requireAdmin, router]);

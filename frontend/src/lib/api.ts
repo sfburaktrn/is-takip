@@ -1287,6 +1287,67 @@ export async function getStepEvents(productType: 'DAMPER' | 'DORSE' | 'SASI', pr
     return handleResponse<StepEventTimelineResponse>(res);
 }
 
+/** Teklif Takip araç ingest → kayıtlı olaylar (UI canlı liste). */
+export interface VehicleDeliveryEventRow {
+    id: number;
+    sourceDeliveryId: string;
+    companyName: string;
+    payloadJson: Record<string, unknown> | null;
+    /** Son VEHICLE_DELIVERED gövdesi (giriş payload_json ile ayrı). */
+    deliveredPayloadJson?: Record<string, unknown> | null;
+    arrivedAt: string | null;
+    deliveredAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export async function getVehicleDeliveryEvents(limit = 120): Promise<{ items: VehicleDeliveryEventRow[] }> {
+    const q = new URLSearchParams({ limit: String(Math.min(300, Math.max(1, limit))) });
+    const res = await apiFetch(`${API_URL}/vehicle-delivery-events?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<{ items: VehicleDeliveryEventRow[] }>(res);
+}
+
+export interface VehicleDeliveryDeletionLogRow {
+    id: number;
+    userId: number | null;
+    username: string | null;
+    summary: string | null;
+    details: {
+        sourceDeliveryId?: string;
+        companyName?: string | null;
+        deletedCount?: number;
+        deletedEventIds?: number[];
+        events?: unknown[];
+    } | null;
+    createdAt: string;
+}
+
+export async function deleteVehicleDeliveryRecords(
+    sourceDeliveryId: string,
+): Promise<{ ok: boolean; deletedCount: number }> {
+    const res = await apiFetch(`${API_URL}/vehicle-delivery-events`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceDeliveryId }),
+    });
+    return handleResponse<{ ok: boolean; deletedCount: number }>(res);
+}
+
+export async function getVehicleDeliveryDeletionLogs(
+    limit = 80,
+): Promise<{ items: VehicleDeliveryDeletionLogRow[] }> {
+    const q = new URLSearchParams({ limit: String(Math.min(200, Math.max(1, limit))) });
+    const res = await apiFetch(`${API_URL}/vehicle-delivery-events/deletion-logs?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<{ items: VehicleDeliveryDeletionLogRow[] }>(res);
+}
+
 export async function putCapacityTarget(body: {
     productType: VerimlilikProductType;
     weekStart: string;

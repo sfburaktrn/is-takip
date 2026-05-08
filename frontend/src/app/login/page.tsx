@@ -29,7 +29,7 @@ export default function LoginPage() {
     // Redirect if already logged in
     useEffect(() => {
         if (user) {
-            router.push('/');
+            router.push('/urun-listesi');
         }
     }, [user, router]);
 
@@ -46,7 +46,7 @@ export default function LoginPage() {
         const result = await login(username, password);
 
         if (result.success) {
-            router.push('/');
+            router.push('/urun-listesi');
         } else {
             setError(result.error || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
         }

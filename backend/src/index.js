@@ -1844,7 +1844,7 @@ app.get('/api/dropdowns', async (req, res) => {
     try {
         const dropdowns = {
             aracGeldiMi: ['EVET', 'HAYIR'],
-            tip: ['HAVUZ DAMPER', 'HAVUZ DAMPER + HİDROLİK KAPAK', 'KÖŞELİ DAMPER', 'Ahşap Kasa', 'Lambiri Kasa', '3 Yöne Devirme Damper', 'Karla Mücadele'],
+            tip: ['HAVUZ DAMPER', 'HAVUZ DAMPER + HİDROLİK KAPAK', 'KÖŞELİ DAMPER', 'Ahşap Kasa', 'Lambiri Kasa', '3 Yöne Devirme Damper', 'Karla Mücadele', 'Su Tankeri'],
             malzemeCinsi: ['HARDOX', 'ST52'],
             aracMarka: ['FORD', 'MERCEDES', 'MAN', 'MBT 3342'],
             model: ['3545 D', '3345 K', '1833', '2533 D', '4145 D', '41440'],

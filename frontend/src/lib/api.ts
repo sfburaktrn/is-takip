@@ -1348,6 +1348,121 @@ export async function getVehicleDeliveryDeletionLogs(
     return handleResponse<{ items: VehicleDeliveryDeletionLogRow[] }>(res);
 }
 
+export type VehicleDamageStatus = 'KAYDI_GIRILDI' | 'SURECTE' | 'TAMAMLANDI';
+
+export interface VehicleDamagePhoto {
+    id: number;
+    mimeType: string;
+    sizeBytes: number;
+    originalFileName: string | null;
+    displayOrder: number;
+    createdAt: string;
+    dataUrl: string;
+}
+
+export interface VehicleDamageRecord {
+    id: number;
+    sasiNo: string;
+    status: VehicleDamageStatus;
+    responsibles: string[];
+    processOwner: string | null;
+    requiresPart: boolean;
+    partCost: number | null;
+    laborCost: number | null;
+    repairLocation: string | null;
+    serviceDirection: string | null;
+    cost: number | null;
+    notes: string | null;
+    isCompleted: boolean;
+    createdAt: string;
+    updatedAt: string;
+    photos: VehicleDamagePhoto[];
+}
+
+export async function getVehicleDamages(): Promise<VehicleDamageRecord[]> {
+    const res = await apiFetch(`${API_URL}/vehicle-damages`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<VehicleDamageRecord[]>(res);
+}
+
+export async function createVehicleDamage(body: {
+    sasiNo: string;
+    responsibles: string[];
+    processOwner?: string | null;
+    requiresPart?: boolean;
+    partCost?: number | null;
+    laborCost?: number | null;
+    repairLocation?: string | null;
+    serviceDirection?: string | null;
+    cost?: number | null;
+    notes?: string | null;
+    isCompleted?: boolean;
+}): Promise<VehicleDamageRecord> {
+    const res = await apiFetch(`${API_URL}/vehicle-damages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<VehicleDamageRecord>(res);
+}
+
+export async function updateVehicleDamage(
+    id: number,
+    body: Partial<{
+        sasiNo: string;
+        responsibles: string[];
+        processOwner: string | null;
+        requiresPart: boolean;
+        partCost: number | null;
+        laborCost: number | null;
+        repairLocation: string | null;
+        serviceDirection: string | null;
+        cost: number | null;
+        notes: string | null;
+        isCompleted: boolean;
+    }>
+): Promise<VehicleDamageRecord> {
+    const res = await apiFetch(`${API_URL}/vehicle-damages/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<VehicleDamageRecord>(res);
+}
+
+export async function addVehicleDamagePhoto(
+    id: number,
+    body: { mimeType: string; dataBase64: string; originalFileName?: string | null }
+): Promise<VehicleDamageRecord> {
+    const res = await apiFetch(`${API_URL}/vehicle-damages/${id}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<VehicleDamageRecord>(res);
+}
+
+export async function deleteVehicleDamagePhoto(id: number, photoId: number): Promise<VehicleDamageRecord> {
+    const res = await apiFetch(`${API_URL}/vehicle-damages/${id}/photos/${photoId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse<VehicleDamageRecord>(res);
+}
+
+export async function deleteVehicleDamage(id: number): Promise<{ ok: boolean }> {
+    const res = await apiFetch(`${API_URL}/vehicle-damages/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: boolean }>(res);
+}
+
 export async function putCapacityTarget(body: {
     productType: VerimlilikProductType;
     weekStart: string;

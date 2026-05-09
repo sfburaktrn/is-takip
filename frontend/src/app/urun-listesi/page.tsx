@@ -34,6 +34,7 @@ import { saveAs } from 'file-saver';
 import ExcelJS from 'exceljs';
 
 import { trIncludes, trStartsWithStok } from '@/lib/trSearch';
+import { trUpper } from '@/lib/trUpper';
 import { useDebouncedPersist, applyServerRowIfFieldMatches } from '@/lib/useDebouncedPersist';
 import {
     getStats,
@@ -3221,11 +3222,8 @@ function UrunListesiContent() {
                                                                 >
                                                                     {damper.aracMarka || 'Girilmedi'}
                                                                 </div>
-                                                                <input
-                                                                    type="text"
+                                                                <select
                                                                     className="input"
-                                                                    autoComplete="off"
-                                                                    spellCheck={false}
                                                                     style={{
                                                                         flex: '2 1 280px',
                                                                         width: '100%',
@@ -3236,24 +3234,31 @@ function UrunListesiContent() {
                                                                         height: '40px',
                                                                         boxSizing: 'border-box'
                                                                     }}
-                                                                    placeholder="Araç markası"
                                                                     value={damper.aracMarka ?? ''}
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     onChange={(e) => {
-                                                                        const newMarka = e.target.value;
+                                                                        const newMarka = e.target.value || null;
                                                                         setDampers(prev =>
-                                                                            prev.map(d => (d.id === damper.id ? { ...d, aracMarka: newMarka || null } : d))
+                                                                            prev.map(d => (d.id === damper.id ? { ...d, aracMarka: newMarka } : d))
                                                                         );
                                                                         const key = `damper-${damper.id}-aracMarka`;
                                                                         persistLater(key, async () => {
-                                                                            const updated = await updateDamper(damper.id, { aracMarka: newMarka || null });
+                                                                            const updated = await updateDamper(damper.id, { aracMarka: newMarka });
                                                                             setDampers(prev =>
-                                                                                applyServerRowIfFieldMatches(prev, damper.id, 'aracMarka', newMarka || null, updated)
+                                                                                applyServerRowIfFieldMatches(prev, damper.id, 'aracMarka', newMarka, updated)
                                                                             );
                                                                         });
                                                                     }}
                                                                     onBlur={() => void persistNow(`damper-${damper.id}-aracMarka`)}
-                                                                />
+                                                                >
+                                                                    <option value="">Seçiniz</option>
+                                                                    {(dropdowns?.aracMarka ?? []).map(m => (
+                                                                        <option key={m} value={m}>{m}</option>
+                                                                    ))}
+                                                                    {damper.aracMarka && !(dropdowns?.aracMarka ?? []).includes(damper.aracMarka) ? (
+                                                                        <option value={damper.aracMarka}>{damper.aracMarka} (kayıtlı)</option>
+                                                                    ) : null}
+                                                                </select>
                                                             </div>
                                                         </div>
 
@@ -5030,11 +5035,8 @@ function UrunListesiContent() {
                                                             >
                                                                 {damper.aracMarka || 'Girilmedi'}
                                                             </div>
-                                                            <input
-                                                                type="text"
+                                                            <select
                                                                 className="input"
-                                                                autoComplete="off"
-                                                                spellCheck={false}
                                                                 style={{
                                                                     flex: '2 1 280px',
                                                                     width: '100%',
@@ -5045,24 +5047,31 @@ function UrunListesiContent() {
                                                                     height: '40px',
                                                                     boxSizing: 'border-box'
                                                                 }}
-                                                                placeholder="Araç markası"
                                                                 value={damper.aracMarka ?? ''}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 onChange={(e) => {
-                                                                    const newMarka = e.target.value;
+                                                                    const newMarka = e.target.value || null;
                                                                     setDampers(prev =>
-                                                                        prev.map(d => (d.id === damper.id ? { ...d, aracMarka: newMarka || null } : d))
+                                                                        prev.map(d => (d.id === damper.id ? { ...d, aracMarka: newMarka } : d))
                                                                     );
                                                                     const key = `damper-${damper.id}-aracMarka`;
                                                                     persistLater(key, async () => {
-                                                                        const updated = await updateDamper(damper.id, { aracMarka: newMarka || null });
+                                                                        const updated = await updateDamper(damper.id, { aracMarka: newMarka });
                                                                         setDampers(prev =>
-                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'aracMarka', newMarka || null, updated)
+                                                                            applyServerRowIfFieldMatches(prev, damper.id, 'aracMarka', newMarka, updated)
                                                                         );
                                                                     });
                                                                 }}
                                                                 onBlur={() => void persistNow(`damper-${damper.id}-aracMarka`)}
-                                                            />
+                                                            >
+                                                                <option value="">Seçiniz</option>
+                                                                {(dropdowns?.aracMarka ?? []).map(m => (
+                                                                    <option key={m} value={m}>{m}</option>
+                                                                ))}
+                                                                {damper.aracMarka && !(dropdowns?.aracMarka ?? []).includes(damper.aracMarka) ? (
+                                                                    <option value={damper.aracMarka}>{damper.aracMarka} (kayıtlı)</option>
+                                                                ) : null}
+                                                            </select>
                                                         </div>
                                                     </div>
 
@@ -7071,7 +7080,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     required
                                                     value={formData.musteri}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, musteri: e.target.value }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, musteri: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7087,13 +7096,16 @@ function UrunListesiContent() {
                                             </div>
                                             <div className="form-group">
                                                 <label className="form-label">Araç Marka</label>
-                                                <input
-                                                    type="text"
-                                                    className="input"
-                                                    placeholder="Örn: FORD, MERCEDES..."
+                                                <select
+                                                    className="select"
                                                     value={formData.aracMarka}
                                                     onChange={(e) => setFormData(prev => ({ ...prev, aracMarka: e.target.value }))}
-                                                />
+                                                >
+                                                    <option value="">Seçiniz</option>
+                                                    {(dropdowns?.aracMarka ?? []).map(m => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                             <div className="form-group">
                                                 <label className="form-label">Model</label>
@@ -7102,7 +7114,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     placeholder="Örn: 3545 D, 3345 K..."
                                                     value={formData.model}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, model: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7151,7 +7163,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     placeholder="Örn: 18+2"
                                                     value={formData.m3}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, m3: e.target.value }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, m3: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7161,7 +7173,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     placeholder="Örn: Beyaz, Kırmızı..."
                                                     value={formData.renk}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, renk: e.target.value }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, renk: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7225,7 +7237,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     required
                                                     value={dorseFormData.musteri}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, musteri: e.target.value }))}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, musteri: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7246,7 +7258,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     placeholder="Örn: PIRLANTA..."
                                                     value={dorseFormData.dingil}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, dingil: e.target.value }))}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, dingil: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7256,7 +7268,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     placeholder="Örn: BRIDGESTONE..."
                                                     value={dorseFormData.lastik}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, lastik: e.target.value }))}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, lastik: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7278,7 +7290,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     placeholder="Örn: 4mm..."
                                                     value={dorseFormData.kalinlik}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: e.target.value }))}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7312,7 +7324,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     placeholder="Örn: 18+2"
                                                     value={dorseFormData.m3}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, m3: e.target.value }))}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, m3: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7322,7 +7334,7 @@ function UrunListesiContent() {
                                                     className="input"
                                                     placeholder="Örn: Beyaz, Kırmızı..."
                                                     value={dorseFormData.renk}
-                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, renk: e.target.value }))}
+                                                    onChange={(e) => setDorseFormData(prev => ({ ...prev, renk: trUpper(e.target.value) }))}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -7372,7 +7384,7 @@ function UrunListesiContent() {
                                                         required
                                                         placeholder="Müşteri adını giriniz..."
                                                         value={sasiFormData.musteri}
-                                                        onChange={(e) => setSasiFormData(prev => ({ ...prev, musteri: e.target.value }))}
+                                                        onChange={(e) => setSasiFormData(prev => ({ ...prev, musteri: trUpper(e.target.value) }))}
                                                     />
                                                 </div>
                                             )}

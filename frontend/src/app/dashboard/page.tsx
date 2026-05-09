@@ -32,6 +32,7 @@ import {
 } from '@/lib/api';
 import Link from 'next/link';
 import { trIncludes, trStartsWithStok } from '@/lib/trSearch';
+import { trUpper } from '@/lib/trUpper';
 import { useDebouncedPersist, applyServerRowIfFieldMatches } from '@/lib/useDebouncedPersist';
 import {
   Package,
@@ -2247,11 +2248,8 @@ function DashboardContent() {
                                 >
                                   {damper.aracMarka || 'Girilmedi'}
                                 </div>
-                                <input
-                                  type="text"
+                                <select
                                   className="input"
-                                  autoComplete="off"
-                                  spellCheck={false}
                                   style={{
                                     flex: '2 1 280px',
                                     width: '100%',
@@ -2262,24 +2260,31 @@ function DashboardContent() {
                                     height: '40px',
                                     boxSizing: 'border-box'
                                   }}
-                                  placeholder="Ara├ğ markas─▒"
                                   value={damper.aracMarka ?? ''}
                                   onClick={(e) => e.stopPropagation()}
                                   onChange={(e) => {
-                                    const newMarka = e.target.value;
+                                    const newMarka = e.target.value || null;
                                     setDampers(prev =>
-                                      prev.map(d => (d.id === damper.id ? { ...d, aracMarka: newMarka || null } : d))
+                                      prev.map(d => (d.id === damper.id ? { ...d, aracMarka: newMarka } : d))
                                     );
                                     const key = `damper-${damper.id}-aracMarka`;
                                     persistLater(key, async () => {
-                                      const updated = await updateDamper(damper.id, { aracMarka: newMarka || null });
+                                      const updated = await updateDamper(damper.id, { aracMarka: newMarka });
                                       setDampers(prev =>
-                                        applyServerRowIfFieldMatches(prev, damper.id, 'aracMarka', newMarka || null, updated)
+                                        applyServerRowIfFieldMatches(prev, damper.id, 'aracMarka', newMarka, updated)
                                       );
                                     });
                                   }}
                                   onBlur={() => void persistNow(`damper-${damper.id}-aracMarka`)}
-                                />
+                                >
+                                  <option value="">Seçiniz</option>
+                                  {(dropdowns?.aracMarka ?? []).map(m => (
+                                    <option key={m} value={m}>{m}</option>
+                                  ))}
+                                  {damper.aracMarka && !(dropdowns?.aracMarka ?? []).includes(damper.aracMarka) ? (
+                                    <option value={damper.aracMarka}>{damper.aracMarka} (kayıtlı)</option>
+                                  ) : null}
+                                </select>
                               </div>
                             </div>
 
@@ -3755,7 +3760,7 @@ function DashboardContent() {
                           className="input"
                           required
                           value={formData.musteri}
-                          onChange={(e) => setFormData(prev => ({ ...prev, musteri: e.target.value }))}
+                          onChange={(e) => setFormData(prev => ({ ...prev, musteri: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -3771,13 +3776,16 @@ function DashboardContent() {
                       </div>
                       <div className="form-group">
                         <label className="form-label">Ara├ğ Marka</label>
-                        <input
-                          type="text"
-                          className="input"
-                          placeholder="├ûrn: FORD, MERCEDES..."
+                        <select
+                          className="select"
                           value={formData.aracMarka}
                           onChange={(e) => setFormData(prev => ({ ...prev, aracMarka: e.target.value }))}
-                        />
+                        >
+                          <option value="">Seçiniz</option>
+                          {(dropdowns?.aracMarka ?? []).map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Model</label>
@@ -3786,7 +3794,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="├ûrn: 3545 D, 3345 K..."
                           value={formData.model}
-                          onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                          onChange={(e) => setFormData(prev => ({ ...prev, model: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -3835,7 +3843,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="├ûrn: 18+2"
                           value={formData.m3}
-                          onChange={(e) => setFormData(prev => ({ ...prev, m3: e.target.value }))}
+                          onChange={(e) => setFormData(prev => ({ ...prev, m3: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -3845,7 +3853,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="├ûrn: Beyaz, K─▒rm─▒z─▒..."
                           value={formData.renk}
-                          onChange={(e) => setFormData(prev => ({ ...prev, renk: e.target.value }))}
+                          onChange={(e) => setFormData(prev => ({ ...prev, renk: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -3909,7 +3917,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="Silindir bilgisi..."
                           value={dorseFormData.silindir}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, silindir: e.target.value }))}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, silindir: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -3932,7 +3940,7 @@ function DashboardContent() {
                           className="input"
                           required
                           value={dorseFormData.musteri}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, musteri: e.target.value }))}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, musteri: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -3953,7 +3961,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="├ûrn: PIRLANTA..."
                           value={dorseFormData.dingil}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, dingil: e.target.value }))}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, dingil: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -3963,7 +3971,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="├ûrn: BRIDGESTONE..."
                           value={dorseFormData.lastik}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, lastik: e.target.value }))}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, lastik: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -3985,7 +3993,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="├ûrn: 4mm..."
                           value={dorseFormData.kalinlik}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: e.target.value }))}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, kalinlik: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -4019,7 +4027,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="├ûrn: 18+2"
                           value={dorseFormData.m3}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, m3: e.target.value }))}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, m3: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -4029,7 +4037,7 @@ function DashboardContent() {
                           className="input"
                           placeholder="├ûrn: Beyaz, K─▒rm─▒z─▒..."
                           value={dorseFormData.renk}
-                          onChange={(e) => setDorseFormData(prev => ({ ...prev, renk: e.target.value }))}
+                          onChange={(e) => setDorseFormData(prev => ({ ...prev, renk: trUpper(e.target.value) }))}
                         />
                       </div>
                       <div className="form-group">
@@ -4078,7 +4086,7 @@ function DashboardContent() {
                             required
                             placeholder="M├╝┼şteri ad─▒n─▒ giriniz..."
                             value={sasiFormData.musteri}
-                            onChange={(e) => setSasiFormData(prev => ({ ...prev, musteri: e.target.value }))}
+                            onChange={(e) => setSasiFormData(prev => ({ ...prev, musteri: trUpper(e.target.value) }))}
                           />
                         </div>
                       )}

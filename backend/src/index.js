@@ -150,7 +150,7 @@ app.options('*', cors({
     origin: allowedOrigins,
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '12mb' }));
 
 /** Teşhis: `/api/integrations/teklif-takip` altındaki her isteği logla (ingest sorununu kesin teşhis için). */
 app.use((req, res, next) => {
@@ -217,6 +217,71 @@ const requireAdmin = (req, res, next) => {
     }
     next();
 };
+
+const DAMAGE_ALLOWED_MIME = new Set(['image/webp', 'image/jpeg', 'image/png']);
+const DAMAGE_MAX_PHOTOS = 3;
+const DAMAGE_MAX_BYTES = 3 * 1024 * 1024;
+
+function cleanText(v) {
+    if (v == null) return null;
+    const s = String(v).trim();
+    return s.length ? s : null;
+}
+
+function parseResponsibles(raw) {
+    if (!Array.isArray(raw)) return null;
+    const names = raw
+        .map(v => (v == null ? '' : String(v).trim()))
+        .filter(Boolean);
+    if (names.length < 1 || names.length > 3) return null;
+    return names;
+}
+
+function parseCost(raw) {
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return n;
+}
+
+function deriveVehicleDamageStatus(payload) {
+    if (payload?.isCompleted) return 'TAMAMLANDI';
+    const loc = payload?.repairLocation;
+    const hasRepairLocation = loc != null && String(loc).trim() !== '';
+    // Onarım yeri seçilmeden maliyet / not vb. doldurulsa bile aşama "Kayıt girildi" kalsın
+    if (!hasRepairLocation) return 'KAYDI_GIRILDI';
+    return 'SURECTE';
+}
+
+function mapDamageRecord(row) {
+    const photos = (row.photos || []).map(p => ({
+        id: p.id,
+        mimeType: p.mimeType,
+        sizeBytes: p.sizeBytes,
+        originalFileName: p.originalFileName,
+        displayOrder: p.displayOrder,
+        createdAt: p.createdAt,
+        dataUrl: `data:${p.mimeType};base64,${Buffer.from(p.data).toString('base64')}`,
+    }));
+    return {
+        id: row.id,
+        sasiNo: row.sasiNo,
+        status: row.status,
+        responsibles: Array.isArray(row.responsiblesJson) ? row.responsiblesJson : [],
+        processOwner: row.processOwner,
+        requiresPart: Boolean(row.requiresPart),
+        partCost: row.partCost == null ? null : Number(row.partCost),
+        laborCost: row.laborCost == null ? null : Number(row.laborCost),
+        repairLocation: row.repairLocation,
+        serviceDirection: row.serviceDirection,
+        cost: row.cost == null ? null : Number(row.cost),
+        notes: row.notes,
+        isCompleted: row.isCompleted,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        photos,
+    };
+}
 
 /** Teklif Takip sunucu-sunucu ingest: Bearer IMALAT_INGEST_SECRET (oturum kullanılmaz). */
 function requireTeklifIngestSecret(req, res, next) {
@@ -1846,7 +1911,7 @@ app.get('/api/dropdowns', async (req, res) => {
             aracGeldiMi: ['EVET', 'HAYIR'],
             tip: ['HAVUZ DAMPER', 'HAVUZ DAMPER + HİDROLİK KAPAK', 'KÖŞELİ DAMPER', 'Ahşap Kasa', 'Lambiri Kasa', '3 Yöne Devirme Damper', 'Karla Mücadele', 'Su Tankeri'],
             malzemeCinsi: ['HARDOX', 'ST52'],
-            aracMarka: ['FORD', 'MERCEDES', 'MAN', 'MBT 3342'],
+            aracMarka: ['FORD', 'MERCEDES-BENZ', 'RENAULT', 'MAN', 'VOLVO', 'SCANIA', 'DAF', 'BMC', 'IVECO'],
             model: ['3545 D', '3345 K', '1833', '2533 D', '4145 D', '41440'],
             kurumMuayenesi: ['YOK', 'YAPILDI'],
             dmoMuayenesi: ['MUAYENE YOK', 'YAPILDI'],
@@ -1856,6 +1921,280 @@ app.get('/api/dropdowns', async (req, res) => {
     } catch (error) {
         console.error('Error fetching dropdowns:', error);
         res.status(500).json({ error: 'Failed to fetch dropdowns' });
+    }
+});
+
+// ==================== VEHICLE DAMAGE ROUTES ====================
+
+app.get('/api/vehicle-damages', requireAuth, async (req, res) => {
+    try {
+        const rows = await prisma.vehicleDamageRecord.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                photos: { orderBy: { displayOrder: 'asc' } },
+            },
+        });
+        res.json(rows.map(mapDamageRecord));
+    } catch (error) {
+        console.error('Error fetching vehicle damages:', error);
+        res.status(500).json({ error: 'Hasar kayıtları getirilemedi' });
+    }
+});
+
+app.post('/api/vehicle-damages', requireAuth, async (req, res) => {
+    try {
+        const sasiNo = cleanText(req.body?.sasiNo);
+        const responsibles = parseResponsibles(req.body?.responsibles);
+        const processOwner = cleanText(req.body?.processOwner);
+        const requiresPart = Boolean(req.body?.requiresPart);
+        const partCost = parseCost(req.body?.partCost);
+        const laborCost = parseCost(req.body?.laborCost);
+        const repairLocation = cleanText(req.body?.repairLocation);
+        const serviceDirection = cleanText(req.body?.serviceDirection);
+        const sentCost = parseCost(req.body?.cost);
+        const cost = (partCost || 0) + (laborCost || 0);
+        const notes = cleanText(req.body?.notes);
+        const isCompleted = Boolean(req.body?.isCompleted);
+
+        if (!sasiNo) return res.status(400).json({ error: 'Şasi no zorunludur' });
+        if (!responsibles) return res.status(400).json({ error: 'En az 1, en fazla 3 sorumlu girilmelidir' });
+        if (req.body?.cost != null && req.body?.cost !== '' && cost == null) {
+            return res.status(400).json({ error: 'Maliyet geçerli bir sayı olmalıdır' });
+        }
+        if (req.body?.partCost != null && req.body?.partCost !== '' && partCost == null) {
+            return res.status(400).json({ error: 'Parça maliyeti geçerli bir sayı olmalıdır' });
+        }
+        if (req.body?.laborCost != null && req.body?.laborCost !== '' && laborCost == null) {
+            return res.status(400).json({ error: 'İşçilik maliyeti geçerli bir sayı olmalıdır' });
+        }
+        if (sentCost != null && Math.abs(sentCost - cost) > 0.01) {
+            return res.status(400).json({ error: 'Toplam maliyet hesapla uyuşmuyor' });
+        }
+
+        const status = deriveVehicleDamageStatus({
+            isCompleted,
+            processOwner,
+            requiresPart,
+            partCost,
+            laborCost,
+            repairLocation,
+            serviceDirection,
+            cost
+        });
+        const created = await prisma.vehicleDamageRecord.create({
+            data: {
+                sasiNo,
+                status,
+                responsiblesJson: responsibles,
+                processOwner,
+                requiresPart,
+                partCost: partCost == null ? null : new Prisma.Decimal(partCost),
+                laborCost: laborCost == null ? null : new Prisma.Decimal(laborCost),
+                repairLocation,
+                serviceDirection,
+                cost: cost == null ? null : new Prisma.Decimal(cost),
+                notes,
+                isCompleted,
+            },
+            include: {
+                photos: { orderBy: { displayOrder: 'asc' } },
+            },
+        });
+        res.status(201).json(mapDamageRecord(created));
+    } catch (error) {
+        console.error('Error creating vehicle damage:', error);
+        res.status(500).json({ error: 'Hasar kaydı oluşturulamadı' });
+    }
+});
+
+app.put('/api/vehicle-damages/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: 'Geçersiz kayıt id' });
+
+        const existing = await prisma.vehicleDamageRecord.findUnique({
+            where: { id },
+            include: { photos: true },
+        });
+        if (!existing) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+
+        const data = {};
+        if (Object.prototype.hasOwnProperty.call(req.body, 'sasiNo')) {
+            const sasiNo = cleanText(req.body.sasiNo);
+            if (!sasiNo) return res.status(400).json({ error: 'Şasi no boş olamaz' });
+            data.sasiNo = sasiNo;
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'responsibles')) {
+            const responsibles = parseResponsibles(req.body.responsibles);
+            if (!responsibles) return res.status(400).json({ error: 'En az 1, en fazla 3 sorumlu girilmelidir' });
+            data.responsiblesJson = responsibles;
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'repairLocation')) {
+            data.repairLocation = cleanText(req.body.repairLocation);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'processOwner')) {
+            data.processOwner = cleanText(req.body.processOwner);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'requiresPart')) {
+            data.requiresPart = Boolean(req.body.requiresPart);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'partCost')) {
+            const parsedPart = parseCost(req.body.partCost);
+            if (req.body.partCost != null && req.body.partCost !== '' && parsedPart == null) {
+                return res.status(400).json({ error: 'Parça maliyeti geçerli bir sayı olmalıdır' });
+            }
+            data.partCost = parsedPart == null ? null : new Prisma.Decimal(parsedPart);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'laborCost')) {
+            const parsedLabor = parseCost(req.body.laborCost);
+            if (req.body.laborCost != null && req.body.laborCost !== '' && parsedLabor == null) {
+                return res.status(400).json({ error: 'İşçilik maliyeti geçerli bir sayı olmalıdır' });
+            }
+            data.laborCost = parsedLabor == null ? null : new Prisma.Decimal(parsedLabor);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'serviceDirection')) {
+            data.serviceDirection = cleanText(req.body.serviceDirection);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'notes')) {
+            data.notes = cleanText(req.body.notes);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'isCompleted')) {
+            data.isCompleted = Boolean(req.body.isCompleted);
+        }
+        const partCostRaw = Object.prototype.hasOwnProperty.call(data, 'partCost')
+            ? (data.partCost == null ? null : Number(data.partCost))
+            : (existing.partCost == null ? null : Number(existing.partCost));
+        const laborCostRaw = Object.prototype.hasOwnProperty.call(data, 'laborCost')
+            ? (data.laborCost == null ? null : Number(data.laborCost))
+            : (existing.laborCost == null ? null : Number(existing.laborCost));
+        const recalculatedCost = (partCostRaw || 0) + (laborCostRaw || 0);
+        data.cost = recalculatedCost > 0 ? new Prisma.Decimal(recalculatedCost) : null;
+
+        const nextForStatus = {
+            isCompleted: data.isCompleted ?? existing.isCompleted,
+            processOwner: data.processOwner ?? existing.processOwner,
+            requiresPart: Object.prototype.hasOwnProperty.call(data, 'requiresPart') ? data.requiresPart : existing.requiresPart,
+            partCost: Object.prototype.hasOwnProperty.call(data, 'partCost') ? data.partCost : existing.partCost,
+            laborCost: Object.prototype.hasOwnProperty.call(data, 'laborCost') ? data.laborCost : existing.laborCost,
+            repairLocation: data.repairLocation ?? existing.repairLocation,
+            serviceDirection: data.serviceDirection ?? existing.serviceDirection,
+            cost: Object.prototype.hasOwnProperty.call(data, 'cost') ? data.cost : existing.cost,
+        };
+        data.status = deriveVehicleDamageStatus(nextForStatus);
+
+        const updated = await prisma.vehicleDamageRecord.update({
+            where: { id },
+            data,
+            include: {
+                photos: { orderBy: { displayOrder: 'asc' } },
+            },
+        });
+        res.json(mapDamageRecord(updated));
+    } catch (error) {
+        console.error('Error updating vehicle damage:', error);
+        res.status(500).json({ error: 'Hasar kaydı güncellenemedi' });
+    }
+});
+
+app.delete('/api/vehicle-damages/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: 'Geçersiz kayıt id' });
+        const existing = await prisma.vehicleDamageRecord.findUnique({ where: { id } });
+        if (!existing) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        await prisma.vehicleDamageRecord.delete({ where: { id } });
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('Error deleting vehicle damage:', error);
+        res.status(500).json({ error: 'Hasar kaydı silinemedi' });
+    }
+});
+
+app.post('/api/vehicle-damages/:id/photos', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: 'Geçersiz kayıt id' });
+        const mimeType = String(req.body?.mimeType || '').trim().toLowerCase();
+        const dataBase64 = String(req.body?.dataBase64 || '').trim();
+        const originalFileName = cleanText(req.body?.originalFileName);
+
+        if (!DAMAGE_ALLOWED_MIME.has(mimeType)) {
+            return res.status(400).json({ error: 'Desteklenmeyen görsel tipi' });
+        }
+        if (!dataBase64) return res.status(400).json({ error: 'Görsel verisi eksik' });
+        const dataBuffer = Buffer.from(dataBase64, 'base64');
+        if (!dataBuffer.length) return res.status(400).json({ error: 'Görsel çözümlenemedi' });
+        if (dataBuffer.length > DAMAGE_MAX_BYTES) {
+            return res.status(400).json({ error: 'Görsel boyutu limiti aşıyor (max 3MB)' });
+        }
+
+        const existing = await prisma.vehicleDamageRecord.findUnique({
+            where: { id },
+            include: { photos: { orderBy: { displayOrder: 'asc' } } },
+        });
+        if (!existing) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        if (existing.photos.length >= DAMAGE_MAX_PHOTOS) {
+            return res.status(400).json({ error: 'En fazla 3 fotoğraf eklenebilir' });
+        }
+
+        await prisma.vehicleDamagePhoto.create({
+            data: {
+                vehicleDamageId: id,
+                mimeType,
+                data: dataBuffer,
+                sizeBytes: dataBuffer.length,
+                originalFileName,
+                displayOrder: existing.photos.length,
+            },
+        });
+
+        const updated = await prisma.vehicleDamageRecord.findUnique({
+            where: { id },
+            include: { photos: { orderBy: { displayOrder: 'asc' } } },
+        });
+        res.status(201).json(mapDamageRecord(updated));
+    } catch (error) {
+        console.error('Error adding vehicle damage photo:', error);
+        res.status(500).json({ error: 'Fotoğraf eklenemedi' });
+    }
+});
+
+app.delete('/api/vehicle-damages/:id/photos/:photoId', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        const photoId = parseInt(req.params.photoId, 10);
+        if (!Number.isFinite(id) || !Number.isFinite(photoId)) {
+            return res.status(400).json({ error: 'Geçersiz parametre' });
+        }
+        const photo = await prisma.vehicleDamagePhoto.findUnique({ where: { id: photoId } });
+        if (!photo || photo.vehicleDamageId !== id) {
+            return res.status(404).json({ error: 'Fotoğraf bulunamadı' });
+        }
+
+        await prisma.$transaction(async tx => {
+            await tx.vehicleDamagePhoto.delete({ where: { id: photoId } });
+            const remaining = await tx.vehicleDamagePhoto.findMany({
+                where: { vehicleDamageId: id },
+                orderBy: { createdAt: 'asc' },
+            });
+            for (let i = 0; i < remaining.length; i++) {
+                if (remaining[i].displayOrder !== i) {
+                    await tx.vehicleDamagePhoto.update({
+                        where: { id: remaining[i].id },
+                        data: { displayOrder: i },
+                    });
+                }
+            }
+        });
+
+        const updated = await prisma.vehicleDamageRecord.findUnique({
+            where: { id },
+            include: { photos: { orderBy: { displayOrder: 'asc' } } },
+        });
+        res.json(mapDamageRecord(updated));
+    } catch (error) {
+        console.error('Error deleting vehicle damage photo:', error);
+        res.status(500).json({ error: 'Fotoğraf silinemedi' });
     }
 });
 

@@ -461,3 +461,40 @@ model StockSupplierHistory {
 
   @@index([stockItemId, recordedAt])
 }
+
+model VehicleDamageRecord {
+  id               Int      @id @default(autoincrement())
+  sasiNo           String
+  status           String   @default("KAYDI_GIRILDI")
+  responsiblesJson Json
+  processOwner     String?
+  requiresPart     Boolean  @default(false)
+  partCost         Decimal? @db.Decimal(14, 2)
+  laborCost        Decimal? @db.Decimal(14, 2)
+  repairLocation   String?
+  serviceDirection String?
+  cost             Decimal? @db.Decimal(14, 2)
+  notes            String?  @db.Text
+  isCompleted      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  photos           VehicleDamagePhoto[]
+
+  @@index([sasiNo])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model VehicleDamagePhoto {
+  id                 Int                 @id @default(autoincrement())
+  vehicleDamageId    Int
+  vehicleDamage      VehicleDamageRecord @relation(fields: [vehicleDamageId], references: [id], onDelete: Cascade)
+  mimeType           String
+  data               Bytes
+  sizeBytes          Int
+  originalFileName   String?
+  displayOrder       Int                 @default(0)
+  createdAt          DateTime            @default(now())
+
+  @@index([vehicleDamageId, displayOrder])
+}

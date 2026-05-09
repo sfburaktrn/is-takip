@@ -24,7 +24,8 @@ import {
     Search,
     History,
     Package,
-    CarFront
+    CarFront,
+    ShieldAlert
 } from 'lucide-react';
 
 function typeLabel(t: string) {
@@ -82,6 +83,7 @@ export default function Sidebar() {
         { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
         { href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
         { href: '/arac-bilgileri', label: 'Araç bilgileri', icon: CarFront },
+        { href: '/arac-hasar-kaydi', label: 'Araç hasar kaydı', icon: ShieldAlert },
         { href: '/stok-takip', label: 'Stok takip', icon: Package },
        /*{ href: '/planlama', label: 'Üretim Planı', icon: CalendarDays }, */
     ];

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "VehicleDamageRecord"
+ADD COLUMN IF NOT EXISTS "partCost" DECIMAL(14,2),
+ADD COLUMN IF NOT EXISTS "laborCost" DECIMAL(14,2);

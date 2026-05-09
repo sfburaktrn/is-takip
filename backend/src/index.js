@@ -277,6 +277,11 @@ function mapDamageRecord(row) {
         cost: row.cost == null ? null : Number(row.cost),
         notes: row.notes,
         isCompleted: row.isCompleted,
+        createdByUsername: row.createdByUsername ?? null,
+        processStartedAt: row.processStartedAt ?? null,
+        processStartedByUsername: row.processStartedByUsername ?? null,
+        completedAt: row.completedAt ?? null,
+        completedByUsername: row.completedByUsername ?? null,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         photos,
@@ -1981,6 +1986,8 @@ app.post('/api/vehicle-damages', requireAuth, async (req, res) => {
             serviceDirection,
             cost
         });
+        const actor = req.session.username ?? null;
+        const now = new Date();
         const created = await prisma.vehicleDamageRecord.create({
             data: {
                 sasiNo,
@@ -1995,6 +2002,11 @@ app.post('/api/vehicle-damages', requireAuth, async (req, res) => {
                 cost: cost == null ? null : new Prisma.Decimal(cost),
                 notes,
                 isCompleted,
+                createdByUsername: actor,
+                processStartedAt: status === 'SURECTE' ? now : null,
+                processStartedByUsername: status === 'SURECTE' ? actor : null,
+                completedAt: status === 'TAMAMLANDI' ? now : null,
+                completedByUsername: status === 'TAMAMLANDI' ? actor : null,
             },
             include: {
                 photos: { orderBy: { displayOrder: 'asc' } },
@@ -2081,6 +2093,19 @@ app.put('/api/vehicle-damages/:id', requireAuth, async (req, res) => {
             cost: Object.prototype.hasOwnProperty.call(data, 'cost') ? data.cost : existing.cost,
         };
         data.status = deriveVehicleDamageStatus(nextForStatus);
+
+        const actor = req.session.username ?? null;
+        const now = new Date();
+        const newStatus = data.status;
+        if (newStatus === 'SURECTE' && existing.status !== 'SURECTE' && !existing.processStartedAt) {
+            data.processStartedAt = now;
+            data.processStartedByUsername = actor;
+        }
+        const willBeCompleted = data.isCompleted ?? existing.isCompleted;
+        if (willBeCompleted && !existing.isCompleted) {
+            data.completedAt = now;
+            data.completedByUsername = actor;
+        }
 
         const updated = await prisma.vehicleDamageRecord.update({
             where: { id },

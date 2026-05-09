@@ -1374,6 +1374,12 @@ export interface VehicleDamageRecord {
     cost: number | null;
     notes: string | null;
     isCompleted: boolean;
+    /** Oturum kullanıcı adı; eski API yanıtlarında olmayabilir */
+    createdByUsername?: string | null;
+    processStartedAt?: string | null;
+    processStartedByUsername?: string | null;
+    completedAt?: string | null;
+    completedByUsername?: string | null;
     createdAt: string;
     updatedAt: string;
     photos: VehicleDamagePhoto[];

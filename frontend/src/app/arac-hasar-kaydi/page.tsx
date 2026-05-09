@@ -56,6 +56,108 @@ function fmtCurrency(v: number | null) {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 }).format(v);
 }
 
+function fmtAuditDt(iso: string | null | undefined) {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' });
+    } catch {
+        return '—';
+    }
+}
+
+function calendarDaysSinceStart(startIso: string): number {
+    const start = new Date(startIso);
+    const end = new Date();
+    const s0 = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+    const e0 = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+    return Math.max(0, Math.round((e0 - s0) / 86400000));
+}
+
+function resolutionDayLabel(createdIso: string, completedIso: string): string {
+    const s = new Date(createdIso);
+    const e = new Date(completedIso);
+    const s0 = Date.UTC(s.getFullYear(), s.getMonth(), s.getDate());
+    const e0 = Date.UTC(e.getFullYear(), e.getMonth(), e.getDate());
+    const d = Math.round((e0 - s0) / 86400000);
+    if (d <= 0) return 'Aynı gün içinde hasar giderildi.';
+    if (d === 1) return '1 günde hasar giderildi.';
+    return `${d} günde hasar giderildi.`;
+}
+
+function DamageAuditTrail({ item }: { item: VehicleDamageRecord }) {
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const id = window.setInterval(() => setTick(t => t + 1), 60_000);
+        return () => window.clearInterval(id);
+    }, []);
+
+    const süreçStartIso =
+        item.processStartedAt ?? (item.status === 'SURECTE' ? item.createdAt : null);
+    const süreçDays =
+        item.status === 'SURECTE' && süreçStartIso != null ? calendarDaysSinceStart(süreçStartIso) : null;
+    const legacySüreç = item.status === 'SURECTE' && item.processStartedAt == null;
+
+    const completedEndIso = item.completedAt ?? (item.isCompleted ? item.updatedAt : null);
+
+    return (
+        <div className="damage-audit">
+            <div className="audit-title">Kayıt bilgisi</div>
+            <div className="audit-rows">
+                <div className="audit-row">
+                    <span className="audit-k">Hasar kaydı oluşturuldu</span>
+                    <span className="audit-v">
+                        {fmtAuditDt(item.createdAt)} · <span className="audit-user">{item.createdByUsername ?? '—'}</span>
+                    </span>
+                </div>
+                <div className="audit-row">
+                    <span className="audit-k">Sürece geçiş</span>
+                    <span className="audit-v">
+                        {item.processStartedAt ? (
+                            <>
+                                {fmtAuditDt(item.processStartedAt)} ·{' '}
+                                <span className="audit-user">{item.processStartedByUsername ?? '—'}</span>
+                            </>
+                        ) : (
+                            <span className="audit-muted">Henüz sürece alınmadı (onarım yeri seçilince başlar)</span>
+                        )}
+                    </span>
+                </div>
+                {item.isCompleted ? (
+                    <>
+                        <div className="audit-row">
+                            <span className="audit-k">Hasar giderildi</span>
+                            <span className="audit-v">
+                                {item.completedAt ? (
+                                    <>
+                                        {fmtAuditDt(item.completedAt)} ·{' '}
+                                        <span className="audit-user">{item.completedByUsername ?? '—'}</span>
+                                    </>
+                                ) : (
+                                    <span className="audit-muted">Tamamlandı (tarih bu güncellemeden önce)</span>
+                                )}
+                            </span>
+                        </div>
+                        {completedEndIso ? (
+                            <div className="audit-resolution">{resolutionDayLabel(item.createdAt, completedEndIso)}</div>
+                        ) : null}
+                    </>
+                ) : null}
+                {item.status === 'SURECTE' && süreçDays !== null ? (
+                    <div className="audit-surecte-live">
+                        <span className="audit-ping" aria-hidden />
+                        <span>
+                            Süreç devam ediyor · <strong>{süreçDays} gün</strong>
+                            {legacySüreç ? (
+                                <span className="audit-hint"> (süreç başlangıcı kayıt tarihinden; eski kayıtlar)</span>
+                            ) : null}
+                        </span>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
 function toBase64(buf: ArrayBuffer) {
     const bytes = new Uint8Array(buf);
     let binary = '';
@@ -323,6 +425,7 @@ function DamageCard({
             </div>
             </>
             ) : null}
+            <DamageAuditTrail item={item} />
         </article>
     );
 }
@@ -662,6 +765,19 @@ function AracHasarKaydiPageContent() {
                     .card-foot { display:flex; justify-content: space-between; align-items:center; }
                     .money { font-size: 18px; font-weight: 900; color: #0f2f60; }
                     .save-btn { padding: 8px 12px; display:flex; align-items:center; gap: 6px; font-weight: 800; }
+                    .damage-audit { margin-top: 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(15,47,96,.12); background: linear-gradient(180deg, rgba(248,250,252,.95), rgba(241,245,249,.85)); display:grid; gap: 10px; }
+                    .audit-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #475569; }
+                    .audit-rows { display:grid; gap: 8px; font-size: 13px; }
+                    .audit-row { display:flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; justify-content: space-between; }
+                    .audit-k { color: var(--muted); font-weight: 700; flex: 0 0 auto; }
+                    .audit-v { color: var(--foreground); font-weight: 600; text-align: right; flex: 1 1 200px; }
+                    .audit-user { font-weight: 800; color: #0f2f60; }
+                    .audit-muted { color: var(--muted); font-weight: 600; font-style: italic; }
+                    .audit-resolution { font-size: 14px; font-weight: 800; color: #166534; padding: 8px 10px; border-radius: 10px; background: rgba(220,252,231,.65); border: 1px solid rgba(34,197,94,.25); }
+                    .audit-surecte-live { display:flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #92400e; padding: 8px 10px; border-radius: 10px; background: rgba(254,243,199,.5); border: 1px solid rgba(245,158,11,.35); }
+                    .audit-hint { font-weight: 600; font-size: 12px; color: #a16207; }
+                    .audit-ping { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; animation: auditPing 1.5s ease-out infinite; }
+                    @keyframes auditPing { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); } 70% { box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
                     .empty { border: 1px dashed var(--border); border-radius: 14px; color: var(--muted); text-align:center; padding: 24px; }
                     .spin { animation: rotate .9s linear infinite; }
                     @keyframes rotate { from { transform: rotate(0); } to { transform: rotate(360deg); } }

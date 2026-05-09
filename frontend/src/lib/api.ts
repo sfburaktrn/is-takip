@@ -1469,6 +1469,38 @@ export async function deleteVehicleDamage(id: number): Promise<{ ok: boolean }> 
     return handleResponse<{ ok: boolean }>(res);
 }
 
+/** Kayıt + fotoğraflar oluşturulduktan sonra Slack’e bildirim (hata kullanıcı akışını bozmamalı). */
+export async function notifyVehicleDamageSlackCreated(
+    id: number,
+    photos?: { mimeType: string; dataBase64: string; originalFileName?: string | null }[]
+): Promise<{
+    ok: boolean;
+    slack?: { photosExpected: number; photosUploaded: number; errors: string[] };
+}> {
+    const list = photos?.length
+        ? photos.slice(0, 3).map(p => ({
+              mimeType: p.mimeType,
+              dataBase64: p.dataBase64,
+              originalFileName: p.originalFileName ?? null,
+          }))
+        : [];
+    /** Query küçük kalır; Next /api rewrite büyük JSON’u keserse backend DB’den retry eder. */
+    const expectQ = list.length > 0 ? `?expectPhotoCount=${list.length}` : '';
+    const res = await apiFetch(`${API_URL}/vehicle-damages/${id}/slack-notify${expectQ}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            expectPhotoCount: list.length,
+            photos: list,
+        }),
+    });
+    return handleResponse<{
+        ok: boolean;
+        slack?: { photosExpected: number; photosUploaded: number; errors: string[] };
+    }>(res);
+}
+
 export async function putCapacityTarget(body: {
     productType: VerimlilikProductType;
     weekStart: string;

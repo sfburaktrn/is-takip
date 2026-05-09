@@ -11,6 +11,8 @@ const prisma =
         ? require('../test-support/prismaMock.js')
         : new PrismaClient();
 
+const { notifyVehicleDamageSlack } = require('./slackVehicleDamage');
+
 /** SQL LIKE/ILIKE özel karakterlerini kaçır */
 function escapeSqlLikePattern(q) {
     return q.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -286,6 +288,41 @@ function mapDamageRecord(row) {
         updatedAt: row.updatedAt,
         photos,
     };
+}
+
+/**
+ * POST /vehicle-damages/:id/slack-notify gövdesindeki fotoğraflar (Slack için).
+ * İstemci az önce yüklediği base64’leri gönderir; böylece Slack yüklemesi yalnızca DB’ye bağlı kalmaz.
+ */
+function parseSlackNotifyBodyPhotos(body) {
+    const raw = body?.photos;
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+    const out = [];
+    for (let i = 0; i < raw.length && out.length < DAMAGE_MAX_PHOTOS; i += 1) {
+        const item = raw[i];
+        if (!item || typeof item !== 'object') continue;
+        const mimeType = String(item.mimeType || '').trim().toLowerCase();
+        const dataBase64 = String(item.dataBase64 || '').trim();
+        if (!DAMAGE_ALLOWED_MIME.has(mimeType) || !dataBase64) continue;
+        let dataBuffer;
+        try {
+            dataBuffer = Buffer.from(dataBase64, 'base64');
+        } catch {
+            continue;
+        }
+        if (!dataBuffer.length || dataBuffer.length > DAMAGE_MAX_BYTES) continue;
+        out.push({
+            id: 0,
+            vehicleDamageId: 0,
+            mimeType,
+            data: dataBuffer,
+            sizeBytes: dataBuffer.length,
+            originalFileName: cleanText(item.originalFileName),
+            displayOrder: out.length,
+            createdAt: new Date(),
+        });
+    }
+    return out.length ? out : null;
 }
 
 /** Teklif Takip sunucu-sunucu ingest: Bearer IMALAT_INGEST_SECRET (oturum kullanılmaz). */
@@ -2114,10 +2151,95 @@ app.put('/api/vehicle-damages/:id', requireAuth, async (req, res) => {
                 photos: { orderBy: { displayOrder: 'asc' } },
             },
         });
+        const processJustStarted = updated.status === 'SURECTE' && existing.status !== 'SURECTE';
+        const completedJust = updated.isCompleted && !existing.isCompleted;
+
         res.json(mapDamageRecord(updated));
+
+        if (processJustStarted) {
+            void notifyVehicleDamageSlack('PROCESS_STARTED', updated).catch((e) =>
+                console.error('[slack hasar] PROCESS_STARTED:', e.message)
+            );
+        }
+        if (completedJust) {
+            void notifyVehicleDamageSlack('COMPLETED', updated).catch((e) =>
+                console.error('[slack hasar] COMPLETED:', e.message)
+            );
+        }
     } catch (error) {
         console.error('Error updating vehicle damage:', error);
         res.status(500).json({ error: 'Hasar kaydı güncellenemedi' });
+    }
+});
+
+app.post('/api/vehicle-damages/:id/slack-notify', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: 'Geçersiz kayıt id' });
+        const expectRaw = req.query.expectPhotoCount ?? req.body?.expectPhotoCount;
+        const expectPhotoCount = Math.min(
+            DAMAGE_MAX_PHOTOS,
+            Math.max(0, parseInt(String(expectRaw ?? '0'), 10) || 0)
+        );
+
+        async function loadRow() {
+            return prisma.vehicleDamageRecord.findUnique({
+                where: { id },
+                include: { photos: { orderBy: { displayOrder: 'asc' } } },
+            });
+        }
+
+        let row = await loadRow();
+        if (!row) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+
+        const fromBody = parseSlackNotifyBodyPhotos(req.body);
+        let rowForSlack =
+            fromBody && fromBody.length ? { ...row, photos: fromBody } : row;
+
+        if (fromBody?.length) {
+            console.log('[slack hasar] slack-notify: istemciden', fromBody.length, 'foto (gövde)');
+        } else if (expectPhotoCount > 0) {
+            /** Next /api proxy büyük JSON’u kesebilir; kullanıcı foto seçtiyse DB’de görünene kadar bekle. */
+            const deadline = Date.now() + 4000;
+            while (
+                Date.now() < deadline &&
+                (!rowForSlack.photos || rowForSlack.photos.length < expectPhotoCount)
+            ) {
+                await new Promise(r => setTimeout(r, 350));
+                row = await loadRow();
+                if (!row) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+                rowForSlack = { ...row, photos: row.photos || [] };
+            }
+            const n = rowForSlack.photos?.length ?? 0;
+            console.log(
+                '[slack hasar] slack-notify: gövde foto yok, DB’den',
+                n,
+                'foto (beklenen:',
+                expectPhotoCount,
+                ')'
+            );
+            if (n < expectPhotoCount) {
+                console.warn(
+                    '[slack hasar] slack-notify: DB’de hâlâ',
+                    n,
+                    '/',
+                    expectPhotoCount,
+                    'foto — proxy veya kayıt gecikmesi olabilir'
+                );
+            }
+        }
+
+        let slackSummary = { photosExpected: 0, photosUploaded: 0, errors: [] };
+        try {
+            slackSummary = await notifyVehicleDamageSlack('CREATED', rowForSlack);
+        } catch (e) {
+            console.error('[slack hasar] CREATED:', e.message);
+            slackSummary.errors.push(e.message || String(e));
+        }
+        res.json({ ok: true, slack: slackSummary });
+    } catch (error) {
+        console.error('Error slack-notify vehicle damage:', error);
+        res.status(500).json({ error: 'Bildirim isteği işlenemedi' });
     }
 });
 

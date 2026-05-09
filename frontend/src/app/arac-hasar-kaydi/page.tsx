@@ -9,6 +9,7 @@ import {
     deleteVehicleDamage,
     deleteVehicleDamagePhoto,
     getVehicleDamages,
+    notifyVehicleDamageSlackCreated,
     updateVehicleDamage,
     type VehicleDamageRecord,
     type VehicleDamageStatus,
@@ -533,6 +534,19 @@ function AracHasarKaydiPageContent() {
                     dataBase64: photo.dataBase64,
                     originalFileName: photo.fileName,
                 });
+            }
+
+            try {
+                await notifyVehicleDamageSlackCreated(
+                    created.id,
+                    pendingPhotos.slice(0, 3).map(p => ({
+                        mimeType: p.mimeType,
+                        dataBase64: p.dataBase64,
+                        originalFileName: p.fileName,
+                    }))
+                );
+            } catch {
+                /* Slack yapılandırılmamış veya geçici hata — kayıt yine de oluştu */
             }
 
             setRows(prev => [current, ...prev]);

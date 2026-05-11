@@ -45,9 +45,6 @@ function mondayOfDateInput(isoDay: string): string {
 const fieldInput =
     'w-full min-h-11 rounded-xl border border-slate-200/90 bg-white px-3 text-base text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-[var(--primary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20';
 
-const fieldInputSm =
-    'min-h-10 rounded-xl border border-slate-200/90 bg-white px-2.5 text-sm text-slate-900 shadow-sm transition focus:border-[var(--primary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20';
-
 const tableInput =
     'rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-xs text-slate-900 shadow-sm transition focus:border-[var(--primary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20';
 

@@ -418,6 +418,99 @@ function deliveryTimestampsEqual(a, b) {
     return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb;
 }
 
+/**
+ * İmalat Takip -> Teklif Takip canlı hasar senkronu
+ * Not: Başarısız push, yerel veriyi etkilemez; yalnızca loglanır.
+ */
+function isVehicleDamagePushConfigured() {
+    const url = String(process.env.TEKLIF_HASAR_PUSH_URL || '').trim();
+    const secret = String(process.env.TEKLIF_HASAR_PUSH_SECRET || '').trim();
+    return Boolean(url && secret);
+}
+
+function toBase64Raw(buf) {
+    if (!buf) return '';
+    return Buffer.isBuffer(buf) ? buf.toString('base64') : Buffer.from(buf).toString('base64');
+}
+
+function buildVehicleDamagePushRecord(row) {
+    return {
+        id: row.id,
+        sasiNo: row.sasiNo,
+        status: row.status,
+        responsibles: Array.isArray(row.responsiblesJson) ? row.responsiblesJson : [],
+        processOwner: row.processOwner ?? null,
+        requiresPart: Boolean(row.requiresPart),
+        partCost: row.partCost == null ? null : Number(row.partCost),
+        laborCost: row.laborCost == null ? null : Number(row.laborCost),
+        cost: row.cost == null ? null : Number(row.cost),
+        repairLocation: row.repairLocation ?? null,
+        serviceDirection: row.serviceDirection ?? null,
+        notes: row.notes ?? null,
+        isCompleted: Boolean(row.isCompleted),
+        createdByUsername: row.createdByUsername ?? null,
+        processStartedAt: row.processStartedAt ? new Date(row.processStartedAt).toISOString() : null,
+        processStartedByUsername: row.processStartedByUsername ?? null,
+        completedAt: row.completedAt ? new Date(row.completedAt).toISOString() : null,
+        completedByUsername: row.completedByUsername ?? null,
+        createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+        updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+        photos: Array.isArray(row.photos)
+            ? row.photos.map((p) => ({
+                  id: p.id,
+                  mimeType: p.mimeType,
+                  sizeBytes: p.sizeBytes,
+                  originalFileName: p.originalFileName ?? null,
+                  displayOrder: p.displayOrder,
+                  createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : null,
+                  dataBase64: toBase64Raw(p.data),
+              }))
+            : [],
+    };
+}
+
+async function postVehicleDamagePush(payload) {
+    const url = String(process.env.TEKLIF_HASAR_PUSH_URL || '').trim();
+    const secret = String(process.env.TEKLIF_HASAR_PUSH_SECRET || '').trim();
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${secret}`,
+            'Content-Type': 'application/json; charset=utf-8',
+            'X-Integration-Source': 'imalat-takip',
+        },
+        body: JSON.stringify(payload),
+    });
+    if (res.ok) return;
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText} ${body.slice(0, 240)}`.trim());
+}
+
+async function pushVehicleDamageToTeklifTakip(eventType, row, extra = {}) {
+    if (!isVehicleDamagePushConfigured()) return;
+    if (!row) return;
+    const record = buildVehicleDamagePushRecord(row);
+    const payload = {
+        source: 'imalat-takip',
+        eventType,
+        sentAt: new Date().toISOString(),
+        ...extra,
+        record,
+    };
+
+    try {
+        await postVehicleDamagePush(payload);
+    } catch (e1) {
+        console.warn('[vehicle-damage push] ilk deneme başarısız, tekrar deneniyor:', e1.message);
+        await new Promise((r) => setTimeout(r, 500));
+        try {
+            await postVehicleDamagePush(payload);
+        } catch (e2) {
+            console.error('[vehicle-damage push] başarısız:', e2.message);
+        }
+    }
+}
+
 // Step group definitions - which sub-steps belong to which main step
 const STEP_GROUPS = {
     kesimBukum: {
@@ -820,6 +913,7 @@ function notificationProductLabel(productType) {
     if (productType === 'DAMPER') return 'Damper';
     if (productType === 'DORSE') return 'Dorse';
     if (productType === 'SASI') return 'Şasi';
+    if (productType === 'VEHICLE_DELIVERY') return 'Araç bilgileri';
     return productType;
 }
 
@@ -883,6 +977,35 @@ async function createProposalTeklifNotification({
         console.error('Teklif bildirimi oluşturulamadı:', e);
         const msg = e instanceof Error ? e.message : String(e);
         return { ok: false, error: msg };
+    }
+}
+
+async function createVehicleDeliveryNotification({
+    eventRowId,
+    sourceDeliveryId,
+    companyName,
+    rawType
+}) {
+    try {
+        const isDelivered = rawType === 'VEHICLE_DELIVERED';
+        const title = isDelivered
+            ? `Araç teslim edildi: ${companyName}`
+            : `Araç sahaya girdi: ${companyName}`;
+        const body = isDelivered
+            ? `Teslim hareketi güncellendi (${sourceDeliveryId}). Araç bilgileri ekranından detayı açabilirsiniz.`
+            : `Sahaya giriş kaydı güncellendi (${sourceDeliveryId}). Araç bilgileri ekranından canlı takip edebilirsiniz.`;
+        await prisma.notification.create({
+            data: {
+                kind: 'NEW_PRODUCT',
+                productType: 'VEHICLE_DELIVERY',
+                productId: eventRowId,
+                title,
+                body,
+                actorUserId: null
+            }
+        });
+    } catch (e) {
+        console.error('[vehicle-delivery-ingest] bildirim yazılamadı:', e);
     }
 }
 
@@ -2050,6 +2173,7 @@ app.post('/api/vehicle-damages', requireAuth, async (req, res) => {
             },
         });
         res.status(201).json(mapDamageRecord(created));
+        void pushVehicleDamageToTeklifTakip('VEHICLE_DAMAGE_CREATED', created);
     } catch (error) {
         console.error('Error creating vehicle damage:', error);
         res.status(500).json({ error: 'Hasar kaydı oluşturulamadı' });
@@ -2155,6 +2279,7 @@ app.put('/api/vehicle-damages/:id', requireAuth, async (req, res) => {
         const completedJust = updated.isCompleted && !existing.isCompleted;
 
         res.json(mapDamageRecord(updated));
+        void pushVehicleDamageToTeklifTakip('VEHICLE_DAMAGE_UPDATED', updated);
 
         if (processJustStarted) {
             void notifyVehicleDamageSlack('PROCESS_STARTED', updated).catch((e) =>
@@ -2247,10 +2372,14 @@ app.delete('/api/vehicle-damages/:id', requireAuth, async (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
         if (!Number.isFinite(id)) return res.status(400).json({ error: 'Geçersiz kayıt id' });
-        const existing = await prisma.vehicleDamageRecord.findUnique({ where: { id } });
+        const existing = await prisma.vehicleDamageRecord.findUnique({
+            where: { id },
+            include: { photos: { orderBy: { displayOrder: 'asc' } } },
+        });
         if (!existing) return res.status(404).json({ error: 'Kayıt bulunamadı' });
         await prisma.vehicleDamageRecord.delete({ where: { id } });
         res.json({ ok: true });
+        void pushVehicleDamageToTeklifTakip('VEHICLE_DAMAGE_DELETED', existing, { deleted: true });
     } catch (error) {
         console.error('Error deleting vehicle damage:', error);
         res.status(500).json({ error: 'Hasar kaydı silinemedi' });
@@ -2300,6 +2429,7 @@ app.post('/api/vehicle-damages/:id/photos', requireAuth, async (req, res) => {
             include: { photos: { orderBy: { displayOrder: 'asc' } } },
         });
         res.status(201).json(mapDamageRecord(updated));
+        void pushVehicleDamageToTeklifTakip('VEHICLE_DAMAGE_UPDATED', updated, { reason: 'PHOTO_ADDED' });
     } catch (error) {
         console.error('Error adding vehicle damage photo:', error);
         res.status(500).json({ error: 'Fotoğraf eklenemedi' });
@@ -2339,6 +2469,7 @@ app.delete('/api/vehicle-damages/:id/photos/:photoId', requireAuth, async (req, 
             include: { photos: { orderBy: { displayOrder: 'asc' } } },
         });
         res.json(mapDamageRecord(updated));
+        void pushVehicleDamageToTeklifTakip('VEHICLE_DAMAGE_UPDATED', updated, { reason: 'PHOTO_REMOVED' });
     } catch (error) {
         console.error('Error deleting vehicle damage photo:', error);
         res.status(500).json({ error: 'Fotoğraf silinemedi' });
@@ -4776,7 +4907,7 @@ app.post('/api/integrations/vehicle-delivery-ingest', requireVehicleIngestSecret
             }
 
             if (!existing) {
-                await prisma.vehicleDeliveryEvent.create({
+                const created = await prisma.vehicleDeliveryEvent.create({
                     data: {
                         sourceDeliveryId,
                         companyName,
@@ -4784,6 +4915,12 @@ app.post('/api/integrations/vehicle-delivery-ingest', requireVehicleIngestSecret
                         deliveredAt: null,
                         payloadJson: b
                     }
+                });
+                await createVehicleDeliveryNotification({
+                    eventRowId: created.id,
+                    sourceDeliveryId,
+                    companyName,
+                    rawType
                 });
                 return res.status(201).json({ ok: true, processed: true, already_processed: false });
             }
@@ -4796,13 +4933,19 @@ app.post('/api/integrations/vehicle-delivery-ingest', requireVehicleIngestSecret
                 return res.status(200).json({ ok: true, processed: true, already_processed: true });
             }
 
-            await prisma.vehicleDeliveryEvent.update({
+            const updated = await prisma.vehicleDeliveryEvent.update({
                 where: { sourceDeliveryId },
                 data: {
                     companyName,
                     arrivedAt: arr.date,
                     payloadJson: b
                 }
+            });
+            await createVehicleDeliveryNotification({
+                eventRowId: updated.id,
+                sourceDeliveryId,
+                companyName,
+                rawType
             });
             return res.status(200).json({ ok: true, processed: true, already_processed: false });
         }
@@ -4814,7 +4957,7 @@ app.post('/api/integrations/vehicle-delivery-ingest', requireVehicleIngestSecret
         }
 
         if (!existing) {
-            await prisma.vehicleDeliveryEvent.create({
+            const created = await prisma.vehicleDeliveryEvent.create({
                 data: {
                     sourceDeliveryId,
                     companyName,
@@ -4823,6 +4966,12 @@ app.post('/api/integrations/vehicle-delivery-ingest', requireVehicleIngestSecret
                     deliveredPayloadJson: b
                 }
             });
+            await createVehicleDeliveryNotification({
+                eventRowId: created.id,
+                sourceDeliveryId,
+                companyName,
+                rawType
+            });
             return res.status(201).json({ ok: true, processed: true, already_processed: false });
         }
 
@@ -4830,13 +4979,19 @@ app.post('/api/integrations/vehicle-delivery-ingest', requireVehicleIngestSecret
             return res.status(200).json({ ok: true, processed: true, already_processed: true });
         }
 
-        await prisma.vehicleDeliveryEvent.update({
+        const updated = await prisma.vehicleDeliveryEvent.update({
             where: { sourceDeliveryId },
             data: {
                 companyName,
                 deliveredAt: dev.date,
                 deliveredPayloadJson: b
             }
+        });
+        await createVehicleDeliveryNotification({
+            eventRowId: updated.id,
+            sourceDeliveryId,
+            companyName,
+            rawType
         });
         return res.status(200).json({ ok: true, processed: true, already_processed: false });
     } catch (error) {

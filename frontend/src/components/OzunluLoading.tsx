@@ -20,7 +20,7 @@ function useAsymptoticProgress(active: boolean) {
 
   useEffect(() => {
     if (!active) return;
-    let start = performance.now();
+    const start = performance.now();
     let raf = 0;
     const tick = (now: number) => {
       const t = (now - start) / 1000;

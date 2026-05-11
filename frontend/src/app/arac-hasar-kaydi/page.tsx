@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import AuthGuard from '@/components/AuthGuard';
 import Sidebar from '@/components/Sidebar';
 import {
@@ -14,7 +15,7 @@ import {
     type VehicleDamageRecord,
     type VehicleDamageStatus,
 } from '@/lib/api';
-import { Camera, Check, ChevronDown, CircleCheckBig, Filter, Loader2, Plus, Save, ShieldAlert, Sparkles, UserRoundCog, Wrench, X } from 'lucide-react';
+import { Camera, Check, ChevronDown, CircleCheckBig, Filter, Loader2, Plus, Save, Sparkles, UserRoundCog, Wrench, X } from 'lucide-react';
 
 const STEP_ORDER: VehicleDamageStatus[] = ['KAYDI_GIRILDI', 'SURECTE', 'TAMAMLANDI'];
 const REPAIR_LOCATIONS = [
@@ -383,7 +384,7 @@ function DamageCard({
             <div className="photo-row">
                 {item.photos.map(photo => (
                     <div key={photo.id} className="photo-item">
-                        <img src={photo.dataUrl} alt="Hasar fotoğrafı" />
+                        <Image src={photo.dataUrl} alt="Hasar fotoğrafı" width={160} height={120} unoptimized className="photo-thumb" />
                         <button type="button" disabled={deletingPhotoId === photo.id} onClick={() => void removePhoto(photo.id)}>
                             {deletingPhotoId === photo.id ? 'Siliniyor...' : 'Sil'}
                         </button>
@@ -666,7 +667,9 @@ function AracHasarKaydiPageContent() {
                                 <input type="file" accept="image/*" multiple onChange={e => void onSelectPhotos(e.target.files)} />
                             </label>
                             <div className="pending-grid">
-                                {pendingPhotos.map((p, i) => <img key={i} src={p.previewUrl} alt="Önizleme" />)}
+                                {pendingPhotos.map((p, i) => (
+                                    <Image key={i} src={p.previewUrl} alt="Önizleme" width={120} height={90} unoptimized className="pending-thumb" />
+                                ))}
                             </div>
                         </div>
 

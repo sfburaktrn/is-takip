@@ -188,7 +188,7 @@ export interface M3Group {
 }
 
 export interface CompanyDamper {
-    [key: string]: any;
+    [key: string]: string | number | undefined;
     id: number;
     imalatNo: number;
     musteri: string;
@@ -575,6 +575,8 @@ export interface Sasi {
     isLinked?: boolean;
     linkedDorseId?: number;
     linkedDorseMusteri?: string;
+    /** Bazı API yanıtlarında bağlı dorse nesnesi */
+    dorse?: Dorse | null;
 }
 
 export type VerimlilikProductType = 'DAMPER' | 'DORSE' | 'SASI';
@@ -1027,6 +1029,9 @@ export function isProposalNotification(n: Pick<NotificationItem, 'kind' | 'produ
 export function notificationItemHref(n: NotificationItem): string {
     if (isProposalNotification(n)) {
         return `/mevcut-isler?highlight=${n.productId}`;
+    }
+    if (n.productType === 'VEHICLE_DELIVERY') {
+        return `/arac-bilgileri?eventId=${n.productId}`;
     }
     return `/urun-listesi?type=${encodeURIComponent(n.productType)}&expand=${n.productId}`;
 }

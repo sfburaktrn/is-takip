@@ -73,7 +73,7 @@ export default function AyarlarPage() {
             } else {
                 setError(data.error || 'Hata oluştu');
             }
-        } catch (err) {
+        } catch {
             setError('Bağlantı hatası');
         }
     };
@@ -105,7 +105,7 @@ export default function AyarlarPage() {
             } else {
                 setError(data.error || 'Hata oluştu');
             }
-        } catch (err) {
+        } catch {
             setError('Bağlantı hatası');
         }
     };
@@ -125,7 +125,7 @@ export default function AyarlarPage() {
                 const data = await res.json();
                 setError(data.error || 'Silme işlemi başarısız');
             }
-        } catch (err) {
+        } catch {
             setError('Bağlantı hatası');
         }
     };

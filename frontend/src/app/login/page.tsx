@@ -112,7 +112,7 @@ export default function LoginPage() {
                         fontWeight: 400,
                         margin: 0
                     }}>
-                        İmalat Takip Sistemi'ne giriş yapın
+                        İmalat Takip Sistemi&apos;ne giriş yapın
                     </p>
                 </div>
 

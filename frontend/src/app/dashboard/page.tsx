@@ -221,7 +221,7 @@ function DashboardContent() {
   const [linkFilter, setLinkFilter] = useState<'hepsi' | 'stok' | 'musteri'>('hepsi');
   const [linkSearchTerm, setLinkSearchTerm] = useState('');
   const [availableSasis, setAvailableSasis] = useState<Sasi[]>([]);
-  const [linkLoading, setLinkLoading] = useState(false);
+  const [, setLinkLoading] = useState(false);
   const [staleHint, setStaleHint] = useState<{ total: number; days: number } | null>(null);
   const { schedule: persistLater, flush: persistNow } = useDebouncedPersist();
 
@@ -291,7 +291,7 @@ function DashboardContent() {
 
   async function loadData() {
     try {
-      const [statsData, damperStats, dorseStats, sasiStats, dampersData, dorsesData, sasisData, dropdownsData] = await Promise.all([
+      const [, damperStats, , sasiStats, dampersData, dorsesData, sasisData, dropdownsData] = await Promise.all([
         getStats('DAMPER'),
         getStats('DAMPER'),
         getStats('DORSE'),
@@ -430,8 +430,7 @@ function DashboardContent() {
     const allSteps: boolean[] = [];
     SASI_STEP_GROUPS.forEach(group => {
       group.subSteps.forEach(step => {
-        // @ts-ignore
-        allSteps.push(sasi[step.key]);
+        allSteps.push(Boolean(sasi[step.key as keyof Sasi]));
       });
     });
 
@@ -444,8 +443,7 @@ function DashboardContent() {
     const allSteps: boolean[] = [];
     SASI_STEP_GROUPS.forEach(group => {
       group.subSteps.forEach(step => {
-        // @ts-ignore
-        allSteps.push(sasi[step.key]);
+        allSteps.push(Boolean(sasi[step.key as keyof Sasi]));
       });
     });
 
@@ -849,13 +847,13 @@ function DashboardContent() {
       } else if (statusFilter === 'baslamayan') {
         result = result.filter(s => getSasiStatus(s) === 'baslamayan');
       } else if (statusFilter === 'bosStok') {
-        result = result.filter(s => trStartsWithStok(s.musteri) && !(s as any).dorse);
+        result = result.filter(s => trStartsWithStok(s.musteri) && !s.dorse);
       } else if (statusFilter === 'tamamlananStok') {
         result = result.filter(s => trStartsWithStok(s.musteri) && getSasiStatus(s) === 'tamamlanan');
       } else if (statusFilter === 'devamEdenStok') {
         result = result.filter(s => trStartsWithStok(s.musteri) && getSasiStatus(s) === 'devamEden');
       } else if (statusFilter === 'bosMusteri') {
-        result = result.filter(s => !trStartsWithStok(s.musteri) && !(s as any).dorse);
+        result = result.filter(s => !trStartsWithStok(s.musteri) && !s.dorse);
       } else if (statusFilter === 'tamamlananMusteri') {
         result = result.filter(s => !trStartsWithStok(s.musteri) && getSasiStatus(s) === 'tamamlanan');
       } else if (statusFilter === 'devamEdenMusteri') {
@@ -1589,7 +1587,7 @@ function DashboardContent() {
                   <>
                     <p style={{ color: 'var(--muted)', marginBottom: '16px' }}>Dorseler sekmesinden bir dorseye ┼şasi ba─şlayabilirsiniz.</p>
                     <button className="btn btn-primary" onClick={() => setProductType('DORSE')}>
-                      Dorseler'e Git
+                      Dorseler&apos;e Git
                     </button>
                   </>
                 )}
@@ -4241,7 +4239,7 @@ function DashboardContent() {
                   {['hepsi', 'stok', 'musteri'].map((filter) => (
                     <button
                       key={filter}
-                      onClick={() => setLinkFilter(filter as any)}
+                      onClick={() => setLinkFilter(filter as 'hepsi' | 'stok' | 'musteri')}
                       style={{
                         flex: 1,
                         padding: '8px',

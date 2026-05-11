@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -15,7 +15,7 @@ export default function FirmaOzeti() {
     const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             setLoading(true);
             const data = await getCompanySummary(productType);
@@ -25,11 +25,11 @@ export default function FirmaOzeti() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [productType]);
 
     useEffect(() => {
-        loadData();
-    }, [productType]);
+        void loadData();
+    }, [loadData]);
 
     const handleDeleteM3Group = async (companyName: string, m3: string) => {
         if (!confirm(`${companyName} firmasına ait ${m3} m³ grubunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
@@ -336,7 +336,12 @@ export default function FirmaOzeti() {
                                                                                             <td style={{ padding: '8px 12px' }}>{item.musteri}</td>
                                                                                             {columns.map(col => (
                                                                                                 <td key={col.key} style={{ textAlign: 'center' }}>
-                                                                                                    {getStatusBadge(item[col.statusKey] || item[col.key])}
+                                                                                                    {getStatusBadge(
+                                                                                                        (() => {
+                                                                                                            const raw = item[col.statusKey] ?? item[col.key];
+                                                                                                            return raw !== undefined && raw !== null ? String(raw) : undefined;
+                                                                                                        })()
+                                                                                                    )}
                                                                                                 </td>
                                                                                             ))}
                                                                                         </tr>

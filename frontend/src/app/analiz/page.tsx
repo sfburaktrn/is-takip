@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
-import { getStats, type Stats, type StepStats, API_URL, apiFetch, getSasis } from '@/lib/api';
+import { getStats, type Stats, type StepStats, type Sasi, API_URL, apiFetch, getSasis } from '@/lib/api';
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
 } from 'recharts';
@@ -15,7 +15,6 @@ import {
     Package,
     CheckCircle,
     PauseCircle,
-    Loader2,
     Inbox,
     Clock,
     Gauge
@@ -52,7 +51,17 @@ const COLORS = {
     charts: ['#022347', '#334155', '#475569', '#64748B', '#94A3B8', '#CBD5E1']
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+type TooltipEntry = { name?: string; value?: string | number; color?: string };
+
+function CustomTooltip({
+    active,
+    payload,
+    label
+}: {
+    active?: boolean;
+    payload?: TooltipEntry[];
+    label?: string;
+}) {
     if (active && payload && payload.length) {
         return (
             <div style={{
@@ -64,7 +73,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                 minWidth: '150px'
             }}>
                 <p style={{ fontWeight: 600, color: '#1E293B', marginBottom: '8px', fontSize: '14px' }}>{label}</p>
-                {payload.map((entry: any, index: number) => (
+                {payload.map((entry, index: number) => (
                     <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: entry.color }} />
                         <span style={{ fontSize: '12px', color: '#64748B' }}>{entry.name}:</span>
@@ -77,7 +86,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         );
     }
     return null;
-};
+}
+
+type SasiBarRow = { name: string; baslamadi: number; devamEdiyor: number; tamamlandi: number; total: number };
 
 export default function Analiz() {
     const [productType, setProductType] = useState<ProductType>('DAMPER');
@@ -86,7 +97,7 @@ export default function Analiz() {
     const [m3StepStats, setM3StepStats] = useState<Record<string, StepStats>>({});
     const [companyDist, setCompanyDist] = useState<CompanyDist[]>([]);
     const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
-    const [sasiBarData, setSasiBarData] = useState<any[]>([]);
+    const [sasiBarData, setSasiBarData] = useState<SasiBarRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
     const [isMounted, setIsMounted] = useState(false);
@@ -95,7 +106,7 @@ export default function Analiz() {
         setIsMounted(true);
     }, []);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             setLoading(true);
             // Add timestamp to prevent caching
@@ -126,16 +137,16 @@ export default function Analiz() {
                 const customerStats = { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 };
                 const stockStats = { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 };
 
-                sasis.forEach((s: any) => {
-                    const completedCount = sasiSteps.filter(step => s[step] === true).length;
-                    let status = 'devamEdiyor';
+                type SasiAggKey = 'baslamadi' | 'devamEdiyor' | 'tamamlandi';
+                sasis.forEach((s: Sasi) => {
+                    const completedCount = sasiSteps.filter(step => s[step as keyof Sasi] === true).length;
+                    let status: SasiAggKey = 'devamEdiyor';
                     if (completedCount === 0) status = 'baslamadi';
                     else if (completedCount === sasiSteps.length) status = 'tamamlandi';
 
                     const isStock = s.musteri && s.musteri.toLowerCase().startsWith('stok');
                     const target = isStock ? stockStats : customerStats;
 
-                    // @ts-ignore
                     target[status]++;
                     target.total++;
                 });
@@ -158,14 +169,16 @@ export default function Analiz() {
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        loadData();
     }, [productType]);
 
+    useEffect(() => {
+        void loadData();
+    }, [loadData]);
+
     // Helper to default non-existent stats
-    const getStat = (stat: any) => stat || { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 };
+    type StepAgg = { baslamadi?: number; devamEdiyor?: number; tamamlandi?: number; total?: number };
+    const getStat = (stat: StepAgg | null | undefined) =>
+        stat ?? { baslamadi: 0, devamEdiyor: 0, tamamlandi: 0, total: 0 };
 
     // Helper to prepare chart data
     const getChartData = (s: StepStats | null) => {
@@ -596,15 +609,18 @@ export default function Analiz() {
                                     </thead>
                                     <tbody>
                                         {barChartData.map((row) => {
-                                            const total = row.baslamadi + row.devamEdiyor + row.tamamlandi;
-                                            const tamamlandiPct = total > 0 ? Math.round((row.tamamlandi / total) * 100) : 0;
-                                            const devamPct = total > 0 ? Math.round((row.devamEdiyor / total) * 100) : 0;
+                                            const b = row.baslamadi ?? 0;
+                                            const d = row.devamEdiyor ?? 0;
+                                            const t = row.tamamlandi ?? 0;
+                                            const total = b + d + t;
+                                            const tamamlandiPct = total > 0 ? Math.round((t / total) * 100) : 0;
+                                            const devamPct = total > 0 ? Math.round((d / total) * 100) : 0;
                                             return (
                                                 <tr key={row.name} style={{ backgroundColor: '#F8FAFC' }}>
                                                     <td style={{ padding: '12px', fontWeight: 500, color: '#1E293B', borderRadius: '8px 0 0 8px' }}>{row.name}</td>
-                                                    <td style={{ textAlign: 'center', padding: '12px', color: COLORS.danger, fontWeight: 600 }}>{row.baslamadi}</td>
-                                                    <td style={{ textAlign: 'center', padding: '12px', color: COLORS.warning, fontWeight: 600 }}>{row.devamEdiyor}</td>
-                                                    <td style={{ textAlign: 'center', padding: '12px', color: COLORS.success, fontWeight: 600 }}>{row.tamamlandi}</td>
+                                                    <td style={{ textAlign: 'center', padding: '12px', color: COLORS.danger, fontWeight: 600 }}>{b}</td>
+                                                    <td style={{ textAlign: 'center', padding: '12px', color: COLORS.warning, fontWeight: 600 }}>{d}</td>
+                                                    <td style={{ textAlign: 'center', padding: '12px', color: COLORS.success, fontWeight: 600 }}>{t}</td>
                                                     <td style={{ padding: '12px', borderRadius: '0 8px 8px 0' }}>
                                                         <div className="progress-bar" style={{ height: '6px', display: 'flex', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#E2E8F0' }}>
                                                             <div style={{ width: `${tamamlandiPct}%`, background: COLORS.success }}></div>

@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import "./analytics-responsive.css";
 import { AuthProvider } from "@/lib/AuthContext";
 import NotificationBell from "@/components/NotificationBell";
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "İmalat Takip Sistemi",
@@ -19,12 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      </head>
-      <body suppressHydrationWarning={true}>
+      <body className={manrope.className} suppressHydrationWarning={true}>
         <AuthProvider>
           <NotificationBell />
           {children}

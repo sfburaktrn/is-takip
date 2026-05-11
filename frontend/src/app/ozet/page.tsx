@@ -50,10 +50,17 @@ export default function OzetSayfasi() {
         }
     };
 
-    const filteredItems = (productType === 'DAMPER' ? dampers : dorses).filter((d: any) =>
-        searchTerm === '' ||
-        d.musteri.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.imalatNo.toString().includes(searchTerm)
+    const filteredDampers = dampers.filter(
+        (d) =>
+            searchTerm === '' ||
+            d.musteri.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            d.imalatNo.toString().includes(searchTerm)
+    );
+    const filteredDorses = dorses.filter(
+        (d) =>
+            searchTerm === '' ||
+            d.musteri.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            d.imalatNo.toString().includes(searchTerm)
     );
 
     if (loading) {
@@ -157,44 +164,44 @@ export default function OzetSayfasi() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredItems.map((item: any) => (
-                                <tr key={item.id}>
-                                    <td style={{
-                                        fontWeight: 600,
-                                        color: 'var(--primary)',
-                                        position: 'sticky',
-                                        left: 0,
-                                        background: 'var(--card)',
-                                        zIndex: 5
-                                    }}>
-                                        {item.imalatNo}
-                                    </td>
-                                    <td style={{
-                                        position: 'sticky',
-                                        left: '80px',
-                                        background: 'var(--card)',
-                                        zIndex: 5,
-                                        maxWidth: '150px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap'
-                                    }}>
-                                        {item.musteri}
-                                    </td>
-                                    <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <div style={{
-                                                width: '8px',
-                                                height: '8px',
-                                                borderRadius: '50%',
-                                                background: (productType === 'DAMPER' ? item.aracGeldiMi : item.cekiciGeldiMi) ? 'var(--success)' : 'var(--danger)'
-                                            }}></div>
-                                            <span style={{ fontSize: '12px' }}>
-                                                {productType === 'DAMPER' ? (item.aracMarka || '-') : (item.cekiciGeldiMi ? 'Fabrikada' : '-')}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    {productType === 'DAMPER' && (
+                            {productType === 'DAMPER'
+                                ? filteredDampers.map((item) => (
+                                    <tr key={item.id}>
+                                        <td style={{
+                                            fontWeight: 600,
+                                            color: 'var(--primary)',
+                                            position: 'sticky',
+                                            left: 0,
+                                            background: 'var(--card)',
+                                            zIndex: 5
+                                        }}>
+                                            {item.imalatNo}
+                                        </td>
+                                        <td style={{
+                                            position: 'sticky',
+                                            left: '80px',
+                                            background: 'var(--card)',
+                                            zIndex: 5,
+                                            maxWidth: '150px',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            {item.musteri}
+                                        </td>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%',
+                                                    background: item.aracGeldiMi ? 'var(--success)' : 'var(--danger)'
+                                                }}></div>
+                                                <span style={{ fontSize: '12px' }}>
+                                                    {item.aracMarka || '-'}
+                                                </span>
+                                            </div>
+                                        </td>
                                         <td>
                                             <span style={{
                                                 background: 'rgba(99, 102, 241, 0.1)',
@@ -206,18 +213,65 @@ export default function OzetSayfasi() {
                                                 {item.tip}
                                             </span>
                                         </td>
-                                    )}
-                                    {productType === 'DORSE' && (
+                                        <td style={{ fontSize: '12px' }}>{item.malzemeCinsi}</td>
+                                        <td style={{ fontSize: '12px' }}>{item.m3}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.kesimBukum)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.sasiBitis)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.onHazirlik)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.montaj)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.hidrolik)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.boyaBitis)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.tamamlamaBitis)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.sonKontrol)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.kurumMuayenesi)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.dmoMuayenesi)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.teslimat)}</td>
+                                    </tr>
+                                ))
+                                : filteredDorses.map((item) => (
+                                    <tr key={item.id}>
+                                        <td style={{
+                                            fontWeight: 600,
+                                            color: 'var(--primary)',
+                                            position: 'sticky',
+                                            left: 0,
+                                            background: 'var(--card)',
+                                            zIndex: 5
+                                        }}>
+                                            {item.imalatNo}
+                                        </td>
+                                        <td style={{
+                                            position: 'sticky',
+                                            left: '80px',
+                                            background: 'var(--card)',
+                                            zIndex: 5,
+                                            maxWidth: '150px',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            {item.musteri}
+                                        </td>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%',
+                                                    background: item.cekiciGeldiMi ? 'var(--success)' : 'var(--danger)'
+                                                }}></div>
+                                                <span style={{ fontSize: '12px' }}>
+                                                    {item.cekiciGeldiMi ? 'Fabrikada' : '-'}
+                                                </span>
+                                            </div>
+                                        </td>
                                         <td style={{ fontSize: '12px' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                {/* 1. Dorse'nin kendi Şasi No'su (Elle girilen) */}
                                                 {item.sasiNo && (
                                                     <div style={{ fontWeight: 500, color: 'var(--foreground)' }}>
                                                         {item.sasiNo}
                                                     </div>
                                                 )}
-
-                                                {/* 2. Bağlı Şasi Bilgisi */}
                                                 {item.sasi && (
                                                     <div style={{
                                                         fontSize: '11px',
@@ -232,38 +286,30 @@ export default function OzetSayfasi() {
                                                         border: '1px solid rgba(99, 102, 241, 0.1)'
                                                     }}>
                                                         <span style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>🔗 {item.sasi.musteri}</span>
-
-                                                        {/* Separator Line */}
                                                         <div style={{ width: '1px', height: '12px', background: 'var(--primary)', opacity: 0.3 }}></div>
-
                                                         <span style={{ opacity: 0.8, whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
                                                             {item.sasi.sasiNo ? `#${item.sasi.sasiNo}` : (item.sasi.imalatNo ? `#${item.sasi.imalatNo}` : '')}
                                                         </span>
                                                     </div>
                                                 )}
-
-                                                {/* Hiçbiri yoksa */}
                                                 {!item.sasiNo && !item.sasi && <span style={{ color: 'var(--muted)' }}>-</span>}
                                             </div>
                                         </td>
-                                    )}
-                                    <td style={{ fontSize: '12px' }}>
-                                        {productType === 'DAMPER' ? item.malzemeCinsi : item.kalinlik}
-                                    </td>
-                                    <td style={{ fontSize: '12px' }}>{item.m3}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.kesimBukum)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.sasiBitis)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.onHazirlik)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.montaj)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.hidrolik)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.boyaBitis)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.tamamlamaBitis)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.sonKontrol)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.kurumMuayenesi)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.dmoMuayenesi)}</td>
-                                    <td style={{ textAlign: 'center' }}>{getStatusBadge(item.teslimat)}</td>
-                                </tr>
-                            ))}
+                                        <td style={{ fontSize: '12px' }}>{item.kalinlik}</td>
+                                        <td style={{ fontSize: '12px' }}>{item.m3}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.kesimBukum)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.sasiBitis)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.onHazirlik)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.montaj)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.hidrolik)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.boyaBitis)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.tamamlamaBitis)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.sonKontrol)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.kurumMuayenesi)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.dmoMuayenesi)}</td>
+                                        <td style={{ textAlign: 'center' }}>{getStatusBadge(item.teslimat)}</td>
+                                    </tr>
+                                ))}
                         </tbody>
                     </table>
                 </div>

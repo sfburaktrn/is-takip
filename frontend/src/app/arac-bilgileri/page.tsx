@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -114,10 +115,12 @@ function VehicleCard({
     row,
     deleting,
     onDelete,
+    highlighted,
 }: {
     row: VehicleDeliveryEventRow;
     deleting: boolean;
     onDelete: () => Promise<void>;
+    highlighted: boolean;
 }) {
     const inboundSnap = readVehicleSnapshot(row.payloadJson);
     const delPay = row.deliveredPayloadJson ?? legacyDeliveredPayload(row);
@@ -127,7 +130,7 @@ function VehicleCard({
     const done = !!row.deliveredAt;
 
     return (
-        <article className="vd-card">
+        <article id={`vd-row-${row.id}`} className={`vd-card ${highlighted ? 'vd-card-highlight' : ''}`}>
             <div className={`vd-accent ${done ? 'vd-accent-done' : onsite ? 'vd-accent-onsite' : 'vd-accent-partial'}`} />
             <div className="vd-card-inner">
                 <div className="vd-card-head">
@@ -277,6 +280,10 @@ function VehicleCard({
                     transform: translateY(-6px);
                     border-color: rgba(2, 35, 71, 0.22);
                     box-shadow: 0 28px 48px -20px rgba(2, 35, 71, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+                }
+                .vd-card-highlight {
+                    border-color: rgba(16, 185, 129, 0.65);
+                    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.28), 0 18px 36px -18px rgba(5, 150, 105, 0.35);
                 }
                 .vd-accent {
                     height: 4px;
@@ -488,6 +495,7 @@ function deletionLogDetails(d: VehicleDeliveryDeletionLogRow['details']) {
 }
 
 function AracBilgileriContent() {
+    const searchParams = useSearchParams();
     const [rows, setRows] = useState<VehicleDeliveryEventRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
@@ -529,6 +537,23 @@ function AracBilgileriContent() {
     }, [sortedRows]);
 
     const [q, setQ] = useState('');
+    const eventIdParam = searchParams.get('eventId');
+    const focusEventId = eventIdParam ? Number(eventIdParam) : null;
+
+    useEffect(() => {
+        if (!Number.isFinite(focusEventId)) return;
+        const row = sortedRows.find((r) => r.id === focusEventId);
+        if (!row) return;
+        if (q.trim() !== row.sourceDeliveryId) {
+            setQ(row.sourceDeliveryId);
+        }
+        const timer = window.setTimeout(() => {
+            const el = document.getElementById(`vd-row-${focusEventId}`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 120);
+        return () => window.clearTimeout(timer);
+    }, [focusEventId, sortedRows, q]);
+
     const filtered = useMemo(() => {
         const n = q.trim().toLocaleLowerCase('tr-TR');
         if (!n) return sortedRows;
@@ -668,6 +693,7 @@ function AracBilgileriContent() {
                                     row={r}
                                     deleting={deleteBusyKey === r.sourceDeliveryId}
                                     onDelete={() => handleDeleteRow(r)}
+                                    highlighted={Number.isFinite(focusEventId) && r.id === focusEventId}
                                 />
                             ))}
                         </div>

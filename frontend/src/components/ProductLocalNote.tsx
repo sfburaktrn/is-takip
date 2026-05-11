@@ -20,6 +20,7 @@ function comparableSaved(raw: string | null | undefined): string {
 const SAVE_DEBOUNCE_MS = 900;
 
 export function ProductLocalNote({ kind, productId, value, onPersist }: ProductLocalNoteProps) {
+    void kind;
     const [text, setText] = useState(() => value ?? '');
     const [saving, setSaving] = useState(false);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,6 +41,8 @@ export function ProductLocalNote({ kind, productId, value, onPersist }: ProductL
             clearTimeout(saveTimerRef.current);
             saveTimerRef.current = null;
         }
+        // value senkronu aşağıdaki effect'te; productId değişiminde yalnızca ürün sıfırlanır
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- value ayrı effect ile
     }, [productId]);
 
     useEffect(() => {

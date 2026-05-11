@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -26,7 +26,6 @@ import {
     Type,
     Hash,
     FileSpreadsheet, // Added icon
-    Download, // Added icon
     X, // Added icon
     Info // Added icon
 } from 'lucide-react';
@@ -65,6 +64,11 @@ import {
 
 type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'DORSE_SASI' | 'HEPSI';
 
+type CombinedListItem =
+    | (Damper & { _type: 'DAMPER' })
+    | (Dorse & { _type: 'DORSE' })
+    | (Sasi & { _type: 'SASI' });
+
 type StaleHint = { total: number; days: number } | null;
 
 type StepTimeline = {
@@ -77,19 +81,6 @@ type StepTimeline = {
 };
 
 type TimelineState = StepTimeline | null | 'loading';
-
-function formatDuration(ms: number): string {
-    const s = Math.max(0, Math.floor(ms / 1000));
-    const m = Math.floor(s / 60);
-    const h = Math.floor(m / 60);
-    const d = Math.floor(h / 24);
-    const hh = h % 24;
-    const mm = m % 60;
-    if (d > 0) return `${d}g ${hh}s`;
-    if (h > 0) return `${h}s ${mm}dk`;
-    if (m > 0) return `${m}dk`;
-    return `${s}sn`;
-}
 
 function formatProductionDuration(ms: number): string {
     const totalMin = Math.max(0, Math.floor(ms / 60000));
@@ -144,10 +135,10 @@ function TimelineMini({ tl }: { tl: StepTimeline }) {
     const endMs = times.length ? Math.max(...times) : null;
     const hasRange = !!startMs && !!endMs && endMs > startMs;
     const total = hasRange ? endMs! - startMs! : 0;
-    let prev = startMs ?? 0;
-    const segments = (times.length ? times : []).slice(0, 16).map((t, idx) => {
+    const timeSlice = (times.length ? times : []).slice(0, 16);
+    const segments = timeSlice.map((t, idx) => {
+        const prev = idx === 0 ? (startMs ?? 0) : timeSlice[idx - 1]!;
         const dur = hasRange ? Math.max(0, t - prev) : 0;
-        prev = t;
         return { idx, dur, w: total > 0 ? (dur / total) * 100 : 0 };
     });
     const labelText = totalProdLabel === '—' ? 'Hesaplanamadı' : `${totalProdLabel}de üretildi`;
@@ -547,7 +538,7 @@ function UrunListesiContent() {
     const [linkFilter, setLinkFilter] = useState<'hepsi' | 'stok' | 'musteri'>('hepsi');
     const [linkSearchTerm, setLinkSearchTerm] = useState('');
     const [availableSasis, setAvailableSasis] = useState<Sasi[]>([]);
-    const [linkLoading, setLinkLoading] = useState(false);
+    const [, setLinkLoading] = useState(false);
     const { schedule: persistLater, flush: persistNow } = useDebouncedPersist();
 
     // Dorse ekleme formu için: şasi listesi (unlinked) doldur.
@@ -694,6 +685,7 @@ function UrunListesiContent() {
         return () => {
             cancelled = true;
         };
+        // timelines bilinçli dışarıda; içeride güncellenir, bağımlılığa eklenmez
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [productType, statusFilter, dampers, dorses]);
 
@@ -744,11 +736,6 @@ function UrunListesiContent() {
         isStok: true,
     });
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-        loadData();
-    }, []);
-
     useEffect(() => {
         if (loading) return;
         const t = searchParams.get('type') as ProductType | null;
@@ -776,7 +763,7 @@ function UrunListesiContent() {
         });
     }, [productType]);
 
-    async function loadData() {
+    const loadData = useCallback(async () => {
         try {
             const [damperStats, dorseStats, sasiStats, dampersData, dorsesData, sasisData, dropdownsData] = await Promise.all([
                 getStats('DAMPER'),
@@ -800,7 +787,11 @@ function UrunListesiContent() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [productType]);
+
+    useEffect(() => {
+        void loadData();
+    }, [loadData]);
 
     // Refresh stats when product type changes
     useEffect(() => {
@@ -913,8 +904,7 @@ function UrunListesiContent() {
         const allSteps: boolean[] = [];
         SASI_STEP_GROUPS.forEach(group => {
             group.subSteps.forEach(step => {
-                // @ts-ignore
-                allSteps.push(sasi[step.key]);
+                allSteps.push(Boolean(sasi[step.key as keyof Sasi]));
             });
         });
 
@@ -927,8 +917,7 @@ function UrunListesiContent() {
         const allSteps: boolean[] = [];
         SASI_STEP_GROUPS.forEach(group => {
             group.subSteps.forEach(step => {
-                // @ts-ignore
-                allSteps.push(sasi[step.key]);
+                allSteps.push(Boolean(sasi[step.key as keyof Sasi]));
             });
         });
 
@@ -1360,13 +1349,13 @@ function UrunListesiContent() {
             } else if (statusFilter === 'baslamayan') {
                 result = result.filter(s => getSasiStatus(s) === 'baslamayan');
             } else if (statusFilter === 'bosStok') {
-                result = result.filter(s => trStartsWithStok(s.musteri) && !(s as any).isLinked);
+                result = result.filter(s => trStartsWithStok(s.musteri) && !s.isLinked);
             } else if (statusFilter === 'tamamlananStok') {
                 result = result.filter(s => trStartsWithStok(s.musteri) && getSasiStatus(s) === 'tamamlanan');
             } else if (statusFilter === 'devamEdenStok') {
                 result = result.filter(s => trStartsWithStok(s.musteri) && getSasiStatus(s) === 'devamEden');
             } else if (statusFilter === 'bosMusteri') {
-                result = result.filter(s => !trStartsWithStok(s.musteri) && !(s as any).isLinked);
+                result = result.filter(s => !trStartsWithStok(s.musteri) && !s.isLinked);
             } else if (statusFilter === 'tamamlananMusteri') {
                 result = result.filter(s => !trStartsWithStok(s.musteri) && getSasiStatus(s) === 'tamamlanan');
             } else if (statusFilter === 'devamEdenMusteri') {
@@ -1493,11 +1482,11 @@ function UrunListesiContent() {
         } else if (statusFilter) {
             // General status filtering for combined list
             // Mapping statuses to common terms if needed, or using specific logic
-            result = result.filter(item => {
-                let status = '';
-                if (item._type === 'DAMPER') status = getDamperStatus(item as any);
-                else if (item._type === 'DORSE') status = getDorseStatus(item as any);
-                else if (item._type === 'SASI') status = getSasiStatus(item as any);
+            result = result.filter((item) => {
+                let status: string;
+                if (item._type === 'DAMPER') status = getDamperStatus(item);
+                else if (item._type === 'DORSE') status = getDorseStatus(item);
+                else status = getSasiStatus(item);
 
                 if (statusFilter === 'tamamlanan') return status === 'tamamlanan';
                 if (statusFilter === 'devamEden') return status === 'devamEden';
@@ -1505,13 +1494,13 @@ function UrunListesiContent() {
 
                 if (item._type === 'SASI') {
                     if (statusFilter === 'bosStok') {
-                        return trStartsWithStok(item.musteri) && !(item as any).isLinked;
+                        return trStartsWithStok(item.musteri) && !item.isLinked;
                     } else if (statusFilter === 'tamamlananStok') {
                         return trStartsWithStok(item.musteri) && status === 'tamamlanan';
                     } else if (statusFilter === 'devamEdenStok') {
                         return trStartsWithStok(item.musteri) && status === 'devamEden';
                     } else if (statusFilter === 'bosMusteri') {
-                        return !trStartsWithStok(item.musteri) && !(item as any).isLinked;
+                        return !trStartsWithStok(item.musteri) && !item.isLinked;
                     } else if (statusFilter === 'tamamlananMusteri') {
                         return !trStartsWithStok(item.musteri) && status === 'tamamlanan';
                     } else if (statusFilter === 'devamEdenMusteri') {
@@ -1526,15 +1515,14 @@ function UrunListesiContent() {
         if (sortBy) {
             result.sort((a, b) => {
                 // Progress can be handled generically
-                const getProgress = (item: any) => {
+                const getProgress = (item: CombinedListItem) => {
                     if (item._type === 'DAMPER') return calculateProgress(item);
                     if (item._type === 'DORSE') return calculateDorseProgress(item);
-                    if (item._type === 'SASI') return calculateSasiProgress(item);
-                    return 0;
+                    return calculateSasiProgress(item);
                 };
 
-                const getName = (item: any) => item.musteri || '';
-                const getDate = (item: any) => new Date(item.createdAt || 0).getTime();
+                const getName = (item: CombinedListItem) => item.musteri || '';
+                const getDate = (item: CombinedListItem) => new Date(item.createdAt || 0).getTime();
 
                 switch (sortBy) {
                     case 'progress-asc':
@@ -1645,6 +1633,7 @@ function UrunListesiContent() {
         const sasiStats = {
             total: sasis.length,
             tamamlanan: sasis.filter(s => getSasiStatus(s) === 'tamamlanan').length,
+            teslimEdilen: 0,
             devamEden: sasis.filter(s => getSasiStatus(s) === 'devamEden').length,
             baslamayan: sasis.filter(s => getSasiStatus(s) === 'baslamayan').length
         };
@@ -1653,6 +1642,7 @@ function UrunListesiContent() {
             return {
                 total: sortedDorses.length,
                 tamamlanan: sortedDorses.filter(d => calculateDorseProgress(d) === 100).length,
+                teslimEdilen: sortedDorses.filter(d => d.teslimat).length,
                 devamEden: sortedDorses.filter(d => {
                     const p = calculateDorseProgress(d);
                     return p > 0 && p < 100;
@@ -1665,6 +1655,7 @@ function UrunListesiContent() {
             return {
                 total: damperStats.total + dorseStats.total + sasiStats.total,
                 tamamlanan: damperStats.tamamlanan + dorseStats.tamamlanan + sasiStats.tamamlanan,
+                teslimEdilen: damperStats.teslimEdilen + dorseStats.teslimEdilen,
                 devamEden: damperStats.devamEden + dorseStats.devamEden + sasiStats.devamEden,
                 baslamayan: damperStats.baslamayan + dorseStats.baslamayan + sasiStats.baslamayan
             };
@@ -1702,9 +1693,13 @@ function UrunListesiContent() {
         };
 
         // --- EXPORT CONFIGURATION ---
-        let baseColumns: any[] = [];
-        let stepGroups: any[] = [];
-        let data: any[] = [];
+        type ExcelBaseCol = { header: string; key: string; width: number };
+        type ExcelStep = { key: string; label: string };
+        type ExcelGroup = { key: string; name: string; subSteps: ExcelStep[] };
+
+        let baseColumns: ExcelBaseCol[] = [];
+        let stepGroups: ExcelGroup[] = [];
+        let data: (Damper | Dorse | Sasi)[] = [];
         let inspectionKeys = { kurum: '', dmo: '' }; // Keys for inspection fields
 
         if (productType === 'DAMPER') {
@@ -1757,11 +1752,11 @@ function UrunListesiContent() {
         }
 
         // --- PREPARE COLUMNS ---
-        let excelColumns: Partial<ExcelJS.Column>[] = [...baseColumns];
+        const excelColumns: Partial<ExcelJS.Column>[] = [...baseColumns];
 
         // Step Groups
         stepGroups.forEach(group => {
-            group.subSteps.forEach((step: any) => {
+            group.subSteps.forEach((step: ExcelStep) => {
                 excelColumns.push({ header: step.label, key: step.key, width: 18 });
             });
             // Summary Column
@@ -1778,15 +1773,15 @@ function UrunListesiContent() {
         worksheet.columns = excelColumns;
 
         // --- HEADER ROW 1 & 2 VALUES ---
-        const row1Values: any[] = [];
-        const row2Values: any[] = [];
+        const row1Values: string[] = [];
+        const row2Values: string[] = [];
 
         baseColumns.forEach(col => {
             row1Values.push(col.header);
             row2Values.push(col.header);
         });
 
-        stepGroups.forEach((group, idx) => {
+        stepGroups.forEach((group) => {
             row1Values.push(group.name);
             // Fill placeholders for merge
             // Correct logic for merge placeholders
@@ -1794,7 +1789,7 @@ function UrunListesiContent() {
                 row1Values.push(group.name);
             }
 
-            group.subSteps.forEach((step: any) => {
+            group.subSteps.forEach((step: ExcelStep) => {
                 row2Values.push(step.label);
             });
             row2Values.push('DURUM');
@@ -1813,7 +1808,7 @@ function UrunListesiContent() {
 
         const headerRow1 = worksheet.getRow(1);
         headerRow1.values = row1Values;
-        const headerRow2 = worksheet.insertRow(2, row2Values);
+        worksheet.insertRow(2, row2Values);
 
         // --- MERGING & STYLING ---
         let currentCol = 1;
@@ -1891,16 +1886,17 @@ function UrunListesiContent() {
 
         // --- DATA ROWS ---
         data.forEach(item => {
-            const rowValues: any[] = [];
+            const rowValues: unknown[] = [];
+            const itemRec = item as unknown as Record<string, unknown>;
 
             // Base Info
             baseColumns.forEach(col => {
-                let val = (item as any)[col.key];
+                let val: unknown = itemRec[col.key];
 
                 // Special handling for Sasi No in Dorse (it might be in linked sasi object)
                 if (col.key === 'sasiNo' && productType === 'DORSE') {
-                    if (!val && (item as any).sasi) {
-                        const sasiObj = (item as any).sasi;
+                    if (!val && (item as Dorse).sasi) {
+                        const sasiObj = (item as Dorse).sasi!;
                         if (sasiObj.sasiNo) {
                             val = `${sasiObj.musteri} - ${sasiObj.sasiNo}`;
                         } else if (sasiObj.imalatNo) {
@@ -1912,15 +1908,16 @@ function UrunListesiContent() {
                 }
 
                 if (['aracGeldiMi', 'cekiciGeldiMi'].includes(col.key)) val = val ? 'EVET' : 'HAYIR';
-                if (col.key === 'createdAt' && val) val = new Date(val).toLocaleDateString('tr-TR');
+                if (col.key === 'createdAt' && val)
+                    val = new Date(val as string | number | Date).toLocaleDateString('tr-TR');
                 rowValues.push(val);
             });
 
             // Step Groups Status
             stepGroups.forEach(group => {
                 let completedCount = 0;
-                group.subSteps.forEach((step: any) => {
-                    const val = (item as any)[step.key];
+                group.subSteps.forEach((step: ExcelStep) => {
+                    const val = itemRec[step.key];
                     if (val) completedCount++;
                     rowValues.push(val);
                 });
@@ -1936,14 +1933,15 @@ function UrunListesiContent() {
 
             // Custom Group Data
             if (productType !== 'SASI') {
+                const d = item as Damper | Dorse;
                 // Kurum
-                const kurumVal = inspectionKeys.kurum ? ((item as any)[inspectionKeys.kurum] || 'YOK') : 'YOK';
+                const kurumVal = inspectionKeys.kurum ? (itemRec[inspectionKeys.kurum] || 'YOK') : 'YOK';
                 rowValues.push(kurumVal);
                 // DMO
-                const dmoVal = inspectionKeys.dmo ? ((item as any)[inspectionKeys.dmo] || 'YOK') : 'YOK';
+                const dmoVal = inspectionKeys.dmo ? (itemRec[inspectionKeys.dmo] || 'YOK') : 'YOK';
                 rowValues.push(dmoVal);
                 // Teslimat
-                rowValues.push(item.teslimat);
+                rowValues.push(d.teslimat);
             }
 
             const row = worksheet.addRow(rowValues);
@@ -2074,9 +2072,9 @@ function UrunListesiContent() {
                         </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button className="btn btn-secondary" onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FileSpreadsheet size={20} /> Excel'e Aktar
+                                <FileSpreadsheet size={20} /> Excel&apos;e Aktar
                             </button>
-                            {productType !== ('HEPSI' as any) && productType !== ('DORSE_SASI' as any) && (
+                            {productType !== 'HEPSI' && productType !== 'DORSE_SASI' && (
                                 <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
                                     <Plus size={20} /> Yeni{' '}
                                     {productType === 'DAMPER'
@@ -2628,7 +2626,7 @@ function UrunListesiContent() {
                                 <Truck size={24} strokeWidth={2} />
                             </div>
                             <div>
-                                <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{(currentStats as any)?.teslimEdilen || 0}</div>
+                                <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.teslimEdilen ?? 0}</div>
                                 <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Teslim Edilen</div>
                             </div>
                         </div>
@@ -5943,7 +5941,7 @@ function UrunListesiContent() {
                                                 Dorseler sekmesinden bir dorseye şasi bağlayabilirsiniz.
                                             </p>
                                             <button className="btn btn-primary" onClick={() => setProductType('DORSE')}>
-                                                Dorseler'e Git
+                                                Dorseler&apos;e Git
                                             </button>
                                         </>
                                     )}
@@ -7539,7 +7537,7 @@ function UrunListesiContent() {
                                     {['hepsi', 'stok', 'musteri'].map((filter) => (
                                         <button
                                             key={filter}
-                                            onClick={() => setLinkFilter(filter as any)}
+                                            onClick={() => setLinkFilter(filter as 'hepsi' | 'stok' | 'musteri')}
                                             style={{
                                                 flex: 1,
                                                 padding: '8px',

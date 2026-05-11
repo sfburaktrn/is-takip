@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import { getSearch, type SearchResponse } from '@/lib/api';
+import type { LucideIcon } from 'lucide-react';
 import {
     Truck,
     ClipboardList,
@@ -28,6 +29,17 @@ import {
     ShieldAlert
 } from 'lucide-react';
 
+function cn(...classes: (string | false | undefined | null)[]) {
+    return classes.filter(Boolean).join(' ');
+}
+
+type SidebarNavItem = {
+    key?: string;
+    href: string;
+    label: string;
+    icon: LucideIcon;
+};
+
 function typeLabel(t: string) {
     if (t === 'DAMPER') return 'Damper';
     if (t === 'DORSE') return 'Dorse';
@@ -46,43 +58,55 @@ export default function Sidebar() {
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchError, setSearchError] = useState<string | null>(null);
     const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchReqId = useRef(0);
+
+    const trimmedSearchQ = searchQ.trim();
+    const canSearch = Boolean(user && trimmedSearchQ.length >= 2);
+    const displayRes = canSearch ? searchRes : null;
+    const displayError = canSearch ? searchError : null;
+    const displayLoading = canSearch && searchLoading;
 
     useEffect(() => {
         if (searchTimer.current) clearTimeout(searchTimer.current);
-        if (!user || searchQ.trim().length < 2) {
-            setSearchRes(null);
-            setSearchError(null);
-            setSearchLoading(false);
-            return;
+        if (!canSearch) {
+            return () => {
+                if (searchTimer.current) clearTimeout(searchTimer.current);
+            };
         }
         searchTimer.current = setTimeout(() => {
+            const myId = ++searchReqId.current;
             setSearchLoading(true);
             setSearchError(null);
             setSearchRes(null);
-            getSearch(searchQ.trim())
+            getSearch(trimmedSearchQ)
                 .then(data => {
+                    if (searchReqId.current !== myId) return;
                     setSearchRes(data);
                 })
                 .catch(() => {
+                    if (searchReqId.current !== myId) return;
                     setSearchRes(null);
                     setSearchError('Arama yanıt vermedi. Backend (3001) çalışıyor mu ve giriş yaptınız mı?');
                 })
-                .finally(() => setSearchLoading(false));
+                .finally(() => {
+                    if (searchReqId.current !== myId) return;
+                    setSearchLoading(false);
+                });
         }, 320);
         return () => {
             if (searchTimer.current) clearTimeout(searchTimer.current);
         };
-    }, [searchQ, user]);
+    }, [canSearch, trimmedSearchQ, user]);
 
-    const menuItems = [
+    const menuItems: SidebarNavItem[] = [
         { href: '/urun-listesi', label: 'Ürün Listesi', icon: Truck },
         { href: '/ozet', label: 'Özet Görünüm', icon: ClipboardList },
         { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
         { href: '/analiz', label: 'Analiz', icon: LineChart },
         { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
         { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
-        { href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
-        { href: '/arac-bilgileri', label: 'Araç bilgileri', icon: CarFront },
+        { key: 'mevcutIsler', href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
+        { key: 'aracBilgileri', href: '/arac-bilgileri', label: 'Araç bilgileri', icon: CarFront },
         { href: '/arac-hasar-kaydi', label: 'Araç hasar kaydı', icon: ShieldAlert },
         { href: '/stok-takip', label: 'Stok takip', icon: Package },
        /*{ href: '/planlama', label: 'Üretim Planı', icon: CalendarDays }, */
@@ -175,7 +199,7 @@ export default function Sidebar() {
                                 }}
                             />
                         </div>
-                        {searchOpen && searchQ.trim().length >= 2 && (
+                        {searchOpen && canSearch && (
                             <div
                                 style={{
                                     position: 'absolute',
@@ -194,25 +218,25 @@ export default function Sidebar() {
                             >
                                 {(() => {
                                     const all = [
-                                        ...(searchRes?.dampers.map(d => ({ ...d, productType: 'DAMPER' as const })) ?? []),
-                                        ...(searchRes?.dorses.map(d => ({ ...d, productType: 'DORSE' as const })) ?? []),
-                                        ...(searchRes?.sasis.map(s => ({ ...s, productType: 'SASI' as const })) ?? []),
+                                        ...(displayRes?.dampers.map(d => ({ ...d, productType: 'DAMPER' as const })) ?? []),
+                                        ...(displayRes?.dorses.map(d => ({ ...d, productType: 'DORSE' as const })) ?? []),
+                                        ...(displayRes?.sasis.map(s => ({ ...s, productType: 'SASI' as const })) ?? []),
                                     ];
-                                    if (searchLoading) {
+                                    if (displayLoading) {
                                         return (
                                             <div style={{ padding: '12px', fontSize: '13px', color: 'var(--muted)' }}>
                                                 Aranıyor…
                                             </div>
                                         );
                                     }
-                                    if (searchError) {
+                                    if (displayError) {
                                         return (
                                             <div style={{ padding: '12px', fontSize: '13px', color: '#b91c1c' }}>
-                                                {searchError}
+                                                {displayError}
                                             </div>
                                         );
                                     }
-                                    if (!searchRes) {
+                                    if (!displayRes) {
                                         return null;
                                     }
                                     if (all.length === 0) {
@@ -254,18 +278,47 @@ export default function Sidebar() {
                 )}
 
                 <nav className="sidebar-menu">
-                    {menuItems.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
-                            onClick={() => setIsOpen(false)}
-                            suppressHydrationWarning
-                        >
-                            <item.icon size={18} strokeWidth={2} />
-                            <span>{item.label}</span>
-                        </Link>
-                    ))}
+                    {menuItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        const isLiveHub =
+                            item.key === 'mevcutIsler' || item.key === 'aracBilgileri';
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={cn(
+                                    'sidebar-item',
+                                    isActive && 'active',
+                                    isLiveHub &&
+                                        'border border-transparent hover:!border-emerald-500/20 hover:!bg-emerald-50/50 dark:hover:!bg-emerald-950/20'
+                                )}
+                                onClick={() => setIsOpen(false)}
+                                suppressHydrationWarning
+                            >
+                                {isLiveHub ? (
+                                    <div className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                                        <span
+                                            className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-40"
+                                            aria-hidden
+                                        />
+                                        <item.icon
+                                            className="relative text-emerald-600 dark:text-emerald-400"
+                                            size={18}
+                                            strokeWidth={2}
+                                        />
+                                    </div>
+                                ) : (
+                                    <item.icon size={18} strokeWidth={2} />
+                                )}
+                                <span className="min-w-0 flex-1">{item.label}</span>
+                                {isLiveHub ? (
+                                    <span className="hidden shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:inline-flex dark:text-emerald-400">
+                                        Canlı
+                                    </span>
+                                ) : null}
+                            </Link>
+                        );
+                    })}
                 </nav>
 
                 <div className="sidebar-footer" style={{ paddingTop: '6px', borderTop: '1px solid var(--border)' }}>

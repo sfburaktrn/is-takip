@@ -53,14 +53,16 @@ export function useDebouncedPersist(defaultDelayMs = DEFAULT_MS) {
     );
 
     useEffect(() => {
+        const timersMap = timers.current;
+        const pendingMap = pending.current;
         return () => {
-            const keys = new Set([...timers.current.keys(), ...pending.current.keys()]);
+            const keys = new Set([...timersMap.keys(), ...pendingMap.keys()]);
             keys.forEach((key) => {
-                const t = timers.current.get(key);
+                const t = timersMap.get(key);
                 if (t) clearTimeout(t);
-                timers.current.delete(key);
-                const fn = pending.current.get(key);
-                pending.current.delete(key);
+                timersMap.delete(key);
+                const fn = pendingMap.get(key);
+                pendingMap.delete(key);
                 if (fn) void fn();
             });
         };

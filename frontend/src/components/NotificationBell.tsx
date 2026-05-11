@@ -25,6 +25,7 @@ function productTypeLabel(t: string) {
     if (t === 'DORSE') return 'Dorse';
     if (t === 'SASI') return 'Şasi';
     if (t === 'PROPOSAL') return 'Teklif';
+    if (t === 'VEHICLE_DELIVERY') return 'Araç';
     return t;
 }
 

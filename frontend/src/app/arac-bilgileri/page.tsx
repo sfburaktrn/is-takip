@@ -24,13 +24,15 @@ import {
     Fuel,
     Milestone,
     Search,
-    Sparkles,
+    AlertCircle,
     Trash2,
     ScrollText,
     X,
 } from 'lucide-react';
 
 const POLL_MS = 10_000;
+
+type VdStatFilter = 'all' | 'sahada' | 'teslim';
 
 function fmtDt(iso: string | null | undefined) {
     if (!iso) return '—';
@@ -157,7 +159,7 @@ function VehicleCard({
                             </span>
                         ) : (
                             <span className="vd-pill vd-pill-wait">
-                                <Sparkles size={13} /> Kısmi kayıt
+                                <AlertCircle size={13} /> Kısmi kayıt
                             </span>
                         )}
                     </div>
@@ -268,18 +270,18 @@ function VehicleCard({
             <style jsx>{`
                 .vd-card {
                     position: relative;
-                    border-radius: 20px;
-                    border: 1px solid rgba(2, 35, 71, 0.1);
-                    background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--border);
+                    background: linear-gradient(165deg, var(--card) 0%, var(--surface-subtle) 100%);
                     overflow: hidden;
-                    box-shadow: 0 12px 32px -16px rgba(2, 35, 71, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+                    box-shadow: var(--shadow-md);
                     transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease,
                         border-color 0.25s ease;
                 }
                 .vd-card:hover {
-                    transform: translateY(-6px);
-                    border-color: rgba(2, 35, 71, 0.22);
-                    box-shadow: 0 28px 48px -20px rgba(2, 35, 71, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+                    transform: translateY(-2px);
+                    border-color: color-mix(in srgb, var(--foreground) 12%, var(--border));
+                    box-shadow: var(--shadow-lg);
                 }
                 .vd-card-highlight {
                     border-color: rgba(16, 185, 129, 0.65);
@@ -290,17 +292,38 @@ function VehicleCard({
                     width: 100%;
                 }
                 .vd-accent-done {
-                    background: linear-gradient(90deg, #059669, #10b981, #34d399, #10b981, #059669);
+                    background: linear-gradient(
+                        90deg,
+                        var(--success),
+                        color-mix(in srgb, var(--success) 58%, var(--card)),
+                        color-mix(in srgb, var(--success) 72%, var(--card)),
+                        color-mix(in srgb, var(--success) 58%, var(--card)),
+                        var(--success)
+                    );
                     background-size: 200% 100%;
                     animation: vdShimmer 5s linear infinite;
                 }
                 .vd-accent-onsite {
-                    background: linear-gradient(90deg, #d97706, #f59e0b, #fbbf24, #f59e0b, #d97706);
+                    background: linear-gradient(
+                        90deg,
+                        var(--warning),
+                        color-mix(in srgb, var(--warning) 55%, var(--card)),
+                        color-mix(in srgb, var(--warning) 70%, var(--card)),
+                        color-mix(in srgb, var(--warning) 55%, var(--card)),
+                        var(--warning)
+                    );
                     background-size: 200% 100%;
                     animation: vdShimmer 4s linear infinite;
                 }
                 .vd-accent-partial {
-                    background: linear-gradient(90deg, #6366f1, #818cf8, #a5b4fc, #818cf8, #6366f1);
+                    background: linear-gradient(
+                        90deg,
+                        var(--primary),
+                        color-mix(in srgb, var(--primary) 50%, var(--card)),
+                        color-mix(in srgb, var(--primary) 68%, var(--card)),
+                        color-mix(in srgb, var(--primary) 50%, var(--card)),
+                        var(--primary)
+                    );
                     background-size: 200% 100%;
                     animation: vdShimmer 6s linear infinite;
                 }
@@ -326,9 +349,9 @@ function VehicleCard({
                     width: 48px;
                     height: 48px;
                     border-radius: 14px;
-                    background: radial-gradient(circle at 30% 25%, rgba(99, 102, 241, 0.2), transparent 55%),
-                        linear-gradient(145deg, var(--primary), #1e3a5f);
-                    color: #fff;
+                    background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 55%),
+                        linear-gradient(145deg, var(--primary), var(--primary-hover));
+                    color: #ffffff;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -375,31 +398,31 @@ function VehicleCard({
                     white-space: nowrap;
                 }
                 .vd-pill-done {
-                    background: rgba(16, 185, 129, 0.12);
-                    color: #047857;
-                    border: 1px solid rgba(16, 185, 129, 0.35);
+                    background: color-mix(in srgb, var(--success) 14%, var(--card));
+                    color: var(--success);
+                    border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border));
                 }
                 .vd-pill-onsite {
-                    background: rgba(245, 158, 11, 0.14);
-                    color: #b45309;
-                    border: 1px solid rgba(245, 158, 11, 0.4);
+                    background: color-mix(in srgb, var(--warning) 16%, var(--card));
+                    color: var(--warning);
+                    border: 1px solid color-mix(in srgb, var(--warning) 38%, var(--border));
                 }
                 .vd-pill-wait {
-                    background: rgba(99, 102, 241, 0.1);
-                    color: #4338ca;
-                    border: 1px solid rgba(99, 102, 241, 0.35);
+                    background: color-mix(in srgb, var(--primary) 12%, var(--card));
+                    color: var(--primary);
+                    border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border));
                 }
                 .vd-section {
                     padding: 14px;
-                    border-radius: 14px;
-                    background: rgba(248, 250, 252, 0.85);
-                    border: 1px solid rgba(2, 35, 71, 0.06);
+                    border-radius: var(--radius-md);
+                    background: var(--surface-subtle);
+                    border: 1px solid var(--hairline);
                 }
                 .vd-section + .vd-section {
                     margin-top: 10px;
                 }
                 .vd-section-muted {
-                    background: rgba(241, 245, 249, 0.75);
+                    background: color-mix(in srgb, var(--foreground) 4%, var(--card));
                 }
                 .vd-section-title {
                     font-size: 11px;
@@ -454,7 +477,7 @@ function VehicleCard({
                 .vd-card-actions {
                     margin-top: 16px;
                     padding-top: 14px;
-                    border-top: 1px solid rgba(2, 35, 71, 0.08);
+                    border-top: 1px solid var(--hairline);
                 }
                 .vd-del-btn {
                     width: 100%;
@@ -467,14 +490,14 @@ function VehicleCard({
                     font-size: 13px;
                     font-weight: 750;
                     cursor: pointer;
-                    border: 1px solid rgba(239, 68, 68, 0.45);
-                    background: rgba(254, 242, 242, 0.75);
-                    color: #b91c1c;
+                    border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+                    background: color-mix(in srgb, var(--danger) 10%, var(--card));
+                    color: var(--danger);
                     transition: opacity 0.2s ease, transform 0.2s ease;
                 }
                 .vd-del-btn:hover:not(:disabled) {
                     transform: translateY(-1px);
-                    background: rgba(254, 226, 226, 0.95);
+                    background: color-mix(in srgb, var(--danger) 14%, var(--card));
                 }
                 .vd-del-btn:disabled {
                     opacity: 0.55;
@@ -537,6 +560,7 @@ function AracBilgileriContent() {
     }, [sortedRows]);
 
     const [q, setQ] = useState('');
+    const [statFilter, setStatFilter] = useState<VdStatFilter>('all');
     const eventIdParam = searchParams.get('eventId');
     const focusEventId = eventIdParam ? Number(eventIdParam) : null;
 
@@ -556,12 +580,23 @@ function AracBilgileriContent() {
 
     const filtered = useMemo(() => {
         const n = q.trim().toLocaleLowerCase('tr-TR');
-        if (!n) return sortedRows;
-        return sortedRows.filter((r) => {
-            const blob = `${r.companyName} ${r.sourceDeliveryId} ${searchChassis(r)}`.toLocaleLowerCase('tr-TR');
-            return blob.includes(n);
-        });
-    }, [sortedRows, q]);
+        let list = !n
+            ? sortedRows
+            : sortedRows.filter((r) => {
+                  const blob = `${r.companyName} ${r.sourceDeliveryId} ${searchChassis(r)}`.toLocaleLowerCase('tr-TR');
+                  return blob.includes(n);
+              });
+        if (statFilter === 'sahada') {
+            list = list.filter((r) => !!(r.arrivedAt && !r.deliveredAt));
+        } else if (statFilter === 'teslim') {
+            list = list.filter((r) => !!r.deliveredAt);
+        }
+        return list;
+    }, [sortedRows, q, statFilter]);
+
+    const pickStatFilter = useCallback((next: VdStatFilter) => {
+        setStatFilter((prev) => (prev === next ? 'all' : next));
+    }, []);
 
     const openDeletionLogs = useCallback(async () => {
         setLogsOpen(true);
@@ -599,7 +634,8 @@ function AracBilgileriContent() {
     return (
         <>
             <Sidebar />
-            <main className="main-content analytics-page" style={{ minHeight: '100vh', paddingBottom: 48 }}>
+            <main className="main-content apple-app-page analytics-page" style={{ minHeight: '100vh', paddingBottom: 48 }}>
+                <div className="apple-canvas">
                 <div className="vd-page">
                     <header className="vd-hero">
                         <div className="vd-hero-glow" />
@@ -639,19 +675,34 @@ function AracBilgileriContent() {
                                 </div>
                             </div>
                         </div>
-                        <div className="vd-stat-strip">
-                            <div className="vd-stat">
+                        <div className="vd-stat-strip" role="toolbar" aria-label="Kayıt durumuna göre filtre">
+                            <button
+                                type="button"
+                                className={`vd-stat${statFilter === 'all' ? ' vd-stat--active' : ''}`}
+                                onClick={() => pickStatFilter('all')}
+                                aria-pressed={statFilter === 'all'}
+                            >
                                 <span className="vd-stat-n">{stats.uniq}</span>
                                 <span className="vd-stat-l">İş takip kaydı</span>
-                            </div>
-                            <div className="vd-stat vd-stat-warn">
+                            </button>
+                            <button
+                                type="button"
+                                className={`vd-stat vd-stat-warn${statFilter === 'sahada' ? ' vd-stat--active' : ''}`}
+                                onClick={() => pickStatFilter('sahada')}
+                                aria-pressed={statFilter === 'sahada'}
+                            >
                                 <span className="vd-stat-n">{stats.sahada}</span>
                                 <span className="vd-stat-l">Sahada (giriş, teslim yok)</span>
-                            </div>
-                            <div className="vd-stat vd-stat-ok">
+                            </button>
+                            <button
+                                type="button"
+                                className={`vd-stat vd-stat-ok${statFilter === 'teslim' ? ' vd-stat--active' : ''}`}
+                                onClick={() => pickStatFilter('teslim')}
+                                aria-pressed={statFilter === 'teslim'}
+                            >
                                 <span className="vd-stat-n">{stats.teslim}</span>
                                 <span className="vd-stat-l">Teslim kaydı oluşmuş</span>
-                            </div>
+                            </button>
                         </div>
                     </header>
 
@@ -680,10 +731,21 @@ function AracBilgileriContent() {
                     ) : filtered.length === 0 ? (
                         <div className="vd-empty card">
                             <CarFront size={40} strokeWidth={1.25} opacity={0.35} />
-                            <p style={{ marginTop: 12, fontWeight: 750, fontSize: '1.05rem' }}>Henüz kayıt yok</p>
-                            <p style={{ marginTop: 6, color: 'var(--muted)', fontSize: 14 }}>
-                                Teklif Takip ingest çalıştığında araç giriş ve teslim olayları bu alanda görünecek.
-                            </p>
+                            {sortedRows.length === 0 ? (
+                                <>
+                                    <p style={{ marginTop: 12, fontWeight: 750, fontSize: '1.05rem' }}>Henüz kayıt yok</p>
+                                    <p style={{ marginTop: 6, color: 'var(--muted)', fontSize: 14 }}>
+                                        Teklif Takip ingest çalıştığında araç giriş ve teslim olayları bu alanda görünecek.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p style={{ marginTop: 12, fontWeight: 750, fontSize: '1.05rem' }}>Kayıt bulunamadı</p>
+                                    <p style={{ marginTop: 6, color: 'var(--muted)', fontSize: 14 }}>
+                                        Arama metnini veya üstteki özet kartlarından seçili filtreyi değiştirin.
+                                    </p>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <div className="vd-grid-cards">
@@ -912,6 +974,19 @@ function AracBilgileriContent() {
                         gap: 12px;
                         margin-top: 22px;
                     }
+                    button.vd-stat {
+                        display: block;
+                        font: inherit;
+                        text-align: left;
+                        cursor: pointer;
+                        color: inherit;
+                        appearance: none;
+                        -webkit-appearance: none;
+                    }
+                    button.vd-stat:focus-visible {
+                        outline: 2px solid rgba(99, 102, 241, 0.55);
+                        outline-offset: 2px;
+                    }
                     .vd-stat {
                         flex: 1;
                         min-width: 140px;
@@ -919,11 +994,16 @@ function AracBilgileriContent() {
                         border-radius: 16px;
                         border: 1px solid rgba(2, 35, 71, 0.08);
                         background: rgba(255, 255, 255, 0.65);
-                        transition: border-color 0.2s ease, transform 0.2s ease;
+                        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
                     }
                     .vd-stat:hover {
                         transform: translateY(-2px);
                         border-color: rgba(99, 102, 241, 0.35);
+                    }
+                    .vd-stat--active {
+                        border-color: rgba(99, 102, 241, 0.5);
+                        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.14);
+                        background: rgba(255, 255, 255, 0.92);
                     }
                     .vd-stat-n {
                         display: block;
@@ -941,7 +1021,7 @@ function AracBilgileriContent() {
                         margin-top: 4px;
                     }
                     .vd-stat-warn .vd-stat-n {
-                        color: #d97706;
+                        color: var(--warning);
                     }
                     .vd-stat-ok .vd-stat-n {
                         color: var(--success);
@@ -1124,6 +1204,7 @@ function AracBilgileriContent() {
                         line-height: 1.4;
                     }
                 `}</style>
+            </div>
             </main>
         </>
     );
@@ -1136,8 +1217,10 @@ export default function AracBilgileriPage() {
                 fallback={
                     <>
                         <Sidebar />
-                        <main className="main-content analytics-page min-h-0">
+                        <main className="main-content apple-app-page analytics-page min-h-0">
+                            <div className="apple-canvas">
                             <OzunluLoading variant="inline" />
+                            </div>
                         </main>
                     </>
                 }

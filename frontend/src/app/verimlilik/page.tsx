@@ -22,7 +22,7 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
-import { Gauge, Loader2, RefreshCcw, Sparkles, Download, HelpCircle, X } from 'lucide-react';
+import { Gauge, Loader2, RefreshCcw, ClipboardList, Download, HelpCircle, X } from 'lucide-react';
 
 function toExclusiveEndIso(dayStr: string): string {
     const d = new Date(dayStr + 'T12:00:00');
@@ -202,7 +202,8 @@ export default function VerimlilikPage() {
         <AuthGuard>
             <>
             <Sidebar />
-            <main className="main-content analytics-page">
+            <main className="main-content apple-app-page analytics-page">
+                <div className="apple-canvas">
                 <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
                     <div className="flex flex-col lg:flex-row w-full justify-between items-stretch lg:items-start gap-4">
                         <div className="min-w-0 flex-1">
@@ -248,7 +249,7 @@ export default function VerimlilikPage() {
                                     onClick={runAi}
                                     disabled={aiLoading}
                                 >
-                                    {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                    {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <ClipboardList size={16} />}
                                     AI
                                 </button>
                             )}
@@ -360,7 +361,7 @@ export default function VerimlilikPage() {
                                         <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={36} />
                                         <Tooltip contentStyle={{ fontSize: 12 }} />
                                         <Legend wrapperStyle={{ fontSize: 12 }} />
-                                        <Bar dataKey="secilen" name="Seçilen dönem" fill="#022347" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                                        <Bar dataKey="secilen" name="Seçilen dönem" fill="var(--primary)" radius={[3, 3, 0, 0]} maxBarSize={28} />
                                         <Bar dataKey="onceki" name="Önceki dönem" fill="#94a3b8" radius={[3, 3, 0, 0]} maxBarSize={28} />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -480,12 +481,12 @@ export default function VerimlilikPage() {
                                             border: 'none',
                                             background: 'transparent',
                                             cursor: 'pointer',
-                                            color: '#64748b',
+                                            color: 'var(--foreground-secondary)',
                                         }}
                                     >
                                         <X size={22} />
                                     </button>
-                                    <h3 style={{ margin: '0 0 12px', fontSize: '17px', color: '#0f172a' }}>Verimlilik nasıl okunur?</h3>
+                                    <h3 style={{ margin: '0 0 12px', fontSize: '17px', color: 'var(--foreground)' }}>Verimlilik nasıl okunur?</h3>
                                     <ul style={{ margin: 0, paddingLeft: '20px' }}>
                                         <li style={{ marginBottom: '8px' }}>
                                             Sadece üretime giriş tarihi (T0) kayıtlı ürünlerin bölüm tamamlanma olayları sayılır.
@@ -504,6 +505,7 @@ export default function VerimlilikPage() {
                         )}
                     </>
                 ) : null}
+                </div>
             </main>
             </>
         </AuthGuard>

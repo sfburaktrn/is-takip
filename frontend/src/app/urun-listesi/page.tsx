@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -62,7 +61,11 @@ import {
     deleteSasi
 } from '@/lib/api'; // Correct import path assumption? It was '@/lib/api' in view_file.
 
+import { useAppleSegmentedThumb } from '@/hooks/useAppleSegmentedThumb';
+
 type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'DORSE_SASI' | 'HEPSI';
+
+const PRODUCT_SEG_ORDER: ProductType[] = ['DAMPER', 'DORSE', 'SASI', 'DORSE_SASI', 'HEPSI'];
 
 type CombinedListItem =
     | (Damper & { _type: 'DAMPER' })
@@ -435,6 +438,30 @@ function formatSasiNoLabel(s: unknown): string {
     return n !== '' ? n : '-';
 }
 
+/** Bağlı çift kartı — liste başlığıyla aynı mantıkta teknik özet (boş alanları doldurur) */
+function formatDorseLinkedSpec(d: Dorse): { primary: string; secondary: string | null } {
+    const thick = [d.kalinlik, d.malzemeCinsi, d.silindir]
+        .map(x => (x == null ? '' : String(x).trim()))
+        .filter(Boolean);
+    const primary = thick.length > 0 ? thick.join(' · ') : 'Kalınlık / malzeme girilmemiş';
+    const rest = [
+        d.m3 ? `${String(d.m3).trim()} M³` : '',
+        d.renk?.trim(),
+        d.dingil?.trim(),
+        d.lastik?.trim(),
+    ].filter(Boolean);
+    return { primary, secondary: rest.length ? rest.join(' · ') : null };
+}
+
+function formatSasiLinkedSpec(s: Sasi): { primary: string; secondary: string | null } {
+    const no = normalizeSasiNoValue(s.sasiNo);
+    const primary = no !== '' ? no : 'Şasi no girilmemiş';
+    const rest = [s.dingil?.trim(), s.tampon?.trim()].filter((x): x is string => Boolean(x));
+    if (rest.length > 0) return { primary, secondary: rest.join(' · ') };
+    if (s.adet > 1) return { primary, secondary: `${s.adet} adet` };
+    return { primary, secondary: null };
+}
+
 function compareSasiNoDesc(a: unknown, b: unknown): number {
     const as = normalizeSasiNoValue(a);
     const bs = normalizeSasiNoValue(b);
@@ -478,6 +505,12 @@ function compareSasiRowsBySasiNoAsc(
 function UrunListesiContent() {
     const searchParams = useSearchParams();
     const [productType, setProductType] = useState<ProductType>('DAMPER');
+    const productSegTrackRef = useRef<HTMLDivElement>(null);
+    const productSegActiveIndex = PRODUCT_SEG_ORDER.indexOf(productType);
+    const productSegThumb = useAppleSegmentedThumb(
+        productSegTrackRef,
+        productSegActiveIndex >= 0 ? productSegActiveIndex : 0
+    );
     const [stats, setStats] = useState<Stats | null>(null);
     const [dampers, setDampers] = useState<Damper[]>([]);
     const [dorses, setDorses] = useState<Dorse[]>([]);
@@ -486,13 +519,13 @@ function UrunListesiContent() {
     const [staleHint, setStaleHint] = useState<StaleHint>(null);
 
     const COLORS = {
-        primary: '#022347',
-        secondary: '#64748B',
-        success: '#10B981',
-        warning: '#F59E0B',
-        danger: '#EF4444',
-        info: '#3B82F6',
-        grid: '#E2E8F0'
+        primary: 'var(--primary)',
+        secondary: 'var(--foreground-secondary)',
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
+        info: 'var(--control-fill)',
+        grid: 'var(--border)',
     };
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -2042,8 +2075,10 @@ function UrunListesiContent() {
         return (
             <>
                 <Sidebar />
-                <main className="main-content">
-                    <OzunluLoading variant="inline" />
+                <main className="main-content apple-app-page">
+                    <div className="apple-canvas">
+                        <OzunluLoading variant="inline" />
+                    </div>
                 </main>
             </>
         );
@@ -2052,8 +2087,9 @@ function UrunListesiContent() {
     return (
         <>
             <Sidebar />
-            <main className="main-content">
-                <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
+            <main className="main-content apple-app-page">
+                <div className="apple-canvas">
+                <header className="header header--stack apple-page-hero">
                     <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
                         <div>
                             <h1 className="header-title">Ürün Listesi</h1>
@@ -2070,12 +2106,12 @@ function UrunListesiContent() {
                                 imalat süreçlerini görüntüleyin ve yönetin
                             </p>
                         </div>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <button className="btn btn-secondary" onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="header-toolbar">
+                            <button type="button" className="btn btn-secondary btn--row" onClick={handleExportExcel}>
                                 <FileSpreadsheet size={20} /> Excel&apos;e Aktar
                             </button>
                             {productType !== 'HEPSI' && productType !== 'DORSE_SASI' && (
-                                <button className="btn btn-premium" onClick={() => setShowAddModal(true)}>
+                                <button type="button" className="btn btn-premium btn--row" onClick={() => setShowAddModal(true)}>
                                     <Plus size={20} /> Yeni{' '}
                                     {productType === 'DAMPER'
                                         ? 'Damper'
@@ -2091,112 +2127,72 @@ function UrunListesiContent() {
                     </div>
 
                     {staleHint && (
-                        <div
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                borderRadius: '10px',
-                                background: 'rgba(245, 158, 11, 0.10)',
-                                border: '1px solid rgba(245, 158, 11, 0.28)',
-                                fontSize: '13px',
-                                color: '#92400e',
-                            }}
-                        >
-                            <strong>Hatırlatma:</strong> Üretimde olup son {staleHint.days} gündür güncellenmeyen{' '}
-                            <strong>{staleHint.total}</strong> kayıt var (teslimat bekleyen / şasi montajı bitmemiş).{' '}
-                            <Link href="/urun-listesi" style={{ fontWeight: 600, color: 'var(--primary)' }}>
-                                Ürün listesine git
-                            </Link>
+                        <div className="apple-stale-reminder" role="status">
+                            <p className="apple-stale-reminder__label">Hatırlatma</p>
+                            <p className="apple-stale-reminder__body">
+                                Üretimde olup son <span className="apple-stale-reminder__accent">{staleHint.days}</span> gündür
+                                güncellenmeyen <strong className="apple-stale-reminder__num">{staleHint.total}</strong> kayıt var
+                                (teslimat bekleyen / şasi montajı bitmemiş).
+                            </p>
                         </div>
                     )}
 
                     {/* Product Toggle & Search */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
-                        <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
+                    <div className="apple-toolbar-row">
+                        <div
+                            ref={productSegTrackRef}
+                            className="apple-segmented apple-segmented--wrap apple-segmented--slide"
+                        >
+                            <span
+                                className="apple-segmented__thumb"
+                                aria-hidden
+                                style={{
+                                    transform: `translate3d(${productSegThumb.x}px, ${productSegThumb.y}px, 0)`,
+                                    width: Math.max(0, productSegThumb.w),
+                                    height: Math.max(0, productSegThumb.h),
+                                    opacity:
+                                        productSegThumb.w > 0 && productSegThumb.h > 0 ? 1 : 0,
+                                }}
+                            />
                             <button
                                 type="button"
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    background: productType === 'DAMPER' ? 'var(--primary)' : 'transparent',
-                                    color: productType === 'DAMPER' ? 'white' : 'var(--muted)',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
+                                className={`apple-segmented-btn${productType === 'DAMPER' ? ' is-active-brand' : ''}`}
                                 onClick={() => setProductType('DAMPER')}
                             >
                                 Damperler
                             </button>
                             <button
                                 type="button"
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    background: productType === 'DORSE' ? 'var(--primary)' : 'transparent',
-                                    color: productType === 'DORSE' ? 'white' : 'var(--muted)',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
+                                className={`apple-segmented-btn${productType === 'DORSE' ? ' is-active-brand' : ''}`}
                                 onClick={() => setProductType('DORSE')}
                             >
                                 Dorseler
                             </button>
                             <button
                                 type="button"
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    background: productType === 'SASI' ? 'var(--primary)' : 'transparent',
-                                    color: productType === 'SASI' ? 'white' : 'var(--muted)',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
+                                className={`apple-segmented-btn${productType === 'SASI' ? ' is-active-brand' : ''}`}
                                 onClick={() => setProductType('SASI')}
                             >
                                 Şasiler
                             </button>
                             <button
                                 type="button"
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    background: productType === 'DORSE_SASI' ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
-                                    color: productType === 'DORSE_SASI' ? 'white' : 'var(--muted)',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
+                                className={`apple-segmented-btn${productType === 'DORSE_SASI' ? ' is-active-brand' : ''}`}
                                 onClick={() => setProductType('DORSE_SASI')}
                             >
                                 Dorse+Şasi
                             </button>
                             <button
                                 type="button"
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    background: productType === 'HEPSI' ? 'var(--primary)' : 'transparent',
-                                    color: productType === 'HEPSI' ? 'white' : 'var(--muted)',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
+                                className={`apple-segmented-btn${productType === 'HEPSI' ? ' is-active-brand' : ''}`}
                                 onClick={() => setProductType('HEPSI')}
                             >
                                 Tüm Ürünler
                             </button>
                         </div>
 
-                        <div style={{ position: 'relative', flex: '1 1 300px', minWidth: '250px', maxWidth: '400px' }}>
-                            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
+                        <div className="apple-search-box apple-search-box--md">
+                            <Search size={18} className="apple-search-icon" />
                             <input
                                 type="text"
                                 placeholder={`${productType === 'DAMPER'
@@ -2210,19 +2206,7 @@ function UrunListesiContent() {
                                           : 'Tüm Ürünler'} Ara...`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px 10px 10px 40px',
-                                    borderRadius: '8px',
-                                    border: `1px solid ${COLORS.grid}`,
-                                    fontSize: '14px',
-                                    outline: 'none',
-                                    transition: 'all 0.2s',
-                                    backgroundColor: 'white',
-                                    color: 'var(--foreground)'
-                                }}
-                                onFocus={(e) => e.target.style.borderColor = COLORS.primary}
-                                onBlur={(e) => e.target.style.borderColor = COLORS.grid}
+                                className="apple-search-input-pill"
                             />
                         </div>
                     </div>
@@ -2239,12 +2223,12 @@ function UrunListesiContent() {
                                 style={{
                                     cursor: 'pointer',
                                     borderLeft: `4px solid ${COLORS.primary}`,
-                                    borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                    borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                    borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                    borderRadius: '12px',
+                                    borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                    borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                    borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                    borderRadius: 'var(--radius-lg)',
                                     padding: '16px',
-                                    backgroundColor: 'white',
+                                    backgroundColor: 'var(--card)',
                                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                     flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
                                     transition: 'all 0.2s'
@@ -2252,27 +2236,27 @@ function UrunListesiContent() {
                                 onClick={() => setStatusFilter(null)}
                             >
                                 <div style={{
-                                    width: '48px', height: '48px', borderRadius: '12px',
+                                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                     backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                                 }}>
                                     <Package size={24} strokeWidth={2} />
                                 </div>
                                 <div>
-                                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
-                                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam Şasi</div>
+                                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
+                                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Toplam Şasi</div>
                                 </div>
                             </div>
                             <div
                                 style={{
                                     cursor: 'pointer',
                                     borderLeft: `4px solid ${COLORS.success}`,
-                                    borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                    borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                    borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                    borderRadius: '12px',
+                                    borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                    borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                    borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                    borderRadius: 'var(--radius-lg)',
                                     padding: '16px',
-                                    backgroundColor: 'white',
+                                    backgroundColor: 'var(--card)',
                                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                     flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
                                     transition: 'all 0.2s'
@@ -2280,15 +2264,15 @@ function UrunListesiContent() {
                                 onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
                             >
                                 <div style={{
-                                    width: '48px', height: '48px', borderRadius: '12px',
+                                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                     backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                                 }}>
                                     <CheckCircle size={24} strokeWidth={2} />
                                 </div>
                                 <div>
-                                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
-                                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Tamamlanan</div>
+                                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
+                                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Tamamlanan</div>
                                 </div>
                             </div>
                         </div>
@@ -2299,12 +2283,12 @@ function UrunListesiContent() {
                                 style={{
                                     cursor: 'pointer',
                                     borderLeft: `4px solid ${COLORS.warning}`,
-                                    borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                    borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                    borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                    borderRadius: '12px',
+                                    borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                    borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                    borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                    borderRadius: 'var(--radius-lg)',
                                     padding: '16px',
-                                    backgroundColor: 'white',
+                                    backgroundColor: 'var(--card)',
                                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                     flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
                                     transition: 'all 0.2s'
@@ -2312,27 +2296,27 @@ function UrunListesiContent() {
                                 onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
                             >
                                 <div style={{
-                                    width: '48px', height: '48px', borderRadius: '12px',
+                                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                     backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                                 }}>
                                     <RefreshCcw size={24} strokeWidth={2} />
                                 </div>
                                 <div>
-                                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
-                                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Devam Eden</div>
+                                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
+                                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Devam Eden</div>
                                 </div>
                             </div>
                             <div
                                 style={{
                                     cursor: 'pointer',
                                     borderLeft: `4px solid ${COLORS.danger}`,
-                                    borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                                    borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                                    borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                                    borderRadius: '12px',
+                                    borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                                    borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                                    borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                                    borderRadius: 'var(--radius-lg)',
                                     padding: '16px',
-                                    backgroundColor: 'white',
+                                    backgroundColor: 'var(--card)',
                                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                     flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
                                     transition: 'all 0.2s'
@@ -2340,15 +2324,15 @@ function UrunListesiContent() {
                                 onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
                             >
                                 <div style={{
-                                    width: '48px', height: '48px', borderRadius: '12px',
+                                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                     backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.danger,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                                 }}>
                                     <PauseCircle size={24} strokeWidth={2} />
                                 </div>
                                 <div>
-                                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
-                                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Başlamayan</div>
+                                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
+                                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Başlamayan</div>
                                 </div>
                             </div>
                         </div>
@@ -2361,12 +2345,12 @@ function UrunListesiContent() {
                                     style={{
                                         cursor: 'pointer',
                                         borderLeft: `4px solid ${COLORS.primary}`,
-                                        borderTop: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                        borderRight: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                        borderBottom: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                        borderRadius: '12px',
+                                        borderTop: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                        borderRight: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                        borderBottom: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-lg)',
                                         padding: '12px',
-                                        backgroundColor: 'white',
+                                        backgroundColor: 'var(--card)',
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                                         transition: 'all 0.2s'
@@ -2374,7 +2358,7 @@ function UrunListesiContent() {
                                     onClick={() => setStatusFilter(statusFilter === 'bosStok' ? null : 'bosStok')}
                                 >
                                     <div style={{
-                                        width: '36px', height: '36px', borderRadius: '8px',
+                                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                                         backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
@@ -2382,19 +2366,19 @@ function UrunListesiContent() {
                                     </div>
                                     <div>
                                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.primary, fontWeight: 700 }}>{stats?.stokSasiCount || 0}</div>
-                                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Boş Stok</div>
+                                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Boş Stok</div>
                                     </div>
                                 </div>
                                 <div
                                     style={{
                                         cursor: 'pointer',
                                         borderLeft: `4px solid ${COLORS.success}`,
-                                        borderTop: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                        borderRight: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                        borderBottom: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                        borderRadius: '12px',
+                                        borderTop: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                        borderRight: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                        borderBottom: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-lg)',
                                         padding: '12px',
-                                        backgroundColor: 'white',
+                                        backgroundColor: 'var(--card)',
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                                         transition: 'all 0.2s'
@@ -2402,7 +2386,7 @@ function UrunListesiContent() {
                                     onClick={() => setStatusFilter(statusFilter === 'tamamlananStok' ? null : 'tamamlananStok')}
                                 >
                                     <div style={{
-                                        width: '36px', height: '36px', borderRadius: '8px',
+                                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                                         backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
@@ -2410,19 +2394,19 @@ function UrunListesiContent() {
                                     </div>
                                     <div>
                                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.success, fontWeight: 700 }}>{stats?.tamamlananStok || 0}</div>
-                                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bitmiş Stok</div>
+                                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Bitmiş Stok</div>
                                     </div>
                                 </div>
                                 <div
                                     style={{
                                         cursor: 'pointer',
                                         borderLeft: `4px solid ${COLORS.warning}`,
-                                        borderTop: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                        borderRight: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                        borderBottom: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                        borderRadius: '12px',
+                                        borderTop: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                        borderRight: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                        borderBottom: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-lg)',
                                         padding: '12px',
-                                        backgroundColor: 'white',
+                                        backgroundColor: 'var(--card)',
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                                         transition: 'all 0.2s'
@@ -2430,7 +2414,7 @@ function UrunListesiContent() {
                                     onClick={() => setStatusFilter(statusFilter === 'devamEdenStok' ? null : 'devamEdenStok')}
                                 >
                                     <div style={{
-                                        width: '36px', height: '36px', borderRadius: '8px',
+                                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                                         backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
@@ -2438,7 +2422,7 @@ function UrunListesiContent() {
                                     </div>
                                     <div>
                                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.warning, fontWeight: 700 }}>{stats?.devamEdenStok || 0}</div>
-                                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Devam Eden</div>
+                                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Devam Eden</div>
                                     </div>
                                 </div>
                             </div>
@@ -2452,12 +2436,12 @@ function UrunListesiContent() {
                                     style={{
                                         cursor: 'pointer',
                                         borderLeft: `4px solid ${COLORS.info}`,
-                                        borderTop: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                                        borderRight: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                                        borderBottom: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                                        borderRadius: '12px',
+                                        borderTop: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                                        borderRight: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                                        borderBottom: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-lg)',
                                         padding: '12px',
-                                        backgroundColor: 'white',
+                                        backgroundColor: 'var(--card)',
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                                         transition: 'all 0.2s'
@@ -2465,7 +2449,7 @@ function UrunListesiContent() {
                                     onClick={() => setStatusFilter(statusFilter === 'bosMusteri' ? null : 'bosMusteri')}
                                 >
                                     <div style={{
-                                        width: '36px', height: '36px', borderRadius: '8px',
+                                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                                         backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.info,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
@@ -2473,19 +2457,19 @@ function UrunListesiContent() {
                                     </div>
                                     <div>
                                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.info, fontWeight: 700 }}>{stats?.musteriSasiCount || 0}</div>
-                                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Boş Müşteri</div>
+                                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Boş Müşteri</div>
                                     </div>
                                 </div>
                                 <div
                                     style={{
                                         cursor: 'pointer',
                                         borderLeft: `4px solid ${COLORS.success}`,
-                                        borderTop: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                        borderRight: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                        borderBottom: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                        borderRadius: '12px',
+                                        borderTop: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                        borderRight: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                        borderBottom: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-lg)',
                                         padding: '12px',
-                                        backgroundColor: 'white',
+                                        backgroundColor: 'var(--card)',
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                                         transition: 'all 0.2s'
@@ -2493,7 +2477,7 @@ function UrunListesiContent() {
                                     onClick={() => setStatusFilter(statusFilter === 'tamamlananMusteri' ? null : 'tamamlananMusteri')}
                                 >
                                     <div style={{
-                                        width: '36px', height: '36px', borderRadius: '8px',
+                                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                                         backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
@@ -2501,19 +2485,19 @@ function UrunListesiContent() {
                                     </div>
                                     <div>
                                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.success, fontWeight: 700 }}>{stats?.tamamlananMusteri || 0}</div>
-                                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bitmiş Müşteri</div>
+                                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Bitmiş Müşteri</div>
                                     </div>
                                 </div>
                                 <div
                                     style={{
                                         cursor: 'pointer',
                                         borderLeft: `4px solid ${COLORS.warning}`,
-                                        borderTop: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                        borderRight: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                        borderBottom: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                        borderRadius: '12px',
+                                        borderTop: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                        borderRight: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                        borderBottom: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-lg)',
                                         padding: '12px',
-                                        backgroundColor: 'white',
+                                        backgroundColor: 'var(--card)',
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                                         transition: 'all 0.2s'
@@ -2521,7 +2505,7 @@ function UrunListesiContent() {
                                     onClick={() => setStatusFilter(statusFilter === 'devamEdenMusteri' ? null : 'devamEdenMusteri')}
                                 >
                                     <div style={{
-                                        width: '36px', height: '36px', borderRadius: '8px',
+                                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                                         backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
@@ -2529,7 +2513,7 @@ function UrunListesiContent() {
                                     </div>
                                     <div>
                                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.warning, fontWeight: 700 }}>{stats?.devamEdenMusteri || 0}</div>
-                                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Devam Eden</div>
+                                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Devam Eden</div>
                                     </div>
                                 </div>
                             </div>
@@ -2542,12 +2526,12 @@ function UrunListesiContent() {
                             style={{
                                 cursor: 'pointer',
                                 borderLeft: `4px solid ${COLORS.primary}`,
-                                borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                                borderRadius: '12px',
+                                borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                                borderRadius: 'var(--radius-lg)',
                                 padding: '16px',
-                                backgroundColor: 'white',
+                                backgroundColor: 'var(--card)',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex', alignItems: 'center', gap: '16px',
                                 transition: 'all 0.2s'
@@ -2555,21 +2539,25 @@ function UrunListesiContent() {
                             onClick={() => setStatusFilter(null)}
                         >
                             <div style={{
-                                width: '48px', height: '48px', borderRadius: '12px',
+                                width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                 backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
                                 <Package size={24} strokeWidth={2} />
                             </div>
                             <div>
-                                <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
-                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>
+                                <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
+                                <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>
                                     Toplam{' '}
                                     {productType === 'DAMPER'
                                         ? 'Damper'
-                                        : productType === 'DORSE' || productType === 'DORSE_SASI'
-                                          ? 'Dorse'
-                                          : 'Ürünler'}
+                                        : productType === 'DORSE_SASI'
+                                          ? 'bağlı çift'
+                                          : productType === 'DORSE'
+                                            ? 'Dorse'
+                                            : productType === 'SASI'
+                                              ? 'Şasi'
+                                              : 'Ürün'}
                                 </div>
                             </div>
                         </div>
@@ -2578,12 +2566,12 @@ function UrunListesiContent() {
                             style={{
                                 cursor: 'pointer',
                                 borderLeft: `4px solid ${COLORS.success}`,
-                                borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                                borderRadius: '12px',
+                                borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                                borderRadius: 'var(--radius-lg)',
                                 padding: '16px',
-                                backgroundColor: 'white',
+                                backgroundColor: 'var(--card)',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex', alignItems: 'center', gap: '16px',
                                 transition: 'all 0.2s'
@@ -2591,27 +2579,27 @@ function UrunListesiContent() {
                             onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
                         >
                             <div style={{
-                                width: '48px', height: '48px', borderRadius: '12px',
+                                width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                 backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
                                 <CheckCircle size={24} strokeWidth={2} />
                             </div>
                             <div>
-                                <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
-                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Tamamlanan</div>
+                                <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
+                                <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Tamamlanan</div>
                             </div>
                         </div>
                         <div
                             style={{
                                 cursor: 'pointer',
                                 borderLeft: `4px solid ${COLORS.info}`,
-                                borderTop: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                                borderRight: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                                borderBottom: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                                borderRadius: '12px',
+                                borderTop: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                                borderRight: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                                borderBottom: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                                borderRadius: 'var(--radius-lg)',
                                 padding: '16px',
-                                backgroundColor: 'white',
+                                backgroundColor: 'var(--card)',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex', alignItems: 'center', gap: '16px',
                                 transition: 'all 0.2s'
@@ -2619,27 +2607,27 @@ function UrunListesiContent() {
                             onClick={() => setStatusFilter(statusFilter === 'teslimEdilen' ? null : 'teslimEdilen')}
                         >
                             <div style={{
-                                width: '48px', height: '48px', borderRadius: '12px',
+                                width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.info,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
                                 <Truck size={24} strokeWidth={2} />
                             </div>
                             <div>
-                                <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.teslimEdilen ?? 0}</div>
-                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Teslim Edilen</div>
+                                <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.teslimEdilen ?? 0}</div>
+                                <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Teslim Edilen</div>
                             </div>
                         </div>
                         <div
                             style={{
                                 cursor: 'pointer',
                                 borderLeft: `4px solid ${COLORS.warning}`,
-                                borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                                borderRadius: '12px',
+                                borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                                borderRadius: 'var(--radius-lg)',
                                 padding: '16px',
-                                backgroundColor: 'white',
+                                backgroundColor: 'var(--card)',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex', alignItems: 'center', gap: '16px',
                                 transition: 'all 0.2s'
@@ -2647,27 +2635,27 @@ function UrunListesiContent() {
                             onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
                         >
                             <div style={{
-                                width: '48px', height: '48px', borderRadius: '12px',
+                                width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                 backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
                                 <RefreshCcw size={24} strokeWidth={2} />
                             </div>
                             <div>
-                                <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
-                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Devam Eden</div>
+                                <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
+                                <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Devam Eden</div>
                             </div>
                         </div>
                         <div
                             style={{
                                 cursor: 'pointer',
                                 borderLeft: `4px solid ${COLORS.danger}`,
-                                borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                                borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                                borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                                borderRadius: '12px',
+                                borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                                borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                                borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                                borderRadius: 'var(--radius-lg)',
                                 padding: '16px',
-                                backgroundColor: 'white',
+                                backgroundColor: 'var(--card)',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 display: 'flex', alignItems: 'center', gap: '16px',
                                 transition: 'all 0.2s'
@@ -2675,15 +2663,15 @@ function UrunListesiContent() {
                             onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
                         >
                             <div style={{
-                                width: '48px', height: '48px', borderRadius: '12px',
+                                width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                                 backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.danger,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
                                 <PauseCircle size={24} strokeWidth={2} />
                             </div>
                             <div>
-                                <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
-                                <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Başlamayan</div>
+                                <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
+                                <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Başlamayan</div>
                             </div>
                         </div>
                     </div>
@@ -2940,39 +2928,33 @@ function UrunListesiContent() {
                                     return (
                                         <div key={`DAMPER-${damper.id}`} id={`urun-row-DAMPER-${damper.id}`} className="damper-card">
                                             <div
-                                                className="damper-card-header"
+                                                className="damper-card-header damper-card-header--apple"
                                                 onClick={() => setExpandedId(isExpanded ? null : `DAMPER-${damper.id}`)}
                                             >
-                                                <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{damper.imalatNo}</div>
-                                                <div style={{ fontWeight: 500 }}>{damper.musteri}</div>
+                                                <div className="apple-urun-row__imalat">#{damper.imalatNo}</div>
+                                                <div className="apple-urun-row__musteri">{damper.musteri}</div>
                                                 <div>
-                                                    <span style={{
-                                                        background: 'rgba(99, 102, 241, 0.1)',
-                                                        color: 'var(--primary)',
-                                                        padding: '4px 10px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '12px'
-                                                    }}>
-                                                        {damper.tip}
-                                                    </span>
+                                                    <span className="apple-urun-row__pill">{damper.tip}</span>
                                                 </div>
-                                                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                                <div className="apple-urun-row__specs">
                                                     {damper.malzemeCinsi} | {damper.m3} M³{damper.renk ? ` | ${damper.renk}` : ''}
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
-                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                                <div className="apple-urun-row__progress">
+                                                    <div className="progress-bar progress-bar--compact">
+                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
                                                     </div>
-                                                    <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                    <span className="apple-urun-row__pct">{progress}%</span>
                                                 </div>
-                                                <div>{getStatusBadge(overallStatus)}</div>
-                                                <div style={{
-                                                    width: '10px',
-                                                    height: '10px',
-                                                    borderRadius: '50%',
-                                                    background: damper.aracGeldiMi ? 'var(--success)' : 'var(--danger)'
-                                                }} title={damper.aracGeldiMi ? 'Araç Geldi' : 'Araç Gelmedi'}></div>
-                                                <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                                <div className="apple-urun-row__badge">{getStatusBadge(overallStatus)}</div>
+                                                <div className="apple-urun-row__trail">
+                                                    <div
+                                                        className={`apple-urun-row__dot ${damper.aracGeldiMi ? 'apple-urun-row__dot--ok' : 'apple-urun-row__dot--no'}`}
+                                                        title={damper.aracGeldiMi ? 'Araç Geldi' : 'Araç Gelmedi'}
+                                                    />
+                                                    <span className={`apple-urun-row__chevron${isExpanded ? ' is-open' : ''}`} aria-hidden>
+                                                        ▼
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             {isExpanded && (
@@ -3000,7 +2982,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: !damper.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -3050,7 +3032,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -3098,7 +3080,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -3146,7 +3128,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -3197,7 +3179,7 @@ function UrunListesiContent() {
                                                             gridColumn: '1 / -1',
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '16px 20px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             flexDirection: 'column',
@@ -3264,7 +3246,7 @@ function UrunListesiContent() {
                                                             <div style={{
                                                                 background: 'var(--card-bg-secondary)',
                                                                 padding: '12px 16px',
-                                                                borderRadius: '10px',
+                                                                borderRadius: 'var(--radius-md)',
                                                                 border: '1px solid var(--border)',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
@@ -3319,7 +3301,7 @@ function UrunListesiContent() {
                                                             <div style={{
                                                                 background: 'var(--card-bg-secondary)',
                                                                 padding: '12px 16px',
-                                                                borderRadius: '10px',
+                                                                borderRadius: 'var(--radius-md)',
                                                                 border: '1px solid var(--border)',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
@@ -3391,7 +3373,7 @@ function UrunListesiContent() {
                                                             <div style={{
                                                                 background: 'var(--card-bg-secondary)',
                                                                 padding: '12px 16px',
-                                                                borderRadius: '10px',
+                                                                borderRadius: 'var(--radius-md)',
                                                                 border: '1px solid var(--border)',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
@@ -3543,7 +3525,7 @@ function UrunListesiContent() {
                                                                 marginTop: '16px',
                                                                 padding: '16px',
                                                                 borderRadius: '14px',
-                                                                background: 'white',
+                                                                background: 'var(--card)',
                                                                 border: '1px solid rgba(2, 35, 71, 0.10)',
                                                                 boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
                                                             }}
@@ -3827,33 +3809,29 @@ function UrunListesiContent() {
                                         <div key={`SASI-${sasi.id}`} id={`urun-row-SASI-${sasi.id}`} className="damper-card">
                                             {/* Header */}
                                             <div
-                                                className="damper-card-header"
+                                                className="damper-card-header damper-card-header--apple"
                                                 onClick={() => setExpandedId(isExpanded ? null : `SASI-${sasi.id}`)}
                                             >
-                                                <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{sasi.imalatNo}</div>
-                                                <div style={{ fontWeight: 500 }}>{sasi.musteri}</div>
+                                                <div className="apple-urun-row__imalat">#{sasi.imalatNo}</div>
+                                                <div className="apple-urun-row__musteri">{sasi.musteri}</div>
                                                 <div>
-                                                    <span style={{
-                                                        background: 'rgba(99, 102, 241, 0.1)',
-                                                        color: 'var(--primary)',
-                                                        padding: '4px 10px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '12px'
-                                                    }}>
-                                                        {sasi.tampon || '-'}
-                                                    </span>
+                                                    <span className="apple-urun-row__pill">{sasi.tampon || '-'}</span>
                                                 </div>
-                                                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                                <div className="apple-urun-row__specs">
                                                     {formatSasiNoLabel(sasi.sasiNo)} | {sasi.dingil || '-'}
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
-                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                                <div className="apple-urun-row__progress">
+                                                    <div className="progress-bar progress-bar--compact">
+                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
                                                     </div>
-                                                    <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                    <span className="apple-urun-row__pct">{progress}%</span>
                                                 </div>
-                                                <div>{getStatusBadge(overallStatus)}</div>
-                                                <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                                <div className="apple-urun-row__badge">{getStatusBadge(overallStatus)}</div>
+                                                <div className="apple-urun-row__trail">
+                                                    <span className={`apple-urun-row__chevron${isExpanded ? ' is-open' : ''}`} aria-hidden>
+                                                        ▼
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             {/* Body */}
@@ -3879,7 +3857,7 @@ function UrunListesiContent() {
                                                     }}>
 
                                                         {/* İMALAT NO */}
-                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: !hasDamperDorseImalatNo(sasi.imalatNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: !hasDamperDorseImalatNo(sasi.imalatNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                             <div>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500, color: !hasDamperDorseImalatNo(sasi.imalatNo) ? 'var(--warning)' : 'var(--foreground)' }}>{sasi.imalatNo ?? 'Girilmedi'}</div>
@@ -3912,7 +3890,7 @@ function UrunListesiContent() {
                                                         </div>
 
                                                         {/* ŞASİ NO */}
-                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: !hasSasiNoWritten(sasi.sasiNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minWidth: 0 }}>
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: !hasSasiNoWritten(sasi.sasiNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minWidth: 0 }}>
                                                             <div style={{ minWidth: 0 }}>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500, color: hasSasiNoWritten(sasi.sasiNo) ? 'var(--foreground)' : 'var(--warning)' }}>{hasSasiNoWritten(sasi.sasiNo) ? normalizeSasiNoValue(sasi.sasiNo) : 'Girilmedi'}</div>
@@ -3945,7 +3923,7 @@ function UrunListesiContent() {
 
 
                                                         {/* MÜŞTERİ (Editable) */}
-                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                             <div>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MÜŞTERİ / İSİM</div>
                                                                 <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.musteri}</div>
@@ -3966,7 +3944,7 @@ function UrunListesiContent() {
                                                         </div>
 
                                                         {/* TAMPON */}
-                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
                                                             <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.tampon || ''} onChange={(e) => {
                                                                 const v = e.target.value;
@@ -3982,7 +3960,7 @@ function UrunListesiContent() {
                                                         </div>
 
                                                         {/* DINGIL */}
-                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
                                                             <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.dingil || ''} onChange={(e) => {
                                                                 const v = e.target.value;
@@ -3998,7 +3976,7 @@ function UrunListesiContent() {
                                                         </div>
 
                                                         {/* TARİH */}
-                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                             <div>
                                                                 <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TARİH</div>
                                                                 <div style={{ fontSize: '13px' }}>{sasi.createdAt ? new Date(sasi.createdAt).toLocaleDateString() : '-'}</div>
@@ -4070,39 +4048,33 @@ function UrunListesiContent() {
                                     return (
                                         <div key={`DORSE-${dorse.id}`} id={`urun-row-DORSE-${dorse.id}`} className="damper-card">
                                             <div
-                                                className="damper-card-header"
+                                                className="damper-card-header damper-card-header--apple"
                                                 onClick={() => setExpandedId(isExpanded ? null : `DORSE-${dorse.id}`)}
                                             >
-                                                <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{dorse.imalatNo}</div>
-                                                <div style={{ fontWeight: 500 }}>{dorse.musteri}</div>
+                                                <div className="apple-urun-row__imalat">#{dorse.imalatNo}</div>
+                                                <div className="apple-urun-row__musteri">{dorse.musteri}</div>
                                                 <div>
-                                                    <span style={{
-                                                        background: 'rgba(99, 102, 241, 0.1)',
-                                                        color: 'var(--primary)',
-                                                        padding: '4px 10px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '12px'
-                                                    }}>
-                                                        {dorse.kalinlik}
-                                                    </span>
+                                                    <span className="apple-urun-row__pill">{dorse.kalinlik}</span>
                                                 </div>
-                                                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                                <div className="apple-urun-row__specs">
                                                     {dorse.dingil} | {dorse.m3} M³{dorse.renk ? ` | ${dorse.renk}` : ''}
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
-                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                                <div className="apple-urun-row__progress">
+                                                    <div className="progress-bar progress-bar--compact">
+                                                        <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
                                                     </div>
-                                                    <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                    <span className="apple-urun-row__pct">{progress}%</span>
                                                 </div>
-                                                <div>{getStatusBadge(overallStatus)}</div>
-                                                <div style={{
-                                                    width: '10px',
-                                                    height: '10px',
-                                                    borderRadius: '50%',
-                                                    background: dorse.cekiciGeldiMi ? 'var(--success)' : 'var(--danger)'
-                                                }} title={dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}></div>
-                                                <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                                <div className="apple-urun-row__badge">{getStatusBadge(overallStatus)}</div>
+                                                <div className="apple-urun-row__trail">
+                                                    <div
+                                                        className={`apple-urun-row__dot ${dorse.cekiciGeldiMi ? 'apple-urun-row__dot--ok' : 'apple-urun-row__dot--no'}`}
+                                                        title={dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}
+                                                    />
+                                                    <span className={`apple-urun-row__chevron${isExpanded ? ' is-open' : ''}`} aria-hidden>
+                                                        ▼
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             {isExpanded && (
@@ -4128,7 +4100,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: !dorse.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4172,7 +4144,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4213,7 +4185,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4250,7 +4222,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4291,7 +4263,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4331,7 +4303,7 @@ function UrunListesiContent() {
                                                             gridColumn: '1 / -1',
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '16px',
-                                                            borderRadius: '12px',
+                                                            borderRadius: 'var(--radius-lg)',
                                                             border: '1px dashed var(--primary)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4377,7 +4349,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4404,7 +4376,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4470,7 +4442,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4516,7 +4488,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4566,7 +4538,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -4753,39 +4725,33 @@ function UrunListesiContent() {
                                 return (
                                     <div key={damper.id} id={`urun-row-DAMPER-${damper.id}`} className="damper-card">
                                         <div
-                                            className="damper-card-header"
+                                            className="damper-card-header damper-card-header--apple"
                                             onClick={() => setExpandedId(isExpanded ? null : `DAMPER-${damper.id}`)}
                                         >
-                                            <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{damper.imalatNo}</div>
-                                            <div style={{ fontWeight: 500 }}>{damper.musteri}</div>
+                                            <div className="apple-urun-row__imalat">#{damper.imalatNo}</div>
+                                            <div className="apple-urun-row__musteri">{damper.musteri}</div>
                                             <div>
-                                                <span style={{
-                                                    background: 'rgba(99, 102, 241, 0.1)',
-                                                    color: 'var(--primary)',
-                                                    padding: '4px 10px',
-                                                    borderRadius: '6px',
-                                                    fontSize: '12px'
-                                                }}>
-                                                    {damper.tip}
-                                                </span>
+                                                <span className="apple-urun-row__pill">{damper.tip}</span>
                                             </div>
-                                            <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                            <div className="apple-urun-row__specs">
                                                 {damper.malzemeCinsi} | {damper.m3} M³{damper.renk ? ` | ${damper.renk}` : ''}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
-                                                    <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                            <div className="apple-urun-row__progress">
+                                                <div className="progress-bar progress-bar--compact">
+                                                    <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
                                                 </div>
-                                                <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                <span className="apple-urun-row__pct">{progress}%</span>
                                             </div>
-                                            <div>{getStatusBadge(overallStatus)}</div>
-                                            <div style={{
-                                                width: '10px',
-                                                height: '10px',
-                                                borderRadius: '50%',
-                                                background: damper.aracGeldiMi ? 'var(--success)' : 'var(--danger)'
-                                            }} title={damper.aracGeldiMi ? 'Araç Geldi' : 'Araç Gelmedi'}></div>
-                                            <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                            <div className="apple-urun-row__badge">{getStatusBadge(overallStatus)}</div>
+                                            <div className="apple-urun-row__trail">
+                                                <div
+                                                    className={`apple-urun-row__dot ${damper.aracGeldiMi ? 'apple-urun-row__dot--ok' : 'apple-urun-row__dot--no'}`}
+                                                    title={damper.aracGeldiMi ? 'Araç Geldi' : 'Araç Gelmedi'}
+                                                />
+                                                <span className={`apple-urun-row__chevron${isExpanded ? ' is-open' : ''}`} aria-hidden>
+                                                    ▼
+                                                </span>
+                                            </div>
                                         </div>
 
                                         {isExpanded && (
@@ -4813,7 +4779,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: !damper.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -4863,7 +4829,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -4911,7 +4877,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -4959,7 +4925,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -5010,7 +4976,7 @@ function UrunListesiContent() {
                                                         gridColumn: '1 / -1',
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '16px 20px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         flexDirection: 'column',
@@ -5077,7 +5043,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -5132,7 +5098,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -5204,7 +5170,7 @@ function UrunListesiContent() {
                                                         <div style={{
                                                             background: 'var(--card-bg-secondary)',
                                                             padding: '12px 16px',
-                                                            borderRadius: '10px',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -5356,7 +5322,7 @@ function UrunListesiContent() {
                                                                 marginTop: '16px',
                                                                 padding: '16px',
                                                                 borderRadius: '14px',
-                                                                background: 'white',
+                                                                background: 'var(--card)',
                                                                 border: '1px solid rgba(2, 35, 71, 0.10)',
                                                                 boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
                                                             }}
@@ -5666,33 +5632,29 @@ function UrunListesiContent() {
                                     <div key={sasi.id} id={`urun-row-SASI-${sasi.id}`} className="damper-card">
                                         {/* Header */}
                                         <div
-                                            className="damper-card-header"
+                                            className="damper-card-header damper-card-header--apple"
                                             onClick={() => setExpandedId(isExpanded ? null : `SASI-${sasi.id}`)}
                                         >
-                                            <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{sasi.imalatNo}</div>
-                                            <div style={{ fontWeight: 500 }}>{sasi.musteri}</div>
+                                            <div className="apple-urun-row__imalat">#{sasi.imalatNo}</div>
+                                            <div className="apple-urun-row__musteri">{sasi.musteri}</div>
                                             <div>
-                                                <span style={{
-                                                    background: 'rgba(99, 102, 241, 0.1)',
-                                                    color: 'var(--primary)',
-                                                    padding: '4px 10px',
-                                                    borderRadius: '6px',
-                                                    fontSize: '12px'
-                                                }}>
-                                                    {sasi.tampon || '-'}
-                                                </span>
+                                                <span className="apple-urun-row__pill">{sasi.tampon || '-'}</span>
                                             </div>
-                                            <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                            <div className="apple-urun-row__specs">
                                                 {formatSasiNoLabel(sasi.sasiNo)} | {sasi.dingil || '-'}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
-                                                    <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                            <div className="apple-urun-row__progress">
+                                                <div className="progress-bar progress-bar--compact">
+                                                    <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
                                                 </div>
-                                                <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                <span className="apple-urun-row__pct">{progress}%</span>
                                             </div>
-                                            <div>{getStatusBadge(overallStatus)}</div>
-                                            <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                            <div className="apple-urun-row__badge">{getStatusBadge(overallStatus)}</div>
+                                            <div className="apple-urun-row__trail">
+                                                <span className={`apple-urun-row__chevron${isExpanded ? ' is-open' : ''}`} aria-hidden>
+                                                    ▼
+                                                </span>
+                                            </div>
                                         </div>
 
                                         {/* Body */}
@@ -5718,7 +5680,7 @@ function UrunListesiContent() {
                                                 }}>
 
                                                     {/* İMALAT NO */}
-                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: !hasDamperDorseImalatNo(sasi.imalatNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: !hasDamperDorseImalatNo(sasi.imalatNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                         <div>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>İMALAT NO</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500, color: !hasDamperDorseImalatNo(sasi.imalatNo) ? 'var(--warning)' : 'var(--foreground)' }}>{sasi.imalatNo ?? 'Girilmedi'}</div>
@@ -5751,7 +5713,7 @@ function UrunListesiContent() {
                                                     </div>
 
                                                     {/* ŞASİ NO */}
-                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: !hasSasiNoWritten(sasi.sasiNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minWidth: 0 }}>
+                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: !hasSasiNoWritten(sasi.sasiNo) ? '2px solid var(--warning)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minWidth: 0 }}>
                                                         <div style={{ minWidth: 0 }}>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>ŞASİ NO</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500, color: hasSasiNoWritten(sasi.sasiNo) ? 'var(--foreground)' : 'var(--warning)' }}>{hasSasiNoWritten(sasi.sasiNo) ? normalizeSasiNoValue(sasi.sasiNo) : 'Girilmedi'}</div>
@@ -5784,7 +5746,7 @@ function UrunListesiContent() {
 
 
                                                     {/* MÜŞTERİ (Editable) */}
-                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                         <div>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>MÜŞTERİ / İSİM</div>
                                                             <div style={{ fontSize: '14px', fontWeight: 500 }}>{sasi.musteri}</div>
@@ -5805,7 +5767,7 @@ function UrunListesiContent() {
                                                     </div>
 
                                                     {/* TAMPON */}
-                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                                                         <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
                                                         <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.tampon || ''} onChange={(e) => {
                                                             const v = e.target.value;
@@ -5821,7 +5783,7 @@ function UrunListesiContent() {
                                                     </div>
 
                                                     {/* DINGIL */}
-                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                                                         <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>DİNGİL</div>
                                                         <select className="select" style={{ width: '100%', padding: '4px', fontSize: '13px', background: 'var(--card-bg-secondary)', border: 'none', color: 'var(--foreground)' }} value={sasi.dingil || ''} onChange={(e) => {
                                                             const v = e.target.value;
@@ -5837,7 +5799,7 @@ function UrunListesiContent() {
                                                     </div>
 
                                                     {/* TARİH */}
-                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <div style={{ background: 'var(--card-bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                         <div>
                                                             <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TARİH</div>
                                                             <div style={{ fontSize: '13px' }}>{sasi.createdAt ? new Date(sasi.createdAt).toLocaleDateString() : '-'}</div>
@@ -5903,213 +5865,114 @@ function UrunListesiContent() {
                             })
                         )
                     ) : productType === 'DORSE_SASI' ? (
-                        <div style={{ marginBottom: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                <h2 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span
-                                        style={{
-                                            background: 'var(--primary)',
-                                            color: 'white',
-                                            padding: '4px 10px',
-                                            borderRadius: '6px',
-                                            fontSize: '14px'
-                                        }}
-                                    >
-                                        {filteredLinkedDorseSasis.length} Çift
-                                    </span>
-                                    Bağlı Dorse-Şasi Listesi
-                                </h2>
-                            </div>
+                        <div className="urun-linked-wrap">
+                            <header className="urun-linked-section-head">
+                                <span className="urun-linked-count-pill">{filteredLinkedDorseSasis.length}</span>
+                                <div className="urun-linked-section-text">
+                                    <h2 className="urun-linked-section-title">Bağlı dorse–şasi</h2>
+                                    <p className="urun-linked-section-sub">
+                                        Aynı satırda dorse ile eşleşen şasi; teknik bilgiler dorseler ve şasiler sekmesindeki alanlarla uyumludur.
+                                    </p>
+                                </div>
+                            </header>
 
                             {filteredLinkedDorseSasis.length === 0 ? (
-                                <div
-                                    style={{
-                                        padding: '60px 40px',
-                                        textAlign: 'center',
-                                        background: 'var(--card-bg)',
-                                        borderRadius: '16px',
-                                        border: '1px dashed var(--border)'
-                                    }}
-                                >
-                                    <div style={{ fontSize: '40px', marginBottom: '16px', opacity: 0.2 }}>🔍</div>
-                                    <h3 style={{ marginBottom: '8px', color: 'var(--foreground)' }}>
-                                        {linkedDorseSasis.length > 0 ? 'Sonuç bulunamadı' : 'Henüz Bağlı Çift Yok'}
+                                <div className="urun-linked-empty card">
+                                    <h3 className="urun-linked-empty__title">
+                                        {linkedDorseSasis.length > 0 ? 'Sonuç bulunamadı' : 'Henüz bağlı çift yok'}
                                     </h3>
                                     {linkedDorseSasis.length === 0 && (
                                         <>
-                                            <p style={{ color: 'var(--muted)', marginBottom: '16px' }}>
+                                            <p className="urun-linked-empty__hint">
                                                 Dorseler sekmesinden bir dorseye şasi bağlayabilirsiniz.
                                             </p>
-                                            <button className="btn btn-primary" onClick={() => setProductType('DORSE')}>
-                                                Dorseler&apos;e Git
+                                            <button type="button" className="btn btn-primary" onClick={() => setProductType('DORSE')}>
+                                                Dorselere git
                                             </button>
                                         </>
                                     )}
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gap: '16px' }}>
-                                    {filteredLinkedDorseSasis.map(({ dorse, sasi, dorseProgress, sasiProgress }) => (
-                                        <div
-                                            key={dorse.id}
-                                            style={{
-                                                background: 'var(--card-bg)',
-                                                borderRadius: '12px',
-                                                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                                                border: '1px solid var(--border)',
-                                                overflow: 'hidden'
-                                            }}
-                                        >
-                                            <div className="dorse-sasi-grid">
-                                                <div style={{ padding: '24px' }}>
-                                                    <div
-                                                        style={{
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            alignItems: 'flex-start',
-                                                            marginBottom: '16px'
-                                                        }}
-                                                    >
-                                                        <div>
-                                                            <span
-                                                                style={{
-                                                                    fontSize: '11px',
-                                                                    fontWeight: 700,
-                                                                    color: '#4f46e5',
-                                                                    background: '#eef2ff',
-                                                                    padding: '4px 8px',
-                                                                    borderRadius: '4px',
-                                                                    letterSpacing: '0.5px'
-                                                                }}
-                                                            >
-                                                                DORSE #{dorse.imalatNo}
-                                                            </span>
-                                                            <div style={{ marginTop: '8px', fontWeight: 600, fontSize: '16px' }}>
-                                                                {dorse.musteri}
+                                <div className="urun-linked-list">
+                                    {filteredLinkedDorseSasis.map(({ dorse, sasi, dorseProgress, sasiProgress }) => {
+                                        const dSpec = formatDorseLinkedSpec(dorse);
+                                        const sSpec = formatSasiLinkedSpec(sasi);
+                                        return (
+                                            <article key={dorse.id} className="urun-linked-pair card">
+                                                <div className="dorse-sasi-grid">
+                                                    <div className="urun-linked-panel urun-linked-panel--dorse">
+                                                        <div className="urun-linked-panel__head">
+                                                            <div className="urun-linked-panel__title-block">
+                                                                <span className="urun-linked-chip urun-linked-chip--dorse">
+                                                                    Dorse #{dorse.imalatNo ?? '—'}
+                                                                </span>
+                                                                <div className="urun-linked-name">{dorse.musteri?.trim() || '—'}</div>
+                                                            </div>
+                                                            <div className="urun-linked-meta">
+                                                                <div className="urun-linked-meta__line urun-linked-meta__line--strong">{dSpec.primary}</div>
+                                                                {dSpec.secondary ? (
+                                                                    <div className="urun-linked-meta__line">{dSpec.secondary}</div>
+                                                                ) : null}
                                                             </div>
                                                         </div>
-                                                        <div style={{ textAlign: 'right', fontSize: '13px', color: 'var(--muted)' }}>
-                                                            <div>{dorse.malzemeCinsi || '-'}</div>
-                                                            <div>{dorse.m3}m³</div>
+                                                        <div className="urun-linked-progress-head">
+                                                            <span>Tamamlanma</span>
+                                                            <span
+                                                                className={
+                                                                    dorseProgress === 100 ? 'urun-linked-pct is-done' : 'urun-linked-pct'
+                                                                }
+                                                            >
+                                                                %{dorseProgress}
+                                                            </span>
+                                                        </div>
+                                                        <div className="urun-linked-progress-track">
+                                                            <div
+                                                                className="urun-linked-progress-fill urun-linked-progress-fill--dorse"
+                                                                style={{ width: `${dorseProgress}%` }}
+                                                            />
                                                         </div>
                                                     </div>
 
-                                                    <div
-                                                        style={{
-                                                            marginBottom: '8px',
-                                                            fontSize: '13px',
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            color: 'var(--muted)'
-                                                        }}
-                                                    >
-                                                        <span>Tamamlanma</span>
-                                                        <span
-                                                            style={{
-                                                                fontWeight: 600,
-                                                                color: dorseProgress === 100 ? 'var(--success)' : 'var(--primary)'
-                                                            }}
-                                                        >
-                                                            %{dorseProgress}
-                                                        </span>
+                                                    <div className="dorse-sasi-divider urun-linked-nexus" aria-hidden>
+                                                        <span className="urun-linked-nexus__disc" />
                                                     </div>
-                                                    <div
-                                                        style={{
-                                                            height: '6px',
-                                                            background: 'var(--secondary)',
-                                                            borderRadius: '3px',
-                                                            overflow: 'hidden'
-                                                        }}
-                                                    >
-                                                        <div
-                                                            style={{
-                                                                width: `${dorseProgress}%`,
-                                                                height: '100%',
-                                                                background: dorseProgress === 100 ? 'var(--success)' : '#4f46e5',
-                                                                borderRadius: '3px',
-                                                                transition: 'width 0.3s'
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
 
-                                                <div className="dorse-sasi-divider">
-                                                    <div style={{ color: 'var(--muted)', opacity: 0.5 }}>🔗</div>
-                                                </div>
-
-                                                <div style={{ padding: '24px' }}>
-                                                    <div
-                                                        style={{
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            alignItems: 'flex-start',
-                                                            marginBottom: '16px'
-                                                        }}
-                                                    >
-                                                        <div>
-                                                            <span
-                                                                style={{
-                                                                    fontSize: '11px',
-                                                                    fontWeight: 700,
-                                                                    color: '#059669',
-                                                                    background: '#ecfdf5',
-                                                                    padding: '4px 8px',
-                                                                    borderRadius: '4px',
-                                                                    letterSpacing: '0.5px'
-                                                                }}
-                                                            >
-                                                                ŞASİ #{sasi.imalatNo}
-                                                            </span>
-                                                            <div style={{ marginTop: '8px', fontWeight: 600, fontSize: '16px' }}>
-                                                                {sasi.musteri}
+                                                    <div className="urun-linked-panel urun-linked-panel--sasi">
+                                                        <div className="urun-linked-panel__head">
+                                                            <div className="urun-linked-panel__title-block">
+                                                                <span className="urun-linked-chip urun-linked-chip--sasi">
+                                                                    Şasi #{sasi.imalatNo ?? '—'}
+                                                                </span>
+                                                                <div className="urun-linked-name">{sasi.musteri?.trim() || '—'}</div>
+                                                            </div>
+                                                            <div className="urun-linked-meta">
+                                                                <div className="urun-linked-meta__line urun-linked-meta__line--strong">{sSpec.primary}</div>
+                                                                {sSpec.secondary ? (
+                                                                    <div className="urun-linked-meta__line">{sSpec.secondary}</div>
+                                                                ) : null}
                                                             </div>
                                                         </div>
-                                                        <div style={{ textAlign: 'right', fontSize: '13px', color: 'var(--muted)' }}>
-                                                            <div>{sasi.dingil}</div>
-                                                            <div>{formatSasiNoLabel(sasi.sasiNo)}</div>
+                                                        <div className="urun-linked-progress-head">
+                                                            <span>Tamamlanma</span>
+                                                            <span
+                                                                className={
+                                                                    sasiProgress === 100 ? 'urun-linked-pct is-done' : 'urun-linked-pct'
+                                                                }
+                                                            >
+                                                                %{sasiProgress}
+                                                            </span>
+                                                        </div>
+                                                        <div className="urun-linked-progress-track">
+                                                            <div
+                                                                className="urun-linked-progress-fill urun-linked-progress-fill--sasi"
+                                                                style={{ width: `${sasiProgress}%` }}
+                                                            />
                                                         </div>
                                                     </div>
-
-                                                    <div
-                                                        style={{
-                                                            marginBottom: '8px',
-                                                            fontSize: '13px',
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            color: 'var(--muted)'
-                                                        }}
-                                                    >
-                                                        <span>Tamamlanma</span>
-                                                        <span
-                                                            style={{
-                                                                fontWeight: 600,
-                                                                color: sasiProgress === 100 ? 'var(--success)' : 'var(--primary)'
-                                                            }}
-                                                        >
-                                                            %{sasiProgress}
-                                                        </span>
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            height: '6px',
-                                                            background: 'var(--secondary)',
-                                                            borderRadius: '3px',
-                                                            overflow: 'hidden'
-                                                        }}
-                                                    >
-                                                        <div
-                                                            style={{
-                                                                width: `${sasiProgress}%`,
-                                                                height: '100%',
-                                                                background: sasiProgress === 100 ? 'var(--success)' : '#10b981',
-                                                                borderRadius: '3px',
-                                                                transition: 'width 0.3s'
-                                                            }}
-                                                        />
-                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                            </article>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -6127,39 +5990,33 @@ function UrunListesiContent() {
                                 return (
                                     <div key={dorse.id} id={`urun-row-DORSE-${dorse.id}`} className="damper-card">
                                         <div
-                                            className="damper-card-header"
+                                            className="damper-card-header damper-card-header--apple"
                                             onClick={() => setExpandedId(isExpanded ? null : `DORSE-${dorse.id}`)}
                                         >
-                                            <div style={{ fontWeight: 700, color: 'var(--primary)' }}>#{dorse.imalatNo}</div>
-                                            <div style={{ fontWeight: 500 }}>{dorse.musteri}</div>
+                                            <div className="apple-urun-row__imalat">#{dorse.imalatNo}</div>
+                                            <div className="apple-urun-row__musteri">{dorse.musteri}</div>
                                             <div>
-                                                <span style={{
-                                                    background: 'rgba(99, 102, 241, 0.1)',
-                                                    color: 'var(--primary)',
-                                                    padding: '4px 10px',
-                                                    borderRadius: '6px',
-                                                    fontSize: '12px'
-                                                }}>
-                                                    {dorse.kalinlik}
-                                                </span>
+                                                <span className="apple-urun-row__pill">{dorse.kalinlik}</span>
                                             </div>
-                                            <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                                            <div className="apple-urun-row__specs">
                                                 {dorse.dingil} | {dorse.m3} M³{dorse.renk ? ` | ${dorse.renk}` : ''}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div className="progress-bar" style={{ width: '100%', maxWidth: '80px' }}>
-                                                    <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+                                            <div className="apple-urun-row__progress">
+                                                <div className="progress-bar progress-bar--compact">
+                                                    <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
                                                 </div>
-                                                <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '35px' }}>{progress}%</span>
+                                                <span className="apple-urun-row__pct">{progress}%</span>
                                             </div>
-                                            <div>{getStatusBadge(overallStatus)}</div>
-                                            <div style={{
-                                                width: '10px',
-                                                height: '10px',
-                                                borderRadius: '50%',
-                                                background: dorse.cekiciGeldiMi ? 'var(--success)' : 'var(--danger)'
-                                            }} title={dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}></div>
-                                            <div style={{ fontSize: '20px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▼</div>
+                                            <div className="apple-urun-row__badge">{getStatusBadge(overallStatus)}</div>
+                                            <div className="apple-urun-row__trail">
+                                                <div
+                                                    className={`apple-urun-row__dot ${dorse.cekiciGeldiMi ? 'apple-urun-row__dot--ok' : 'apple-urun-row__dot--no'}`}
+                                                    title={dorse.cekiciGeldiMi ? 'Çekici Geldi' : 'Çekici Gelmedi'}
+                                                />
+                                                <span className={`apple-urun-row__chevron${isExpanded ? ' is-open' : ''}`} aria-hidden>
+                                                    ▼
+                                                </span>
+                                            </div>
                                         </div>
 
                                         {isExpanded && (
@@ -6185,7 +6042,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: !dorse.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6229,7 +6086,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6270,7 +6127,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6307,7 +6164,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6348,7 +6205,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6388,7 +6245,7 @@ function UrunListesiContent() {
                                                         gridColumn: '1 / -1',
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '16px',
-                                                        borderRadius: '12px',
+                                                        borderRadius: 'var(--radius-lg)',
                                                         border: '1px dashed var(--primary)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6434,7 +6291,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6461,7 +6318,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6527,7 +6384,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6573,7 +6430,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6623,7 +6480,7 @@ function UrunListesiContent() {
                                                     <div style={{
                                                         background: 'var(--card-bg-secondary)',
                                                         padding: '12px 16px',
-                                                        borderRadius: '10px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         border: '1px solid var(--border)',
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -6764,7 +6621,7 @@ function UrunListesiContent() {
                                                             marginTop: '16px',
                                                             padding: '16px',
                                                             borderRadius: '14px',
-                                                            background: 'white',
+                                                            background: 'var(--card)',
                                                             border: '1px solid rgba(2, 35, 71, 0.10)',
                                                             boxShadow: '0 10px 24px rgba(2, 35, 71, 0.06)'
                                                         }}
@@ -7051,11 +6908,34 @@ function UrunListesiContent() {
 
                 {/* Add Modal */}
                 {showAddModal && (
-                    <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-                        <div className="modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-overlay apple-product-form-overlay" onClick={() => setShowAddModal(false)}>
+                        <div
+                            className="modal modal--premium apple-product-form-modal"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="add-product-modal-title"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <div className="modal-header">
-                                <h2 className="modal-title">Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? 'Şasi' : 'Ürün'} Ekle</h2>
-                                <button className="modal-close" onClick={() => setShowAddModal(false)}>✕</button>
+                                <h2 className="modal-title" id="add-product-modal-title">
+                                    Yeni{' '}
+                                    {productType === 'DAMPER'
+                                        ? 'Damper'
+                                        : productType === 'DORSE'
+                                          ? 'Dorse'
+                                          : productType === 'SASI'
+                                            ? 'Şasi'
+                                            : 'Ürün'}{' '}
+                                    Ekle
+                                </h2>
+                                <button
+                                    type="button"
+                                    className="modal-close"
+                                    onClick={() => setShowAddModal(false)}
+                                    aria-label="Kapat"
+                                >
+                                    <X size={18} strokeWidth={2.25} />
+                                </button>
                             </div>
                             <form onSubmit={handleCreate}>
                                 <div className="modal-body">
@@ -7435,7 +7315,7 @@ function UrunListesiContent() {
                                 </div>
                             </form>
                         </div>
-                    </div >
+                    </div>
                 )}
 
                 {/* Şasi Bağlantısı Modalı */}
@@ -7452,13 +7332,13 @@ function UrunListesiContent() {
                                 flexDirection: 'column',
                                 borderRadius: '24px',
                                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                                background: 'white',
+                                background: 'var(--card)',
                                 overflow: 'hidden'
                             }}
                         >
                             {/* Modal Header */}
                             <div className="modal-header" style={{
-                                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                                background: 'linear-gradient(135deg, #1c1c1e 0%, #000000 100%)',
                                 padding: '24px 32px',
                                 borderBottom: '1px solid rgba(255,255,255,0.1)',
                                 display: 'flex',
@@ -7495,7 +7375,7 @@ function UrunListesiContent() {
                                         borderRadius: '50%',
                                         background: 'rgba(255,255,255,0.1)',
                                         border: 'none',
-                                        color: 'white',
+                                        color: '#ffffff',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
@@ -7510,30 +7390,30 @@ function UrunListesiContent() {
                             </div>
 
                             {/* Search & Filters */}
-                            <div style={{ padding: '24px 32px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                            <div style={{ padding: '24px 32px', background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border)' }}>
                                 <div style={{ position: 'relative', marginBottom: '16px' }}>
-                                    <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                                    <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--foreground-secondary)' }} />
                                     <input
                                         type="text"
                                         placeholder="Şasi ara (Müşteri adı, Stok no veya İmalat no...)"
                                         style={{
                                             width: '100%',
                                             padding: '12px 16px 12px 48px',
-                                            borderRadius: '12px',
-                                            border: '1px solid #e2e8f0',
-                                            background: 'white',
+                                            borderRadius: 'var(--radius-lg)',
+                                            border: '1px solid var(--border)',
+                                            background: 'var(--card)',
                                             fontSize: '15px',
-                                            color: '#1e293b',
+                                            color: 'var(--foreground)',
                                             outline: 'none',
                                             boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                         }}
                                         value={linkSearchTerm}
                                         onChange={(e) => setLinkSearchTerm(e.target.value)}
-                                        onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                                        onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                        onFocus={(e) => e.target.style.borderColor = 'var(--control-fill)'}
+                                        onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
                                     />
                                 </div>
-                                <div style={{ display: 'flex', background: '#e2e8f0', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+                                <div style={{ display: 'flex', background: 'var(--border)', padding: '4px', borderRadius: 'var(--radius-lg)', gap: '4px' }}>
                                     {['hepsi', 'stok', 'musteri'].map((filter) => (
                                         <button
                                             key={filter}
@@ -7541,10 +7421,10 @@ function UrunListesiContent() {
                                             style={{
                                                 flex: 1,
                                                 padding: '8px',
-                                                borderRadius: '8px',
+                                                borderRadius: 'var(--radius-md)',
                                                 border: 'none',
-                                                background: linkFilter === filter ? 'white' : 'transparent',
-                                                color: linkFilter === filter ? '#0f172a' : '#64748b',
+                                                background: linkFilter === filter ? 'var(--card)' : 'transparent',
+                                                color: linkFilter === filter ? 'var(--foreground)' : 'var(--foreground-secondary)',
                                                 fontSize: '14px',
                                                 fontWeight: 600,
                                                 cursor: 'pointer',
@@ -7559,13 +7439,13 @@ function UrunListesiContent() {
                             </div>
 
                             {/* List Content */}
-                            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 32px', background: '#fff' }}>
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 32px', background: 'var(--card)' }}>
                                 {availableSasis.length === 0 ? (
-                                    <div style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>
+                                    <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--muted)' }}>
                                         <Package size={64} style={{ opacity: 0.2, marginBottom: '16px' }} />
-                                        <p style={{ fontSize: '16px', fontWeight: 500, color: '#64748b' }}>Bağlanabilir şasi bulunamadı.</p>
+                                        <p style={{ fontSize: '16px', fontWeight: 500, color: 'var(--foreground-secondary)' }}>Bağlanabilir şasi bulunamadı.</p>
                                         <button
-                                            style={{ marginTop: '16px', padding: '10px 20px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                                            style={{ marginTop: '16px', padding: '10px 20px', background: 'color-mix(in srgb, var(--primary) 14%, var(--card))', color: 'var(--primary)', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}
                                             onClick={() => { setShowLinkModal(false); setShowAddModal(true); setProductType('SASI'); }}
                                         >
                                             + Yeni Şasi Oluştur
@@ -7601,8 +7481,8 @@ function UrunListesiContent() {
                                                         style={{
                                                             padding: '20px',
                                                             borderRadius: '16px',
-                                                            border: isMatch ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                                                            background: isMatch ? '#eef2ff' : 'white',
+                                                            border: isMatch ? '2px solid var(--primary)' : '1px solid var(--border)',
+                                                            background: isMatch ? 'color-mix(in srgb, var(--primary) 12%, var(--card))' : 'var(--card)',
                                                             cursor: 'pointer',
                                                             transition: 'all 0.2s',
                                                             display: 'flex',
@@ -7613,14 +7493,14 @@ function UrunListesiContent() {
                                                         }}
                                                         onMouseOver={(e) => {
                                                             if (!isMatch) {
-                                                                e.currentTarget.style.borderColor = '#94a3b8';
+                                                                e.currentTarget.style.borderColor = 'var(--muted)';
                                                                 e.currentTarget.style.transform = 'translateY(-2px)';
                                                                 e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)';
                                                             }
                                                         }}
                                                         onMouseOut={(e) => {
                                                             if (!isMatch) {
-                                                                e.currentTarget.style.borderColor = '#e2e8f0';
+                                                                e.currentTarget.style.borderColor = 'var(--border)';
                                                                 e.currentTarget.style.transform = 'translateY(0)';
                                                                 e.currentTarget.style.boxShadow = 'none';
                                                             }
@@ -7628,39 +7508,39 @@ function UrunListesiContent() {
                                                     >
                                                         <div style={{ flex: 1 }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                                                <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                                                                <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>
                                                                     #{sasi.imalatNo} - {sasi.musteri}
                                                                 </span>
                                                                 {isMatch && (
-                                                                    <span style={{ fontSize: '11px', background: '#4f46e5', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, letterSpacing: '0.5px' }}>
+                                                                    <span style={{ fontSize: '11px', background: 'var(--primary)', color: '#ffffff', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, letterSpacing: '0.5px' }}>
                                                                         ÖNERİLEN
                                                                     </span>
                                                                 )}
                                                                 {progress === 100 && (
-                                                                    <span style={{ fontSize: '11px', background: '#059669', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <span style={{ fontSize: '11px', background: 'var(--success)', color: '#ffffff', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                                         <CheckCircle size={12} /> HAZIR
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <div style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: '16px', color: '#64748b', fontSize: '13px', fontWeight: 500 }}>
+                                                            <div style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--foreground-secondary)', fontSize: '13px', fontWeight: 500 }}>
                                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Info size={14} /> {sasi.sasiNo || 'Şasi No Yok'}</span>
-                                                                <span style={{ width: '4px', height: '4px', background: '#cbd5e1', borderRadius: '50%' }}></span>
+                                                                <span style={{ width: '4px', height: '4px', background: 'var(--accent)', borderRadius: '50%' }}></span>
                                                                 <span>{sasi.dingil}</span>
-                                                                <span style={{ width: '4px', height: '4px', background: '#cbd5e1', borderRadius: '50%' }}></span>
+                                                                <span style={{ width: '4px', height: '4px', background: 'var(--accent)', borderRadius: '50%' }}></span>
                                                                 <span>{sasi.tampon}</span>
                                                             </div>
                                                         </div>
 
                                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: progress === 100 ? '#059669' : '#3b82f6' }}>
+                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: progress === 100 ? 'var(--success)' : 'var(--control-fill)' }}>
                                                                 %{progress} Tamamlandı
                                                             </span>
-                                                            <div style={{ width: '100px', height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                                                                <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#059669' : '#3b82f6', borderRadius: '3px', transition: 'width 0.5s' }}></div>
+                                                            <div style={{ width: '100px', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? 'var(--success)' : 'var(--control-fill)', borderRadius: '3px', transition: 'width 0.5s' }}></div>
                                                             </div>
                                                         </div>
 
-                                                        <div style={{ marginLeft: '24px', width: '40px', height: '40px', borderRadius: '12px', background: isMatch ? '#4f46e5' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isMatch ? 'white' : '#94a3b8' }}>
+                                                        <div style={{ marginLeft: '24px', width: '40px', height: '40px', borderRadius: 'var(--radius-lg)', background: isMatch ? 'var(--primary)' : 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isMatch ? 'white' : 'var(--muted)' }}>
                                                             <LinkIcon size={20} />
                                                         </div>
                                                     </div>
@@ -7671,22 +7551,22 @@ function UrunListesiContent() {
                             </div>
 
                             {/* Footer */}
-                            <div style={{ padding: '20px 32px', background: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+                            <div style={{ padding: '20px 32px', background: 'var(--card)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
                                 <button
                                     onClick={() => setShowLinkModal(false)}
                                     style={{
                                         padding: '12px 32px',
-                                        borderRadius: '12px',
-                                        background: '#f1f5f9',
-                                        color: '#64748b',
-                                        border: '1px solid #e2e8f0',
+                                        borderRadius: 'var(--radius-lg)',
+                                        background: 'var(--background)',
+                                        color: 'var(--foreground-secondary)',
+                                        border: '1px solid var(--border)',
                                         fontWeight: 600,
                                         cursor: 'pointer',
                                         fontSize: '14px',
                                         transition: 'all 0.2s'
                                     }}
-                                    onMouseOver={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
-                                    onMouseOut={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+                                    onMouseOver={(e) => { e.currentTarget.style.background = 'var(--border)'; e.currentTarget.style.color = 'var(--foreground)'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.background = 'var(--background)'; e.currentTarget.style.color = 'var(--foreground-secondary)'; }}
                                 >
                                     İptal
                                 </button>
@@ -7694,7 +7574,8 @@ function UrunListesiContent() {
                         </div>
                     </div>
                 )}
-            </main >
+                </div>
+            </main>
         </>
     );
 }
@@ -7706,8 +7587,10 @@ export default function UrunListesiPage() {
                 fallback={
                     <>
                         <Sidebar />
-                        <main className="main-content">
-                            <OzunluLoading variant="inline" />
+                        <main className="main-content apple-app-page">
+                            <div className="apple-canvas">
+                                <OzunluLoading variant="inline" />
+                            </div>
                         </main>
                     </>
                 }

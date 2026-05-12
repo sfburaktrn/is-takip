@@ -618,6 +618,24 @@ function calculateMainSasiStepStatus(sasi, groupKey) {
     return 'DEVAM EDİYOR';
 }
 
+/** Analiz / günlük rapor: şasi tamamlanan alt adımlar (faz adı frontend sıralamasıyla uyumlu) */
+const SASI_RECENT_COMPLETED_STEPS = [
+    { field: 'plazmaProgrami', label: 'Plazma Programı', phase: 'Kesim-Büküm' },
+    { field: 'sacMalzemeKontrolu', label: 'Sac Malzeme Kontrolü', phase: 'Kesim-Büküm' },
+    { field: 'plazmaKesim', label: 'Plazma Kesim', phase: 'Kesim-Büküm' },
+    { field: 'presBukum', label: 'Pres Büküm', phase: 'Kesim-Büküm' },
+    { field: 'lenjorenMontaji', label: 'Lenjorenlerin Montajı', phase: 'Ön Hazırlık' },
+    { field: 'robotKaynagi', label: 'Robot Kaynağı', phase: 'Ön Hazırlık' },
+    { field: 'saseFiksturCatim', label: 'Şase fikstüründe çatım', phase: 'Montaj' },
+    { field: 'kaynak', label: 'Kaynak', phase: 'Montaj' },
+    { field: 'dingilMontaji', label: 'Dingil Montajı', phase: 'Montaj' },
+    { field: 'genelKaynak', label: 'Genel Kaynakların Yapılması', phase: 'Montaj' },
+    { field: 'tesisatCubugu', label: 'Tesisat çubuğu', phase: 'Montaj' },
+    { field: 'mekanikAyak', label: 'Mekanik ayak', phase: 'Montaj' },
+    { field: 'korukMontaji', label: 'Körüklerin Montajı', phase: 'Montaj' },
+    { field: 'lastikMontaji', label: 'Lastik montajı', phase: 'Montaj' },
+];
+
 // Teklif Takip: canlı üretim feed'i için yardımcılar
 const LIVE_DAMPER_SUBSTEPS = [
     'plazmaProgrami', 'sacMalzemeKontrolu', 'plazmaKesim', 'damperSasiPlazmaKesim', 'presBukum',
@@ -2927,11 +2945,13 @@ app.get('/api/analytics/step-stats', requireAuth, async (req, res) => {
 app.get('/api/analytics/company-distribution', requireAuth, async (req, res) => {
     try {
         const { type } = req.query;
-        const isDorse = type === 'DORSE';
+        const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
 
         let items;
-        if (isDorse) {
+        if (productType === 'DORSE') {
             items = await prisma.dorse.findMany();
+        } else if (productType === 'SASI') {
+            items = await prisma.sasi.findMany();
         } else {
             items = await prisma.damper.findMany();
         }
@@ -2961,7 +2981,7 @@ app.get('/api/analytics/company-distribution', requireAuth, async (req, res) => 
 app.get('/api/analytics/recent-activity', requireAuth, async (req, res) => {
     try {
         const { type } = req.query;
-        const productType = type === 'DORSE' ? 'DORSE' : 'DAMPER';
+        const productType = type === 'DORSE' ? 'DORSE' : type === 'SASI' ? 'SASI' : 'DAMPER';
 
         // Get start of today
         const today = new Date();
@@ -2970,6 +2990,12 @@ app.get('/api/analytics/recent-activity', requireAuth, async (req, res) => {
         let recentItems = [];
         if (productType === 'DORSE') {
             recentItems = await prisma.dorse.findMany({
+                where: { updatedAt: { gte: today } },
+                orderBy: { updatedAt: 'desc' },
+                take: 50
+            });
+        } else if (productType === 'SASI') {
+            recentItems = await prisma.sasi.findMany({
                 where: { updatedAt: { gte: today } },
                 orderBy: { updatedAt: 'desc' },
                 take: 50
@@ -3042,6 +3068,21 @@ app.get('/api/analytics/recent-activity', requireAuth, async (req, res) => {
                 if (item.dmoMuayenesi === 'YAPILDI') completedSubSteps.push('DMO Muayenesi');
                 if (item.tahsilat) completedSubSteps.push('Tahsilat');
                 if (item.teslimat) completedSubSteps.push('Teslimat ✅');
+
+            } else if (productType === 'SASI') {
+                kesimBukumStatus = calculateMainSasiStepStatus(item, 'kesimBukum');
+                montajStatus = calculateMainSasiStepStatus(item, 'montaj');
+                boyaBitisStatus = 'BAŞLAMADI';
+                teslimatStatus = 'BAŞLAMADI';
+
+                completedSubSteps = [];
+                for (const row of SASI_RECENT_COMPLETED_STEPS) {
+                    if (item[row.field] === true) {
+                        completedSubSteps.push(`${row.label} (${row.phase})`);
+                    }
+                }
+
+                hasProgress = SASI_RECENT_COMPLETED_STEPS.some(({ field }) => item[field] === true);
 
             } else {
                 // DAMPER LOGIC (Existing)

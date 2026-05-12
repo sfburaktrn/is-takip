@@ -26,7 +26,7 @@ import {
     History,
     Package,
     CarFront,
-    ShieldAlert
+    ShieldAlert,
 } from 'lucide-react';
 
 function cn(...classes: (string | false | undefined | null)[]) {
@@ -109,7 +109,6 @@ export default function Sidebar() {
         { key: 'aracBilgileri', href: '/arac-bilgileri', label: 'Araç bilgileri', icon: CarFront },
         { href: '/arac-hasar-kaydi', label: 'Araç hasar kaydı', icon: ShieldAlert },
         { href: '/stok-takip', label: 'Stok takip', icon: Package },
-       /*{ href: '/planlama', label: 'Üretim Planı', icon: CalendarDays }, */
     ];
 
     const adminOnlyMenuItems = [
@@ -125,25 +124,24 @@ export default function Sidebar() {
 
     return (
         <>
-            {/* Mobile Toggle Button */}
             <button
                 className="mobile-toggle"
                 onClick={() => setIsOpen(!isOpen)}
-                aria-label="Toggle Menu"
+                aria-label="Menüyü aç veya kapat"
+                type="button"
             >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
 
-            {/* Overlay */}
             <div
                 className={`sidebar-overlay ${isOpen ? 'visible' : ''}`}
                 onClick={() => setIsOpen(false)}
+                role="presentation"
             />
 
-            {/* Sidebar */}
             <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-                <div className="sidebar-logo" style={{ padding: '6px 6px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                    <div style={{ position: 'relative', width: '100%', height: '22px' }}>
+                <div className="sidebar-brand">
+                    <div className="sidebar-brand__logo">
                         <Image
                             src="/logo.png"
                             alt="Özünlü Logo"
@@ -152,36 +150,16 @@ export default function Sidebar() {
                             priority
                         />
                     </div>
-                    <div style={{
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: 'var(--muted)',
-                        letterSpacing: '0.5px',
-                        textAlign: 'center',
-                        borderTop: '1px solid var(--border)',
-                        paddingTop: '6px',
-                        width: '100%'
-                    }}>
-                        İMALAT TAKİP SİSTEMİ
-                    </div>
+                    <div className="sidebar-brand__tagline">İmalat Takip Sistemi</div>
                 </div>
 
                 {user && (
-                    <div className="sidebar-search" style={{ padding: '4px 2px 6px', position: 'relative', zIndex: 20 }}>
-                        <div style={{ position: 'relative' }}>
-                            <Search
-                                size={16}
-                                style={{
-                                    position: 'absolute',
-                                    left: '10px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    color: 'var(--muted)',
-                                    pointerEvents: 'none',
-                                }}
-                            />
+                    <div className="sidebar-search-block">
+                        <div className="sidebar-search-inner">
+                            <Search className="sidebar-search-icon" size={16} aria-hidden />
                             <input
                                 type="search"
+                                className="sidebar-search-input"
                                 placeholder="İmalat no, müşteri…"
                                 value={searchQ}
                                 onChange={e => {
@@ -189,33 +167,11 @@ export default function Sidebar() {
                                     setSearchOpen(true);
                                 }}
                                 onFocus={() => setSearchOpen(true)}
-                                style={{
-                                    width: '100%',
-                                    padding: '7px 10px 7px 34px',
-                                    borderRadius: '8px',
-                                    border: '1px solid var(--border)',
-                                    fontSize: '13px',
-                                    background: 'var(--card-bg, #fff)',
-                                }}
+                                aria-label="Kenar çubuğunda ara"
                             />
                         </div>
                         {searchOpen && canSearch && (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    left: '2px',
-                                    right: '2px',
-                                    top: '100%',
-                                    marginTop: '4px',
-                                    maxHeight: '280px',
-                                    overflowY: 'auto',
-                                    background: 'var(--card-bg, #fff)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 8px 24px rgba(15,23,42,0.12)',
-                                    zIndex: 50,
-                                }}
-                            >
+                            <div className="sidebar-search-panel">
                                 {(() => {
                                     const all = [
                                         ...(displayRes?.dampers.map(d => ({ ...d, productType: 'DAMPER' as const })) ?? []),
@@ -223,49 +179,28 @@ export default function Sidebar() {
                                         ...(displayRes?.sasis.map(s => ({ ...s, productType: 'SASI' as const })) ?? []),
                                     ];
                                     if (displayLoading) {
-                                        return (
-                                            <div style={{ padding: '12px', fontSize: '13px', color: 'var(--muted)' }}>
-                                                Aranıyor…
-                                            </div>
-                                        );
+                                        return <div className="sidebar-search-msg">Aranıyor…</div>;
                                     }
                                     if (displayError) {
-                                        return (
-                                            <div style={{ padding: '12px', fontSize: '13px', color: '#b91c1c' }}>
-                                                {displayError}
-                                            </div>
-                                        );
+                                        return <div className="sidebar-search-msg sidebar-search-msg--error">{displayError}</div>;
                                     }
                                     if (!displayRes) {
                                         return null;
                                     }
                                     if (all.length === 0) {
-                                        return (
-                                            <div style={{ padding: '12px', fontSize: '13px', color: 'var(--muted)' }}>
-                                                Sonuç yok
-                                            </div>
-                                        );
+                                        return <div className="sidebar-search-msg">Sonuç yok</div>;
                                     }
                                     return all.map(hit => (
                                         <Link
                                             key={`${hit.productType}-${hit.id}`}
                                             href={`/urun-listesi?type=${hit.productType}&expand=${hit.id}`}
+                                            className="sidebar-search-link"
                                             onClick={() => {
                                                 setIsOpen(false);
                                                 setSearchOpen(false);
                                             }}
-                                            style={{
-                                                display: 'block',
-                                                padding: '10px 12px',
-                                                fontSize: '13px',
-                                                borderBottom: '1px solid var(--border)',
-                                                color: 'var(--foreground, #0f172a)',
-                                                textDecoration: 'none',
-                                            }}
                                         >
-                                            <span style={{ fontWeight: 600, color: 'var(--primary)' }}>
-                                                {typeLabel(hit.productType)}
-                                            </span>
+                                            <span className="sidebar-search-link__type">{typeLabel(hit.productType)}</span>
                                             {' · '}
                                             #{hit.imalatNo ?? hit.id} — {hit.musteri || '—'}
                                             {hit.sasiNo ? ` · ${hit.sasiNo}` : ''}
@@ -278,69 +213,40 @@ export default function Sidebar() {
                 )}
 
                 <nav className="sidebar-menu">
-                    {menuItems.map((item) => {
+                    {menuItems.map(item => {
                         const isActive = pathname === item.href;
-                        const isLiveHub =
-                            item.key === 'mevcutIsler' || item.key === 'aracBilgileri';
+                        const isLiveHub = item.key === 'mevcutIsler' || item.key === 'aracBilgileri';
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className={cn(
-                                    'sidebar-item',
-                                    isActive && 'active',
-                                    isLiveHub &&
-                                        'border border-transparent hover:!border-emerald-500/20 hover:!bg-emerald-50/50 dark:hover:!bg-emerald-950/20'
-                                )}
+                                className={cn('sidebar-item', isActive && 'active', isLiveHub && 'sidebar-item--live')}
                                 onClick={() => setIsOpen(false)}
                                 suppressHydrationWarning
                             >
                                 {isLiveHub ? (
-                                    <div className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center">
-                                        <span
-                                            className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-40"
-                                            aria-hidden
-                                        />
-                                        <item.icon
-                                            className="relative text-emerald-600 dark:text-emerald-400"
-                                            size={18}
-                                            strokeWidth={2}
-                                        />
-                                    </div>
+                                    <span className="sidebar-live-wrap" aria-hidden>
+                                        <item.icon size={18} strokeWidth={2} />
+                                    </span>
                                 ) : (
                                     <item.icon size={18} strokeWidth={2} />
                                 )}
-                                <span className="min-w-0 flex-1">{item.label}</span>
-                                {isLiveHub ? (
-                                    <span className="hidden shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:inline-flex dark:text-emerald-400">
-                                        Canlı
-                                    </span>
-                                ) : null}
+                                <span style={{ minWidth: 0, flex: 1 }}>{item.label}</span>
+                                {isLiveHub ? <span className="sidebar-live-pill">Canlı</span> : null}
                             </Link>
                         );
                     })}
                 </nav>
 
-                <div className="sidebar-footer" style={{ paddingTop: '6px', borderTop: '1px solid var(--border)' }}>
-                    {/* Dashboard link intentionally hidden (commented out in code). */}
+                <div className="sidebar-footer sidebar-footer-inner">
                     {user && isAdmin && (
                         <>
-                            <div
-                                style={{
-                                    padding: '6px 6px 3px',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    color: 'var(--muted)',
-                                    letterSpacing: '0.45px',
-                                }}
-                            >
-                                YÖNETİM
-                            </div>
-                            {adminOnlyMenuItems.map((item) => (
+                            <div className="sidebar-section-label">Yönetim</div>
+                            {adminOnlyMenuItems.map(item => (
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
+                                    className={cn('sidebar-item', pathname === item.href && 'active')}
                                     onClick={() => setIsOpen(false)}
                                     suppressHydrationWarning
                                 >
@@ -352,79 +258,23 @@ export default function Sidebar() {
                     )}
                     {user && (
                         <>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    marginBottom: '8px',
-                                    marginTop: isAdmin ? '6px' : 0,
-                                }}
-                            >
+                            <div className={cn('sidebar-user-row', isAdmin && 'sidebar-user-row--after-admin')}>
                                 <div
-                                    style={{
-                                        width: '28px',
-                                        height: '28px',
-                                        borderRadius: '7px',
-                                        background: isAdmin
-                                            ? 'rgba(239, 68, 68, 0.1)'
-                                            : 'rgba(2, 35, 71, 0.1)',
-                                        color: isAdmin ? 'var(--danger)' : 'var(--primary)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
+                                    className={cn(
+                                        'sidebar-user-avatar',
+                                        isAdmin ? 'sidebar-user-avatar--admin' : 'sidebar-user-avatar--user',
+                                    )}
                                 >
                                     {isAdmin ? <Crown size={17} /> : <User size={17} />}
                                 </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div
-                                        style={{
-                                            fontWeight: 600,
-                                            fontSize: '13px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                        }}
-                                    >
-                                        {user.fullName || 'Kullanıcı'}
-                                    </div>
-                                    <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                                        {isAdmin ? 'Yönetici' : 'Kullanıcı'}
-                                    </div>
+                                <div className="sidebar-user-meta">
+                                    <div className="sidebar-user-name">{user.fullName || 'Kullanıcı'}</div>
+                                    <div className="sidebar-user-role">{isAdmin ? 'Yönetici' : 'Kullanıcı'}</div>
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={handleLogout}
-                                style={{
-                                    width: '100%',
-                                    padding: '8px',
-                                    background: 'var(--secondary)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: '8px',
-                                    color: 'var(--muted)',
-                                    fontSize: '13px',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '6px',
-                                    transition: 'all 0.2s',
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = 'var(--danger)';
-                                    e.currentTarget.style.color = 'white';
-                                    e.currentTarget.style.borderColor = 'var(--danger)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = 'var(--secondary)';
-                                    e.currentTarget.style.color = 'var(--muted)';
-                                    e.currentTarget.style.borderColor = 'var(--border)';
-                                }}
-                            >
-                                <LogOut size={16} /> Çıkış
+                            <button type="button" className="sidebar-logout-btn" onClick={handleLogout}>
+                                <LogOut size={16} aria-hidden />
+                                Çıkış
                             </button>
                         </>
                     )}

@@ -9,6 +9,7 @@ const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
+  variable: "--font-manrope",
 });
 
 export const metadata: Metadata = {
@@ -25,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
-      <body className={manrope.className} suppressHydrationWarning={true}>
+    <html lang="tr" className={manrope.variable}>
+      <body suppressHydrationWarning={true}>
         <AuthProvider>
           <NotificationBell />
           {children}

@@ -20,7 +20,7 @@ import {
     Loader2,
     Save,
     Trash2,
-    Sparkles,
+    BarChart3,
     Gauge,
     Package,
     Truck,
@@ -168,7 +168,7 @@ function KapasiteMobileCard(p: KapasiteRowProps) {
                                     title={`Kişi × ${hoursPerPerson} saat`}
                                 >
                                     <KapBtnContent
-                                        icon={<Sparkles size={15} className="text-amber-500" />}
+                                        icon={<BarChart3 size={15} className="text-amber-500" />}
                                         label={`${hoursPerPerson}h/kişi`}
                                     />
                                 </button>
@@ -378,7 +378,8 @@ export default function KapasitePage() {
     return (
         <AuthGuard>
             <Sidebar />
-            <main className="main-content analytics-page min-h-0">
+            <main className="main-content apple-app-page analytics-page min-h-0">
+                <div className="apple-canvas">
                 {/* Hero */}
                 <div className="relative mb-10 overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white via-slate-50/80 to-indigo-50/40 p-6 shadow-lg shadow-slate-200/30 sm:mb-12 sm:p-8">
                     <div
@@ -585,7 +586,7 @@ export default function KapasitePage() {
                                                             title={`Kişi × ${hoursPerPerson} saat`}
                                                         >
                                                             <KapBtnContent
-                                                                icon={<Sparkles size={14} className="text-amber-500" />}
+                                                                icon={<BarChart3 size={14} className="text-amber-500" />}
                                                                 label={`${hoursPerPerson}h/kişi`}
                                                             />
                                                         </button>
@@ -684,6 +685,7 @@ export default function KapasitePage() {
                         </div>
                     </>
                 )}
+                </div>
             </main>
         </AuthGuard>
     );

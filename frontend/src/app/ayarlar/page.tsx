@@ -14,7 +14,8 @@ import {
     Crown,
     User as UserIcon,
     Edit2,
-    Trash2
+    Trash2,
+    X,
 } from 'lucide-react';
 
 interface User {
@@ -138,29 +139,32 @@ export default function AyarlarPage() {
 
     return (
         <AuthGuard requireAdmin>
-            <div className="app-container">
-                <Sidebar />
-                <main className="main-content">
-                    <div className="page-header">
-                        <h1 className="page-title"><Settings size={32} style={{ display: 'inline', marginRight: '12px' }} /> Ayarlar</h1>
-                        <p style={{ color: 'var(--muted)' }}>Kullanıcı yönetimi ve sistem ayarları</p>
-                    </div>
+            <Sidebar />
+            <main className="main-content apple-app-page">
+                <div className="apple-canvas">
+                    <header className="header header--stack apple-page-hero">
+                        <h1 className="header-title">
+                            <Settings size={28} className="page-title-leading-icon shrink-0" />
+                            Ayarlar
+                        </h1>
+                        <p className="header-subtitle">Kullanıcı yönetimi ve sistem ayarları</p>
+                    </header>
 
                     {success && (
-                        <div style={{ background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', color: '#86efac', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="apple-banner apple-banner--success">
                             <CheckCircle size={20} /> {success}
                         </div>
                     )}
                     {error && (
-                        <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="apple-banner apple-banner--danger">
                             <AlertTriangle size={20} /> {error}
                         </div>
                     )}
 
                     {/* Users Section */}
-                    <div className="card" style={{ padding: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="card card--p-lg">
+                        <div className="apple-settings-toolbar">
+                            <h2 className="apple-settings-section-title">
                                 <Users size={20} /> Kullanıcılar
                             </h2>
                             <button
@@ -174,29 +178,31 @@ export default function AyarlarPage() {
                         {loading ? (
                             <OzunluLoading variant="compact" />
                         ) : (
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <div className="apple-table-scroll">
+                                <table className="apple-data-table">
                                     <thead>
-                                        <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                            <th style={{ padding: '12px', textAlign: 'left', color: 'var(--muted)', fontWeight: 500 }}>Kullanıcı Adı</th>
-                                            <th style={{ padding: '12px', textAlign: 'left', color: 'var(--muted)', fontWeight: 500 }}>İsim</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', color: 'var(--muted)', fontWeight: 500 }}>Rol</th>
-                                            <th style={{ padding: '12px', textAlign: 'right', color: 'var(--muted)', fontWeight: 500 }}>İşlemler</th>
+                                        <tr className="apple-data-thead-row">
+                                            <th className="apple-data-th">Kullanıcı Adı</th>
+                                            <th className="apple-data-th">İsim</th>
+                                            <th className="apple-data-th apple-data-th--center">Rol</th>
+                                            <th className="apple-data-th apple-data-th--right">İşlemler</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {users.map(user => (
-                                            <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                                <td style={{ padding: '16px 12px', fontWeight: 500 }}>{user.username}</td>
-                                                <td style={{ padding: '16px 12px' }}>{user.fullName}</td>
-                                                <td style={{ padding: '16px 12px', textAlign: 'center' }}>
-                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, background: user.isAdmin ? 'rgba(245, 158, 11, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: user.isAdmin ? '#fbbf24' : '#60a5fa' }}>
+                                            <tr key={user.id} className="apple-data-tr">
+                                                <td className="apple-data-td apple-data-td--strong">{user.username}</td>
+                                                <td className="apple-data-td">{user.fullName}</td>
+                                                <td className="apple-data-td apple-data-td--center">
+                                                    <span className={`apple-role-pill ${user.isAdmin ? 'apple-role-pill--admin' : 'apple-role-pill--user'}`}>
                                                         {user.isAdmin ? <Crown size={14} /> : <UserIcon size={14} />} {user.isAdmin ? 'Admin' : 'Kullanıcı'}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '16px 12px', textAlign: 'right' }}>
-                                                    <button onClick={() => openEditModal(user)} style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.2)', border: 'none', borderRadius: '8px', color: '#60a5fa', cursor: 'pointer', marginRight: '8px' }}><Edit2 size={16} /></button>
-                                                    <button onClick={() => handleDeleteUser(user.id)} style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.2)', border: 'none', borderRadius: '8px', color: '#fca5a5', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                                <td className="apple-data-td apple-data-td--right">
+                                                    <div className="apple-table-actions">
+                                                        <button type="button" onClick={() => openEditModal(user)} className="apple-icon-btn apple-icon-btn--edit"><Edit2 size={16} /></button>
+                                                        <button type="button" onClick={() => handleDeleteUser(user.id)} className="apple-icon-btn apple-icon-btn--danger"><Trash2 size={16} /></button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -208,289 +214,239 @@ export default function AyarlarPage() {
 
                     {/* Add User Modal */}
                     {showAddModal && (
-                        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setShowAddModal(false)} />
-                            <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 transform transition-all overflow-hidden flex flex-col max-h-[90vh]">
-                                {/* Header */}
-                                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                                            <Plus size={22} />
-                                        </div>
-                                        <span className="bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Yeni Kullanıcı Ekle</span>
-                                    </h3>
+                        <div className="modal-overlay apple-product-form-overlay" onClick={() => setShowAddModal(false)}>
+                            <div
+                                className="modal modal--premium apple-product-form-modal"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="ayarlar-add-user-title"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <div className="modal-header">
+                                    <h2 className="modal-title" id="ayarlar-add-user-title">
+                                        Yeni kullanıcı
+                                    </h2>
                                     <button
+                                        type="button"
+                                        className="modal-close"
                                         onClick={() => setShowAddModal(false)}
-                                        className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-all hover:rotate-90"
+                                        aria-label="Kapat"
                                     >
-                                        <span className="sr-only">Kapat</span>
-                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                        <X size={18} strokeWidth={2.25} />
                                     </button>
                                 </div>
-
-                                {/* Body */}
-                                <div className="p-6 overflow-y-auto">
-                                    <form id="addUserForm" onSubmit={handleAddUser} className="flex flex-col gap-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Username */}
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Kullanıcı Adı</label>
-                                                <div className="relative group">
-                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
-                                                        <UserIcon size={20} />
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.username}
-                                                        onChange={e => setFormData({ ...formData, username: e.target.value })}
-                                                        required
-                                                        style={{ paddingLeft: '48px' }}
-                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
-                                                        placeholder="örn: ahmet.yilmaz"
-                                                    />
-                                                </div>
+                                <form id="addUserForm" onSubmit={handleAddUser}>
+                                    <div className="modal-body">
+                                        <div className="form-grid">
+                                            <div className="form-group">
+                                                <label className="form-label" htmlFor="add-username">
+                                                    Kullanıcı adı *
+                                                </label>
+                                                <input
+                                                    id="add-username"
+                                                    type="text"
+                                                    className="input"
+                                                    value={formData.username}
+                                                    onChange={e => setFormData({ ...formData, username: e.target.value })}
+                                                    required
+                                                    autoComplete="username"
+                                                    placeholder="örn: ahmet.yilmaz"
+                                                />
                                             </div>
-
-                                            {/* Full Name */}
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">İsim Soyisim</label>
-                                                <div className="relative group">
-                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
-                                                        <Users size={20} />
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.fullName}
-                                                        onChange={e => setFormData({ ...formData, fullName: e.target.value })}
-                                                        required
-                                                        style={{ paddingLeft: '48px' }}
-                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
-                                                        placeholder="örn: Ahmet Yılmaz"
-                                                    />
-                                                </div>
+                                            <div className="form-group">
+                                                <label className="form-label" htmlFor="add-fullname">
+                                                    İsim soyisim *
+                                                </label>
+                                                <input
+                                                    id="add-fullname"
+                                                    type="text"
+                                                    className="input"
+                                                    value={formData.fullName}
+                                                    onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                                                    required
+                                                    autoComplete="name"
+                                                    placeholder="örn: Ahmet Yılmaz"
+                                                />
                                             </div>
-
-                                            {/* Password */}
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Şifre</label>
-                                                <div className="relative group">
-                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
-                                                        <div className="flex items-center justify-center">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                                                        </div>
-                                                    </div>
-                                                    <input
-                                                        type="password"
-                                                        value={formData.password}
-                                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                                        required
-                                                        style={{ paddingLeft: '48px' }}
-                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
-                                                        placeholder="••••••••"
-                                                    />
-                                                </div>
+                                            <div className="form-group">
+                                                <label className="form-label" htmlFor="add-password">
+                                                    Şifre *
+                                                </label>
+                                                <input
+                                                    id="add-password"
+                                                    type="password"
+                                                    className="input"
+                                                    value={formData.password}
+                                                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                                    required
+                                                    autoComplete="new-password"
+                                                    placeholder="••••••••"
+                                                />
                                             </div>
-
-                                            {/* Admin Toggle */}
-                                            <div className="pt-0">
-                                                <label className="h-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 hover:border-blue-200 transition-all group bg-white shadow-sm relative overflow-hidden">
-                                                    <div className={`absolute inset-0 bg-blue-50/50 transition-transform ${formData.isAdmin ? 'translate-x-0' : '-translate-x-full'}`} />
-                                                    <div className="relative flex items-center shrink-0">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={formData.isAdmin}
-                                                            onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })}
-                                                            className="peer h-6 w-6 cursor-pointer appearance-none rounded-lg border-2 border-slate-300 transition-all checked:border-blue-600 checked:bg-blue-600 hover:border-blue-400"
-                                                        />
-                                                        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex flex-col relative z-9">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition-colors">Yönetici Yetkisi</span>
-                                                            {formData.isAdmin && <Crown size={14} className="text-amber-500 animate-in zoom-in" />}
-                                                        </div>
-                                                        <span className="text-[11px] text-slate-500 leading-tight">Tam yetki erişimi</span>
-                                                    </div>
+                                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                                <span className="form-label">Yetki</span>
+                                                <label className="apple-checkbox-field">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.isAdmin}
+                                                        onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })}
+                                                    />
+                                                    <span className="apple-checkbox-field__text">
+                                                        <span className="apple-checkbox-field__label">
+                                                            Yönetici
+                                                            {formData.isAdmin ? <Crown size={14} className="inline ml-1 align-text-bottom text-amber-600" /> : null}
+                                                        </span>
+                                                        <span className="apple-checkbox-field__hint">
+                                                            İşaretliyse tüm yönetim ekranlarına erişir.
+                                                        </span>
+                                                    </span>
                                                 </label>
                                             </div>
                                         </div>
-
-                                        {error && (
-                                            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 text-red-600 text-sm font-medium border border-red-100 animate-in fade-in slide-in-from-top-2">
-                                                <div className="p-1.5 bg-red-100 rounded-lg">
-                                                    <AlertTriangle size={18} className="shrink-0" />
-                                                </div>
+                                        {error ? (
+                                            <div className="apple-banner apple-banner--danger" style={{ marginTop: 16, marginBottom: 0 }}>
+                                                <AlertTriangle size={18} />
                                                 {error}
                                             </div>
-                                        )}
-                                    </form>
-                                </div>
-
-                                {/* Footer */}
-                                <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAddModal(false)}
-                                        className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all shadow-sm"
-                                    >
-                                        İptal
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        form="addUserForm"
-                                        className="flex-1 btn btn-premium justify-center !py-2.5 !m-0 w-full"
-                                    >
-                                        Kullanıcı Ekle
-                                    </button>
-                                </div>
+                                        ) : null}
+                                    </div>
+                                    <div className="modal-footer">
+                                        <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
+                                            İptal
+                                        </button>
+                                        <button type="submit" className="btn btn-primary">
+                                            Kullanıcı ekle
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     )}
 
                     {/* Edit User Modal */}
                     {showEditModal && selectedUser && (
-                        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} />
-                            <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 transform transition-all overflow-hidden flex flex-col max-h-[90vh]">
-                                {/* Header */}
-                                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-200">
-                                            <Edit2 size={22} />
-                                        </div>
-                                        <span className="bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Kullanıcı Düzenle</span>
-                                    </h3>
-                                    <button
-                                        onClick={() => { setShowEditModal(false); setSelectedUser(null); }}
-                                        className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-all hover:rotate-90"
-                                    >
-                                        <span className="sr-only">Kapat</span>
-                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                </div>
-
-                                {/* Body */}
-                                <div className="p-6 overflow-y-auto">
-                                    <form id="editUserForm" onSubmit={handleUpdateUser} className="flex flex-col gap-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Username */}
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Kullanıcı Adı</label>
-                                                <div className="relative">
-                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                        <UserIcon size={20} />
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.username}
-                                                        disabled
-                                                        style={{ paddingLeft: '48px' }}
-                                                        className="w-full pr-4 py-3.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-bold tracking-tight cursor-not-allowed select-none"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Full Name */}
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">İsim Soyisim</label>
-                                                <div className="relative group">
-                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
-                                                        <Users size={20} />
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.fullName}
-                                                        onChange={e => setFormData({ ...formData, fullName: e.target.value })}
-                                                        style={{ paddingLeft: '48px' }}
-                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Password */}
-                                            <div className="space-y-2">
-                                                <label className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                                                    Yeni Şifre
-                                                    <span className="text-[10px] font-bold text-blue-600 lowercase tracking-normal">isteğe bağlı</span>
-                                                </label>
-                                                <div className="relative group">
-                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors pointer-events-none">
-                                                        <div className="flex items-center justify-center">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                                                        </div>
-                                                    </div>
-                                                    <input
-                                                        type="password"
-                                                        value={formData.password}
-                                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                                        placeholder="Değiştirmek için yazın"
-                                                        style={{ paddingLeft: '48px' }}
-                                                        className="w-full pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-700 font-semibold placeholder:text-slate-400"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Admin Toggle */}
-                                            <div className="pt-0">
-                                                <label className="h-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 hover:border-blue-200 transition-all group bg-white shadow-sm relative overflow-hidden">
-                                                    <div className={`absolute inset-0 bg-blue-50/50 transition-transform ${formData.isAdmin ? 'translate-x-0' : '-translate-x-full'}`} />
-                                                    <div className="relative flex items-center shrink-0">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={formData.isAdmin}
-                                                            onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })}
-                                                            className="peer h-6 w-6 cursor-pointer appearance-none rounded-lg border-2 border-slate-300 transition-all checked:border-blue-600 checked:bg-blue-600 hover:border-blue-400"
-                                                        />
-                                                        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex flex-col relative z-9">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition-colors">Yönetici Yetkisi</span>
-                                                            {formData.isAdmin && <Crown size={14} className="text-amber-500 animate-in zoom-in" />}
-                                                        </div>
-                                                        <span className="text-[11px] text-slate-500 leading-tight">Tam yetki erişimi</span>
-                                                    </div>
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        {error && (
-                                            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 text-red-600 text-sm font-medium border border-red-100 animate-in fade-in slide-in-from-top-2">
-                                                <div className="p-1.5 bg-red-100 rounded-lg">
-                                                    <AlertTriangle size={18} className="shrink-0" />
-                                                </div>
-                                                {error}
-                                            </div>
-                                        )}
-                                    </form>
-                                </div>
-
-                                {/* Footer */}
-                                <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
+                        <div
+                            className="modal-overlay apple-product-form-overlay"
+                            onClick={() => {
+                                setShowEditModal(false);
+                                setSelectedUser(null);
+                            }}
+                        >
+                            <div
+                                className="modal modal--premium apple-product-form-modal"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="ayarlar-edit-user-title"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <div className="modal-header">
+                                    <h2 className="modal-title" id="ayarlar-edit-user-title">
+                                        Kullanıcıyı düzenle
+                                    </h2>
                                     <button
                                         type="button"
-                                        onClick={() => { setShowEditModal(false); setSelectedUser(null); }}
-                                        className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all shadow-sm"
+                                        className="modal-close"
+                                        onClick={() => {
+                                            setShowEditModal(false);
+                                            setSelectedUser(null);
+                                        }}
+                                        aria-label="Kapat"
                                     >
-                                        İptal
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        form="editUserForm"
-                                        className="flex-1 btn btn-premium justify-center !py-2.5 !m-0 w-full"
-                                    >
-                                        Değişiklikleri Kaydet
+                                        <X size={18} strokeWidth={2.25} />
                                     </button>
                                 </div>
+                                <form id="editUserForm" onSubmit={handleUpdateUser}>
+                                    <div className="modal-body">
+                                        <div className="form-grid">
+                                            <div className="form-group">
+                                                <label className="form-label" htmlFor="edit-username">
+                                                    Kullanıcı adı
+                                                </label>
+                                                <input
+                                                    id="edit-username"
+                                                    type="text"
+                                                    className="input"
+                                                    value={formData.username}
+                                                    disabled
+                                                    readOnly
+                                                    autoComplete="username"
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label" htmlFor="edit-fullname">
+                                                    İsim soyisim
+                                                </label>
+                                                <input
+                                                    id="edit-fullname"
+                                                    type="text"
+                                                    className="input"
+                                                    value={formData.fullName}
+                                                    onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                                                    autoComplete="name"
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label" htmlFor="edit-password">
+                                                    Yeni şifre <span style={{ fontWeight: 500, color: 'var(--muted)' }}>(isteğe bağlı)</span>
+                                                </label>
+                                                <input
+                                                    id="edit-password"
+                                                    type="password"
+                                                    className="input"
+                                                    value={formData.password}
+                                                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                                    autoComplete="new-password"
+                                                    placeholder="Değiştirmek için yazın"
+                                                />
+                                            </div>
+                                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                                <span className="form-label">Yetki</span>
+                                                <label className="apple-checkbox-field">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.isAdmin}
+                                                        onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })}
+                                                    />
+                                                    <span className="apple-checkbox-field__text">
+                                                        <span className="apple-checkbox-field__label">
+                                                            Yönetici
+                                                            {formData.isAdmin ? <Crown size={14} className="inline ml-1 align-text-bottom text-amber-600" /> : null}
+                                                        </span>
+                                                        <span className="apple-checkbox-field__hint">
+                                                            İşaretliyse tüm yönetim ekranlarına erişir.
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        {error ? (
+                                            <div className="apple-banner apple-banner--danger" style={{ marginTop: 16, marginBottom: 0 }}>
+                                                <AlertTriangle size={18} />
+                                                {error}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                    <div className="modal-footer">
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() => {
+                                                setShowEditModal(false);
+                                                setSelectedUser(null);
+                                            }}
+                                        >
+                                            İptal
+                                        </button>
+                                        <button type="submit" className="btn btn-primary">
+                                            Kaydet
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     )}
+                    </div>
                 </main>
-            </div>
         </AuthGuard>
     );
 }

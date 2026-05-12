@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronsLeftRight } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -12,6 +13,25 @@ export default function OzetSayfasi() {
     const [dorses, setDorses] = useState<DorseSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const tableScrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const el = tableScrollRef.current;
+        if (!el) return;
+        const onWheel = (e: WheelEvent) => {
+            if (e.ctrlKey) return;
+            if (el.scrollWidth <= el.clientWidth) return;
+            if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+            const atStart = el.scrollLeft <= 0;
+            const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
+            if (e.deltaY < 0 && atStart) return;
+            if (e.deltaY > 0 && atEnd) return;
+            e.preventDefault();
+            el.scrollLeft += e.deltaY;
+        };
+        el.addEventListener('wheel', onWheel, { passive: false });
+        return () => el.removeEventListener('wheel', onWheel);
+    }, []);
 
     useEffect(() => {
         async function loadData() {
@@ -37,16 +57,16 @@ export default function OzetSayfasi() {
         switch (status) {
             case 'TAMAMLANDI':
             case 'YAPILDI':
-                return <span className="badge badge-success" style={{ fontSize: '10px', padding: '2px 6px' }}>✓</span>;
+                return <span className="badge badge-success status-badge-mini">✓</span>;
             case 'DEVAM EDİYOR':
-                return <span className="badge badge-warning" style={{ fontSize: '10px', padding: '2px 6px' }}>⟳</span>;
+                return <span className="badge badge-warning status-badge-mini">⟳</span>;
             case 'BAŞLAMADI':
-                return <span className="badge badge-danger" style={{ fontSize: '10px', padding: '2px 6px' }}>✗</span>;
+                return <span className="badge badge-danger status-badge-mini">✗</span>;
             case 'YOK':
             case 'MUAYENE YOK':
-                return <span className="badge badge-muted" style={{ fontSize: '10px', padding: '2px 6px' }}>-</span>;
+                return <span className="badge badge-muted status-badge-mini">-</span>;
             default:
-                return <span className="badge badge-muted" style={{ fontSize: '10px', padding: '2px 6px' }}>{status}</span>;
+                return <span className="badge badge-muted status-badge-mini">{status}</span>;
         }
     };
 
@@ -68,8 +88,10 @@ export default function OzetSayfasi() {
             <AuthGuard>
             <>
                 <Sidebar />
-                <main className="main-content">
-                    <OzunluLoading variant="inline" />
+                <main className="main-content apple-app-page">
+                    <div className="apple-canvas">
+                        <OzunluLoading variant="inline" />
+                    </div>
                 </main>
             </>
             </AuthGuard>
@@ -80,9 +102,10 @@ export default function OzetSayfasi() {
         <AuthGuard>
         <>
             <Sidebar />
-            <main className="main-content">
-                <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div className="dashboard-header-row" style={{ width: '100%' }}>
+            <main className="main-content apple-app-page">
+                <div className="apple-canvas">
+                <header className="header header--stack">
+                    <div className="dashboard-header-row header-row-full">
                         <div>
                             <h1 className="header-title">Özet Görünüm</h1>
                             <p className="header-subtitle">Tüm {productType === 'DAMPER' ? 'damper' : 'dorse'} imalat süreçlerinin özet durumu</p>
@@ -90,35 +113,17 @@ export default function OzetSayfasi() {
                     </div>
 
                     {/* Product Toggle */}
-                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <div className="apple-segmented">
                         <button
                             type="button"
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: productType === 'DAMPER' ? 'var(--primary)' : 'transparent',
-                                color: productType === 'DAMPER' ? 'white' : 'var(--muted)',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
+                            className={`apple-segmented-btn ${productType === 'DAMPER' ? 'is-active-brand' : ''}`}
                             onClick={() => setProductType('DAMPER')}
                         >
                             Damperler
                         </button>
                         <button
                             type="button"
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: productType === 'DORSE' ? 'var(--primary)' : 'transparent',
-                                color: productType === 'DORSE' ? 'white' : 'var(--muted)',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
+                            className={`apple-segmented-btn ${productType === 'DORSE' ? 'is-active-brand' : ''}`}
                             onClick={() => setProductType('DORSE')}
                         >
                             Dorseler
@@ -127,24 +132,38 @@ export default function OzetSayfasi() {
                 </header>
 
                 {/* Search */}
-                <div style={{ marginBottom: '24px' }}>
+                <div className="summary-search-block">
                     <input
                         type="text"
                         placeholder="İmalat No veya Müşteri ara..."
-                        className="input"
-                        style={{ maxWidth: '300px' }}
+                        className="input summary-search-input"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
                 {/* Summary Table */}
-                <div className="table-container" style={{ overflowX: 'auto' }}>
-                    <table>
+                <div className="summary-table-wrap">
+                    <div className="summary-table-hint">
+                        <ChevronsLeftRight className="summary-table-hint-icon" size={18} strokeWidth={2} aria-hidden />
+                        <span>
+                            <strong>Tüm süreç sütunları</strong> sağda. Tablonun üzerindeyken dikey tekerleği
+                            yatay kaydırma olarak kullanabilirsiniz; ayrıca <kbd>Shift</kbd> + tekerlek veya (mobilde)
+                            iki parmakla yatay kaydırın. İmalat no ve müşteri sütunları sabit kalır.
+                        </span>
+                    </div>
+                    <div
+                        ref={tableScrollRef}
+                        className="summary-table-scroll"
+                        tabIndex={0}
+                        role="region"
+                        aria-label="Özet tablo, yatay kaydırılabilir"
+                    >
+                        <table className="summary-ozet-table">
                         <thead>
                             <tr>
-                                <th style={{ position: 'sticky', left: 0, background: 'var(--secondary)', zIndex: 10 }}>İmalat No</th>
-                                <th style={{ position: 'sticky', left: '80px', background: 'var(--secondary)', zIndex: 10 }}>Müşteri</th>
+                                <th className="sticky-left sticky-left--no">İmalat No</th>
+                                <th className="sticky-left sticky-left--musteri">Müşteri</th>
                                 <th>{productType === 'DAMPER' ? 'Araç' : 'Çekici'}</th>
                                 {productType === 'DAMPER' && <th>Tip</th>}
                                 {productType === 'DORSE' && <th>Şasi No</th>}
@@ -167,28 +186,8 @@ export default function OzetSayfasi() {
                             {productType === 'DAMPER'
                                 ? filteredDampers.map((item) => (
                                     <tr key={item.id}>
-                                        <td style={{
-                                            fontWeight: 600,
-                                            color: 'var(--primary)',
-                                            position: 'sticky',
-                                            left: 0,
-                                            background: 'var(--card)',
-                                            zIndex: 5
-                                        }}>
-                                            {item.imalatNo}
-                                        </td>
-                                        <td style={{
-                                            position: 'sticky',
-                                            left: '80px',
-                                            background: 'var(--card)',
-                                            zIndex: 5,
-                                            maxWidth: '150px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap'
-                                        }}>
-                                            {item.musteri}
-                                        </td>
+                                        <td className="sticky-left sticky-left--no">{item.imalatNo}</td>
+                                        <td className="sticky-left sticky-left--musteri">{item.musteri}</td>
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <div style={{
@@ -230,28 +229,8 @@ export default function OzetSayfasi() {
                                 ))
                                 : filteredDorses.map((item) => (
                                     <tr key={item.id}>
-                                        <td style={{
-                                            fontWeight: 600,
-                                            color: 'var(--primary)',
-                                            position: 'sticky',
-                                            left: 0,
-                                            background: 'var(--card)',
-                                            zIndex: 5
-                                        }}>
-                                            {item.imalatNo}
-                                        </td>
-                                        <td style={{
-                                            position: 'sticky',
-                                            left: '80px',
-                                            background: 'var(--card)',
-                                            zIndex: 5,
-                                            maxWidth: '150px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap'
-                                        }}>
-                                            {item.musteri}
-                                        </td>
+                                        <td className="sticky-left sticky-left--no">{item.imalatNo}</td>
+                                        <td className="sticky-left sticky-left--musteri">{item.musteri}</td>
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <div style={{
@@ -312,36 +291,29 @@ export default function OzetSayfasi() {
                                 ))}
                         </tbody>
                     </table>
+                    </div>
                 </div>
 
                 {/* Legend */}
-                <div style={{
-                    marginTop: '24px',
-                    padding: '16px 20px',
-                    background: 'var(--card)',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border)',
-                    display: 'flex',
-                    gap: '24px',
-                    flexWrap: 'wrap'
-                }}>
-                    <span style={{ color: 'var(--muted)', fontSize: '13px', fontWeight: 500 }}>Durum Göstergeleri:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="badge badge-success" style={{ fontSize: '10px', padding: '2px 6px' }}>✓</span>
-                        <span style={{ fontSize: '12px' }}>Tamamlandı</span>
+                <div className="summary-legend">
+                    <span className="summary-legend-title">Durum Göstergeleri:</span>
+                    <div className="summary-legend-item">
+                        <span className="badge badge-success status-badge-mini">✓</span>
+                        <span className="summary-legend-item-text">Tamamlandı</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="badge badge-warning" style={{ fontSize: '10px', padding: '2px 6px' }}>⟳</span>
-                        <span style={{ fontSize: '12px' }}>Devam Ediyor</span>
+                    <div className="summary-legend-item">
+                        <span className="badge badge-warning status-badge-mini">⟳</span>
+                        <span className="summary-legend-item-text">Devam Ediyor</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="badge badge-danger" style={{ fontSize: '10px', padding: '2px 6px' }}>✗</span>
-                        <span style={{ fontSize: '12px' }}>Başlamadı</span>
+                    <div className="summary-legend-item">
+                        <span className="badge badge-danger status-badge-mini">✗</span>
+                        <span className="summary-legend-item-text">Başlamadı</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="badge badge-muted" style={{ fontSize: '10px', padding: '2px 6px' }}>-</span>
-                        <span style={{ fontSize: '12px' }}>Yok / Muayene Yok</span>
+                    <div className="summary-legend-item">
+                        <span className="badge badge-muted status-badge-mini">-</span>
+                        <span className="summary-legend-item-text">Yok / Muayene Yok</span>
                     </div>
+                </div>
                 </div>
             </main>
         </>

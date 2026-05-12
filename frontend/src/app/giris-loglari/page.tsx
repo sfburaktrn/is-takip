@@ -5,13 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
 import { API_URL, apiFetch } from '@/lib/api';
-import {
-    FileText,
-    ClipboardList,
-    Calendar,
-    User,
-    Clock
-} from 'lucide-react';
+import { FileText, ClipboardList, Calendar, User, Clock } from 'lucide-react';
 
 interface LoginLog {
     id: number;
@@ -49,7 +43,7 @@ export default function GirisLoglariPage() {
         return date.toLocaleDateString('tr-TR', {
             day: '2-digit',
             month: '2-digit',
-            year: 'numeric'
+            year: 'numeric',
         });
     };
 
@@ -57,101 +51,69 @@ export default function GirisLoglariPage() {
         const date = new Date(dateStr);
         return date.toLocaleTimeString('tr-TR', {
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
         });
     };
 
-    // Group logs by date
-    const groupedLogs = logs.reduce((acc, log) => {
-        const date = formatDate(log.loginAt);
-        if (!acc[date]) acc[date] = [];
-        acc[date].push(log);
-        return acc;
-    }, {} as Record<string, LoginLog[]>);
+    const groupedLogs = logs.reduce(
+        (acc, log) => {
+            const date = formatDate(log.loginAt);
+            if (!acc[date]) acc[date] = [];
+            acc[date].push(log);
+            return acc;
+        },
+        {} as Record<string, LoginLog[]>,
+    );
 
     return (
         <AuthGuard requireAdmin>
-            <div className="app-container">
-                <Sidebar />
-                <main className="main-content">
-                    <div className="page-header">
-                        <h1 className="page-title"><FileText size={32} style={{ display: 'inline', marginRight: '12px' }} /> Giriş Logları</h1>
-                        <p style={{ color: 'var(--muted)' }}>Kullanıcı giriş kayıtları</p>
-                    </div>
+            <Sidebar />
+            <main className="main-content apple-app-page analytics-page">
+                <div className="apple-canvas">
+                    <header className="header header--stack apple-page-hero">
+                        <h1 className="header-title">
+                            <FileText size={28} className="page-title-leading-icon shrink-0" />
+                            Giriş logları
+                        </h1>
+                        <p className="header-subtitle">
+                            Sisteme yapılan son girişler; güvenlik ve denetim için salt okunur kayıtlar.
+                        </p>
+                    </header>
 
-                    <div className="card" style={{ padding: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <ClipboardList size={20} /> Son Girişler
+                    <section className="apple-login-logs-panel">
+                        <div className="apple-login-logs-toolbar">
+                            <h2 className="apple-login-logs-title">
+                                <ClipboardList size={20} aria-hidden />
+                                Son girişler
                             </h2>
-                            <span style={{ color: 'var(--muted)', fontSize: '14px' }}>
-                                Toplam: {logs.length} kayıt
-                            </span>
+                            <span className="apple-login-logs-count">Toplam: {logs.length} kayıt</span>
                         </div>
 
                         {loading ? (
                             <OzunluLoading variant="compact" />
                         ) : logs.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
-                                Henüz giriş kaydı yok
-                            </div>
+                            <div className="apple-empty-state">Henüz giriş kaydı yok.</div>
                         ) : (
                             <div>
                                 {Object.entries(groupedLogs).map(([date, dateLogs]) => (
-                                    <div key={date} style={{ marginBottom: '24px' }}>
-                                        <div style={{
-                                            padding: '8px 16px',
-                                            background: 'rgba(59, 130, 246, 0.1)',
-                                            borderRadius: '8px',
-                                            marginBottom: '12px',
-                                            fontSize: '14px',
-                                            fontWeight: 600,
-                                            color: '#60a5fa',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px'
-                                        }}>
-                                            <Calendar size={16} /> {date}
+                                    <div key={date} className="apple-login-log-date-group">
+                                        <div className="apple-login-log-date-chip">
+                                            <Calendar size={16} aria-hidden />
+                                            {date}
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div className="apple-login-log-list">
                                             {dateLogs.map(log => (
-                                                <div
-                                                    key={log.id}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '16px',
-                                                        padding: '12px 16px',
-                                                        background: 'var(--bg-secondary)',
-                                                        borderRadius: '10px',
-                                                        border: '1px solid var(--border)'
-                                                    }}
-                                                >
-                                                    <div style={{
-                                                        width: '40px',
-                                                        height: '40px',
-                                                        borderRadius: '10px',
-                                                        background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: '18px',
-                                                        flexShrink: 0
-                                                    }}>
-                                                        <User size={20} color="#fff" />
+                                                <div key={log.id} className="apple-login-log-row">
+                                                    <div className="apple-login-log-avatar" aria-hidden>
+                                                        <User size={20} />
                                                     </div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontWeight: 600, fontSize: '14px' }}>
-                                                            {log.user.fullName}
-                                                        </div>
-                                                        <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                                                            @{log.user.username}
-                                                        </div>
+                                                    <div className="apple-login-log-body">
+                                                        <div className="apple-login-log-name">{log.user.fullName}</div>
+                                                        <div className="apple-login-log-user">@{log.user.username}</div>
                                                     </div>
-                                                    <div style={{ textAlign: 'right' }}>
-                                                        <div style={{ fontWeight: 600, fontSize: '14px', color: '#86efac', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                                                            <Clock size={14} /> {formatTime(log.loginAt)}
-                                                        </div>
+                                                    <div className="apple-login-log-time">
+                                                        <Clock size={14} aria-hidden />
+                                                        {formatTime(log.loginAt)}
                                                     </div>
                                                 </div>
                                             ))}
@@ -160,9 +122,9 @@ export default function GirisLoglariPage() {
                                 ))}
                             </div>
                         )}
-                    </div>
-                </main>
-            </div>
+                    </section>
+                </div>
+            </main>
         </AuthGuard>
     );
 }

@@ -139,7 +139,8 @@ export default function BildirimlerPage() {
     return (
         <AuthGuard>
             <Sidebar />
-            <main className="main-content analytics-page notify-page">
+            <main className="main-content apple-app-page analytics-page notify-page">
+                <div className="apple-canvas">
                 <header className="notify-page-header">
                     <div className="notify-page-hero">
                         <div className="notify-page-hero-text">
@@ -332,6 +333,7 @@ export default function BildirimlerPage() {
                         </button>
                     </div>
                 )}
+                </div>
             </main>
         </AuthGuard>
     );

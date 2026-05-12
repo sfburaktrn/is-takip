@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Building2, ChevronDown, CheckCircle2, RefreshCw, XCircle, Search, X } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -46,17 +47,17 @@ export default function FirmaOzeti() {
     };
 
     const getStatusBadge = (status: string | undefined) => {
-        if (!status) return <span className="badge badge-muted" style={{ fontSize: '10px', padding: '2px 6px' }}>-</span>;
+        if (!status) return <span className="badge badge-muted status-badge-mini">-</span>;
         switch (status) {
             case 'TAMAMLANDI':
             case 'YAPILDI':
-                return <span className="badge badge-success" style={{ fontSize: '10px', padding: '2px 6px' }}>✓</span>;
+                return <span className="badge badge-success status-badge-mini">✓</span>;
             case 'DEVAM EDİYOR':
-                return <span className="badge badge-warning" style={{ fontSize: '10px', padding: '2px 6px' }}>⟳</span>;
+                return <span className="badge badge-warning status-badge-mini">⟳</span>;
             case 'BAŞLAMADI':
-                return <span className="badge badge-danger" style={{ fontSize: '10px', padding: '2px 6px' }}>✗</span>;
+                return <span className="badge badge-danger status-badge-mini">✗</span>;
             default:
-                return <span className="badge badge-muted" style={{ fontSize: '10px', padding: '2px 6px' }}>-</span>;
+                return <span className="badge badge-muted status-badge-mini">-</span>;
         }
     };
 
@@ -95,76 +96,51 @@ export default function FirmaOzeti() {
         <AuthGuard>
         <>
             <Sidebar />
-            <main className="main-content">
-                <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-                    <div className="dashboard-header-row" style={{ width: '100%' }}>
+            <main className="main-content apple-app-page">
+                <div className="apple-canvas">
+                <header className="header header--stack">
+                    <div className="dashboard-header-row header-row-full">
                         <div>
                             <h1 className="header-title">Firma Özeti</h1>
                             <p className="header-subtitle">{productType === 'DAMPER' ? 'Damper' : 'Dorse'} sipariş ve üretim durumu özeti</p>
                         </div>
 
-                        <div style={{ position: 'relative', width: '100%', maxWidth: '250px' }}>
+                        <div className={`fo-search${searchQuery ? ' fo-search--has-value' : ''}`}>
+                            <Search className="fo-search__icon" size={18} strokeWidth={1.75} aria-hidden />
                             <input
-                                type="text"
-                                className="input"
-                                placeholder="🔍 Firma ara..."
+                                type="search"
+                                className="fo-search__input"
+                                placeholder="Firma ara…"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    paddingLeft: '12px',
-                                    paddingRight: searchQuery ? '36px' : '12px'
-                                }}
+                                aria-label="Firma ara"
+                                autoComplete="off"
                             />
-                            {searchQuery && (
+                            {searchQuery ? (
                                 <button
+                                    type="button"
                                     onClick={() => setSearchQuery('')}
-                                    style={{
-                                        position: 'absolute',
-                                        right: '10px',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: 'var(--muted)',
-                                        fontSize: '16px'
-                                    }}
-                                >✕</button>
-                            )}
+                                    className="fo-search__clear"
+                                    aria-label="Aramayı temizle"
+                                >
+                                    <X size={15} strokeWidth={2.25} aria-hidden />
+                                </button>
+                            ) : null}
                         </div>
                     </div>
 
                     {/* Product Toggle */}
-                    <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
+                    <div className="apple-segmented">
                         <button
                             type="button"
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: productType === 'DAMPER' ? 'var(--primary)' : 'transparent',
-                                color: productType === 'DAMPER' ? 'white' : 'var(--muted)',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
+                            className={`apple-segmented-btn ${productType === 'DAMPER' ? 'is-active-brand' : ''}`}
                             onClick={() => setProductType('DAMPER')}
                         >
                             Damperler
                         </button>
                         <button
                             type="button"
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: productType === 'DORSE' ? 'var(--primary)' : 'transparent',
-                                color: productType === 'DORSE' ? 'white' : 'var(--muted)',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
+                            className={`apple-segmented-btn ${productType === 'DORSE' ? 'is-active-brand' : ''}`}
                             onClick={() => setProductType('DORSE')}
                         >
                             Dorseler
@@ -176,12 +152,9 @@ export default function FirmaOzeti() {
                 {loading ? (
                     <OzunluLoading variant="inline" />
                 ) : (
-                    /* Company Cards */
-                    <div>
+                    <div className="fo-list">
                         {companies.length === 0 ? (
-                            <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
-                                Bu kategoride veri bulunamadı
-                            </div>
+                            <div className="fo-empty">Bu kategoride veri bulunamadı</div>
                         ) : (
                             companies
                                 .filter(c => c.baseCompany.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -190,56 +163,64 @@ export default function FirmaOzeti() {
                                     const completionRate = Math.round((company.tamamlanan / company.totalOrders) * 100) || 0;
 
                                     return (
-                                        <div key={company.baseCompany} className="damper-card" style={{ marginBottom: '16px' }}>
-                                            <div
-                                                className="damper-card-header"
+                                        <div
+                                            key={company.baseCompany}
+                                            className={`fo-card${isExpanded ? ' fo-card--expanded' : ''}`}
+                                        >
+                                            <button
+                                                type="button"
+                                                className="fo-card__header"
                                                 onClick={() => setExpandedCompany(isExpanded ? null : company.baseCompany)}
-                                                style={{ cursor: 'pointer' }}
+                                                aria-expanded={isExpanded}
                                             >
-                                                <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--foreground)' }}>
-                                                    🏢 {company.baseCompany}
-                                                </div>
-                                                <div style={{
-                                                    background: 'var(--primary)',
-                                                    color: 'white',
-                                                    padding: '4px 12px',
-                                                    borderRadius: '20px',
-                                                    fontSize: '13px',
-                                                    fontWeight: 600
-                                                }}>
-                                                    {company.totalOrders} Sipariş
-                                                </div>
-
-                                                <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <span className="badge badge-success">{company.tamamlanan} ✓</span>
-                                                    <span className="badge badge-warning">{company.devamEden} ⟳</span>
-                                                    <span className="badge badge-danger">{company.baslamayan} ✗</span>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <div className="progress-bar" style={{ width: '100px' }}>
-                                                        <div className="progress-bar-fill" style={{ width: `${completionRate}%` }}></div>
+                                                <div className="fo-card__brand">
+                                                    <div className="fo-card__icon" aria-hidden>
+                                                        <Building2 size={22} strokeWidth={2} />
                                                     </div>
-                                                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{completionRate}%</span>
+                                                    <div className="fo-card__titles">
+                                                        <div className="fo-card__eyebrow">Firma</div>
+                                                        <div className="fo-card__name">{company.baseCompany}</div>
+                                                    </div>
                                                 </div>
-                                                <div style={{
-                                                    fontSize: '20px',
-                                                    transition: 'transform 0.3s',
-                                                    transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)'
-                                                }}>▼</div>
-                                            </div>
+                                                <span className="fo-chip-orders">{company.totalOrders} Sipariş</span>
+                                                <div className="fo-metrics">
+                                                    <span className="fo-metric fo-metric--ok">
+                                                        <CheckCircle2 size={15} strokeWidth={2.25} aria-hidden />
+                                                        {company.tamamlanan}
+                                                    </span>
+                                                    <span className="fo-metric fo-metric--mid">
+                                                        <RefreshCw size={15} strokeWidth={2.25} aria-hidden />
+                                                        {company.devamEden}
+                                                    </span>
+                                                    <span className="fo-metric fo-metric--bad">
+                                                        <XCircle size={15} strokeWidth={2.25} aria-hidden />
+                                                        {company.baslamayan}
+                                                    </span>
+                                                </div>
+                                                <div className="fo-progress">
+                                                    <div className="fo-progress__track" aria-hidden>
+                                                        <div
+                                                            className="fo-progress__fill"
+                                                            style={{ width: `${completionRate}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="fo-progress__pct">{completionRate}%</span>
+                                                </div>
+                                                <ChevronDown className="fo-chevron" size={22} strokeWidth={2} aria-hidden />
+                                            </button>
 
                                             {isExpanded && (
-                                                <div className="damper-card-body">
+                                                <div className="fo-card__body">
                                                     {/* Renk Lejantı */}
                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', fontSize: '11px', marginBottom: '16px', padding: '0 8px' }}>
-                                                        <span style={{ color: '#ef4444' }}>🔴 Başlanmadı</span>
-                                                        <span style={{ color: '#f59e0b' }}>🟡 Devam</span>
-                                                        <span style={{ color: '#10b981' }}>🟢 Tamam</span>
+                                                        <span style={{ color: 'var(--danger)' }}>🔴 Başlanmadı</span>
+                                                        <span style={{ color: 'var(--warning)' }}>🟡 Devam</span>
+                                                        <span style={{ color: 'var(--success)' }}>🟢 Tamam</span>
                                                     </div>
 
                                                     {/* M3 Grupları Döngüsü */}
                                                     {company.m3Groups.map((m3Group) => (
-                                                        <div key={m3Group.m3} className="step-group" style={{ marginBottom: '24px', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+                                                        <div key={m3Group.m3} className="step-group" style={{ marginBottom: '24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                                                             {/* Başlık */}
                                                             <div className="step-group-title" style={{ background: 'var(--secondary)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
                                                                 <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--foreground)' }}>
@@ -247,15 +228,16 @@ export default function FirmaOzeti() {
                                                                 </div>
                                                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                                                     <button
+                                                                        type="button"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             handleDeleteM3Group(company.baseCompany, m3Group.m3);
                                                                         }}
                                                                         title="Bu grubu sil"
                                                                         style={{
-                                                                            background: '#fee2e2',
-                                                                            border: '1px solid #ef4444',
-                                                                            color: '#ef4444',
+                                                                            background: 'color-mix(in srgb, var(--danger) 14%, var(--card))',
+                                                                            border: '1px solid var(--danger)',
+                                                                            color: 'var(--danger)',
                                                                             borderRadius: '4px',
                                                                             padding: '4px 8px',
                                                                             cursor: 'pointer',
@@ -291,14 +273,14 @@ export default function FirmaOzeti() {
                                                                                         {total > 0 ? (
                                                                                             <>
                                                                                                 <div style={{ fontSize: '13px', fontWeight: 700, display: 'flex', justifyContent: 'center', gap: '2px' }}>
-                                                                                                    <span style={{ color: '#ef4444' }}>{stat.baslamadi || 0}</span>/
-                                                                                                    <span style={{ color: '#f59e0b' }}>{stat.devamEdiyor || 0}</span>/
-                                                                                                    <span style={{ color: '#10b981' }}>{stat.tamamlandi || 0}</span>
+                                                                                                    <span style={{ color: 'var(--danger)' }}>{stat.baslamadi || 0}</span>/
+                                                                                                    <span style={{ color: 'var(--warning)' }}>{stat.devamEdiyor || 0}</span>/
+                                                                                                    <span style={{ color: 'var(--success)' }}>{stat.tamamlandi || 0}</span>
                                                                                                 </div>
                                                                                                 <div className="progress-bar" style={{ height: '3px', marginTop: '4px', display: 'flex', borderRadius: '2px', overflow: 'hidden' }}>
-                                                                                                    <div style={{ width: `${tamamlandiPct}%`, background: '#10b981' }}></div>
-                                                                                                    <div style={{ width: `${devamPct}%`, background: '#f59e0b' }}></div>
-                                                                                                    <div style={{ flex: 1, background: '#ef4444' }}></div>
+                                                                                                    <div style={{ width: `${tamamlandiPct}%`, background: 'var(--success)' }}></div>
+                                                                                                    <div style={{ width: `${devamPct}%`, background: 'var(--warning)' }}></div>
+                                                                                                    <div style={{ flex: 1, background: 'var(--danger)' }}></div>
                                                                                                 </div>
                                                                                             </>
                                                                                         ) : (
@@ -314,7 +296,7 @@ export default function FirmaOzeti() {
                                                                 {/* Damper Table */}
                                                                 <div>
                                                                     <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: '8px', textTransform: 'uppercase' }}>{productType === 'DAMPER' ? 'Damper' : 'Dorse'} Listesi</div>
-                                                                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                                                                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
                                                                         <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                                                                             <thead>
                                                                                 <tr style={{ background: 'var(--secondary)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
@@ -363,11 +345,12 @@ export default function FirmaOzeti() {
                 )}
 
                 {/* Footer Legend */}
-                <div style={{ marginTop: '24px', padding: '16px', background: 'var(--card)', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--muted)' }}>Durum Göstergeleri:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="badge badge-success">✓</span> <span style={{ fontSize: '12px' }}>Tamamlandı</span></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="badge badge-warning">⟳</span> <span style={{ fontSize: '12px' }}>Devam Ediyor</span></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span className="badge badge-danger">✗</span> <span style={{ fontSize: '12px' }}>Başlamadı</span></div>
+                <div className="summary-legend">
+                    <span className="summary-legend-title">Durum Göstergeleri:</span>
+                    <div className="summary-legend-item"><span className="badge badge-success status-badge-mini">✓</span> <span className="summary-legend-item-text">Tamamlandı</span></div>
+                    <div className="summary-legend-item"><span className="badge badge-warning status-badge-mini">⟳</span> <span className="summary-legend-item-text">Devam Ediyor</span></div>
+                    <div className="summary-legend-item"><span className="badge badge-danger status-badge-mini">✗</span> <span className="summary-legend-item-text">Başlamadı</span></div>
+                </div>
                 </div>
             </main>
         </>

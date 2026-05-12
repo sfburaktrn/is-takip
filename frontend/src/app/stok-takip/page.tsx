@@ -143,7 +143,8 @@ export default function StokTakipPage() {
         <AuthGuard>
             <>
                 <Sidebar />
-                <main className="main-content stock-page">
+                <main className="main-content apple-app-page">
+                    <div className="apple-canvas">
                     <section className="stock-hero" aria-labelledby="stock-page-title">
                         <div className="stock-hero-inner">
                             <div className="stock-hero-title">
@@ -158,7 +159,7 @@ export default function StokTakipPage() {
                                     </p>
                                 </div>
                             </div>
-                            <button type="button" className="btn btn-primary" onClick={() => setItemModal('new')} style={{ background: '#fff', color: 'var(--primary)', border: 'none', boxShadow: '0 4px 14px rgba(0,0,0,0.12)' }}>
+                            <button type="button" className="btn btn-primary btn-stock-hero-add" onClick={() => setItemModal('new')}>
                                 <Plus size={18} />
                                 Yeni kalem
                             </button>
@@ -242,7 +243,7 @@ export default function StokTakipPage() {
                     </div>
 
                     {error && (
-                        <div className="alert alert-error" style={{ margin: '0 0 20px' }}>
+                        <div className="alert alert-error alert--mb20">
                             {error}
                         </div>
                     )}
@@ -446,6 +447,7 @@ export default function StokTakipPage() {
                             onAddPrice={(row) => setPriceModal(row)}
                         />
                     )}
+                    </div>
                 </main>
             </>
         </AuthGuard>
@@ -706,15 +708,15 @@ function PriceSparkline({ points }: { points: StockPriceHistoryPoint[] }) {
         <svg className="stock-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Birim fiyat trendi">
             <defs>
                 <linearGradient id="stockChartFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor={isUp ? '#ef4444' : '#10b981'} stopOpacity="0.25" />
-                    <stop offset="100%" stopColor={isUp ? '#ef4444' : '#10b981'} stopOpacity="0" />
+                    <stop offset="0%" stopColor={isUp ? 'var(--danger)' : 'var(--success)'} stopOpacity="0.25" />
+                    <stop offset="100%" stopColor={isUp ? 'var(--danger)' : 'var(--success)'} stopOpacity="0" />
                 </linearGradient>
             </defs>
             <path d={area} fill="url(#stockChartFill)" />
             <path
                 d={path}
                 fill="none"
-                stroke={isUp ? '#dc2626' : '#059669'}
+                stroke={isUp ? 'var(--danger)' : 'var(--success)'}
                 strokeWidth={2.2}
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -726,7 +728,7 @@ function PriceSparkline({ points }: { points: StockPriceHistoryPoint[] }) {
                         cy={pt.y}
                         r={i === xy.length - 1 ? 4.5 : 3}
                         fill="#fff"
-                        stroke={isUp ? '#dc2626' : '#059669'}
+                        stroke={isUp ? 'var(--danger)' : 'var(--success)'}
                         strokeWidth={2}
                     >
                         <title>{`${formatDateTime(pt.p.recordedAt)} → ${formatTry(pt.p.unitPrice)}`}</title>
@@ -759,7 +761,7 @@ function PriceSparkline({ points }: { points: StockPriceHistoryPoint[] }) {
                     fontSize="11"
                     fontWeight={700}
                     textAnchor="end"
-                    fill={isUp ? '#dc2626' : '#059669'}
+                    fill={isUp ? 'var(--danger)' : 'var(--success)'}
                 >
                     {formatPct(Math.round(overallDelta * 100) / 100)}
                 </text>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PenLine, Sparkles } from 'lucide-react';
+import { PenLine } from 'lucide-react';
 
 export type ProductNoteKind = 'DAMPER' | 'DORSE' | 'SASI';
 
@@ -99,79 +99,16 @@ export function ProductLocalNote({ kind, productId, value, onPersist }: ProductL
     };
 
     return (
-        <div
-            onClick={e => e.stopPropagation()}
-            style={{
-                position: 'relative',
-                marginBottom: '20px',
-                padding: '16px 18px 14px',
-                borderRadius: '14px',
-                background: 'linear-gradient(145deg, #fffbeb 0%, #fef3c7 45%, #fde68a 100%)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
-                boxShadow: '0 10px 28px rgba(2, 35, 71, 0.08), inset 0 1px 0 rgba(255,255,255,0.65)',
-                transform: 'rotate(-0.4deg)',
-                maxWidth: '100%',
-            }}
-        >
-            <div
-                style={{
-                    position: 'absolute',
-                    top: '-6px',
-                    left: '50%',
-                    marginLeft: '-28px',
-                    width: '56px',
-                    height: '14px',
-                    background: 'linear-gradient(90deg, rgba(99,102,241,0.5), rgba(168,85,247,0.45))',
-                    opacity: 0.85,
-                    borderRadius: '2px',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
-                }}
-                aria-hidden
-            />
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
-                <span
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '10px',
-                        background: 'rgba(2, 35, 71, 0.08)',
-                        color: 'var(--primary)',
-                        flexShrink: 0,
-                    }}
-                >
+        <div className="apple-product-note" onClick={e => e.stopPropagation()}>
+            <div className="apple-product-note__top">
+                <span className="apple-product-note__icon">
                     <PenLine size={18} strokeWidth={2} />
                 </span>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '8px',
-                            flexWrap: 'wrap',
-                        }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            <h4
-                                style={{
-                                    margin: 0,
-                                    fontSize: '15px',
-                                    fontWeight: 700,
-                                    color: '#78350f',
-                                    letterSpacing: '-0.02em',
-                                }}
-                            >
-                                Hızlı not
-                            </h4>
-                            <Sparkles size={14} style={{ color: '#b45309', opacity: 0.85 }} aria-hidden />
-                        </div>
-                        {saving && (
-                            <span style={{ fontSize: '11px', color: '#92400e', opacity: 0.9 }}>Kaydediliyor…</span>
-                        )}
+                <div className="apple-product-note__title-row">
+                    <div className="apple-product-note__title-group">
+                        <h4 className="apple-product-note__title">Hızlı not</h4>
                     </div>
+                    {saving ? <span className="apple-product-note__saving">Kaydediliyor…</span> : null}
                 </div>
             </div>
             <textarea
@@ -181,21 +118,9 @@ export function ProductLocalNote({ kind, productId, value, onPersist }: ProductL
                 placeholder="Örn: müşteri aradı, yedek parça bekleniyor, özel boya kodu…"
                 rows={4}
                 maxLength={8000}
-                className="input"
-                style={{
-                    width: '100%',
-                    resize: 'vertical',
-                    minHeight: '88px',
-                    fontSize: '14px',
-                    lineHeight: 1.5,
-                    background: 'rgba(255,255,255,0.72)',
-                    border: '1px solid rgba(180, 83, 9, 0.25)',
-                    borderRadius: '10px',
-                    padding: '10px 12px',
-                    color: '#422006',
-                }}
+                className="input apple-product-note__textarea"
             />
-            <div style={{ marginTop: '8px', fontSize: '11px', color: '#92400e', opacity: 0.75 }}>
+            <div className="apple-product-note__hint">
                 Yazmayı bıraktıktan sonra kaydedilir (~1 sn) veya alan dışına tıklayınca hemen kaydedilir
             </div>
         </div>

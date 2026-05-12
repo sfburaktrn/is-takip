@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -30,6 +30,7 @@ import {
   DORSE_STEP_GROUPS,
   SASI_STEP_GROUPS
 } from '@/lib/api';
+import { useAppleSegmentedThumb } from '@/hooks/useAppleSegmentedThumb';
 import Link from 'next/link';
 import { trIncludes, trStartsWithStok } from '@/lib/trSearch';
 import { trUpper } from '@/lib/trUpper';
@@ -57,6 +58,8 @@ import {
 } from 'lucide-react';
 
 type ProductType = 'DAMPER' | 'DORSE' | 'SASI' | 'DORSE_SASI';
+
+const DASH_SEG_ORDER: ProductType[] = ['DAMPER', 'DORSE', 'SASI', 'DORSE_SASI'];
 
 type DashboardSortBy =
   | 'progress-asc'
@@ -184,6 +187,12 @@ function compareSasiRowsBySasiNoAsc(
 
 function DashboardContent() {
   const [productType, setProductType] = useState<ProductType>('DAMPER');
+  const dashSegTrackRef = useRef<HTMLDivElement>(null);
+  const dashSegActiveIndex = DASH_SEG_ORDER.indexOf(productType);
+  const dashSegThumb = useAppleSegmentedThumb(
+    dashSegTrackRef,
+    dashSegActiveIndex >= 0 ? dashSegActiveIndex : 0
+  );
   const [stats, setStats] = useState<Stats | null>(null);
   const [dampers, setDampers] = useState<Damper[]>([]);
   const [dorses, setDorses] = useState<Dorse[]>([]);
@@ -206,13 +215,13 @@ function DashboardContent() {
   } | null>(null);
 
   const COLORS = {
-    primary: '#022347',
-    secondary: '#64748B',
-    success: '#10B981',
-    warning: '#F59E0B',
-    danger: '#EF4444',
-    info: '#3B82F6',
-    grid: '#E2E8F0'
+    primary: 'var(--primary)',
+    secondary: 'var(--foreground-secondary)',
+    success: 'var(--success)',
+    warning: 'var(--warning)',
+    danger: 'var(--danger)',
+    info: 'var(--control-fill)',
+    grid: 'var(--border)',
   };
 
   // Sasi Link Modal State
@@ -993,7 +1002,7 @@ function DashboardContent() {
     <>
       <Sidebar />
       <main className="main-content">
-        <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
+        <header className="header header--stack">
           <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">
             <div>
               <h1 className="header-title">Dashboard</h1>
@@ -1005,92 +1014,58 @@ function DashboardContent() {
           </div>
 
           {/* Product Toggle */}
-          <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '4px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', flexWrap: 'wrap' }}>
+          <div
+            ref={dashSegTrackRef}
+            className="apple-segmented apple-segmented--wrap apple-segmented--slide"
+          >
+            <span
+              className="apple-segmented__thumb"
+              aria-hidden
+              style={{
+                transform: `translate3d(${dashSegThumb.x}px, ${dashSegThumb.y}px, 0)`,
+                width: Math.max(0, dashSegThumb.w),
+                height: Math.max(0, dashSegThumb.h),
+                opacity: dashSegThumb.w > 0 && dashSegThumb.h > 0 ? 1 : 0,
+              }}
+            />
             <button
               type="button"
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: productType === 'DAMPER' ? 'var(--primary)' : 'transparent',
-                color: productType === 'DAMPER' ? 'white' : 'var(--muted)',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
+              className={`apple-segmented-btn${productType === 'DAMPER' ? ' is-active-brand' : ''}`}
               onClick={() => setProductType('DAMPER')}
             >
               Damperler
             </button>
             <button
               type="button"
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: productType === 'DORSE' ? 'var(--primary)' : 'transparent',
-                color: productType === 'DORSE' ? 'white' : 'var(--muted)',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
+              className={`apple-segmented-btn${productType === 'DORSE' ? ' is-active-brand' : ''}`}
               onClick={() => setProductType('DORSE')}
             >
               Dorseler
             </button>
             <button
               type="button"
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: productType === 'SASI' ? 'var(--primary)' : 'transparent',
-                color: productType === 'SASI' ? 'white' : 'var(--muted)',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
+              className={`apple-segmented-btn${productType === 'SASI' ? ' is-active-brand' : ''}`}
               onClick={() => setProductType('SASI')}
             >
               ┼Şasiler
             </button>
             <button
               type="button"
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: productType === 'DORSE_SASI' ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
-                color: productType === 'DORSE_SASI' ? 'white' : 'var(--muted)',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
+              className={`apple-segmented-btn${productType === 'DORSE_SASI' ? ' is-active-brand' : ''}`}
               onClick={() => setProductType('DORSE_SASI')}
             >
-              <LinkIcon size={16} style={{ display: 'inline', marginRight: '4px' }} /> Dorse+┼Şasi
+              <LinkIcon size={16} className="page-title-leading-icon" /> Dorse+┼Şasi
             </button>
           </div>
 
-          <div className="w-full sm:w-[300px]" style={{ position: 'relative' }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.secondary }} />
+          <div className="w-full sm:w-[300px] apple-search-box">
+            <Search size={18} className="apple-search-icon" />
             <input
               type="text"
               placeholder={`${productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : productType === 'SASI' ? '┼Şasi' : 'Dorse veya ┼Şasi'} ara...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 10px 10px 40px',
-                borderRadius: '8px',
-                border: `1px solid ${COLORS.grid}`,
-                fontSize: '14px',
-                outline: 'none',
-                transition: 'all 0.2s',
-                backgroundColor: 'white'
-              }}
-              onFocus={(e) => e.target.style.borderColor = COLORS.primary}
-              onBlur={(e) => e.target.style.borderColor = COLORS.grid}
+              className="apple-search-input-pill"
             />
           </div>
         </header>
@@ -1110,12 +1085,12 @@ function DashboardContent() {
                     style={{
                       cursor: 'pointer',
                       borderLeft: `4px solid ${COLORS.primary}`,
-                      borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                      borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                      borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                      borderRadius: '12px',
+                      borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                      borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                      borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                      borderRadius: 'var(--radius-lg)',
                       padding: '16px',
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--card)',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                       flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
                       transition: 'all 0.2s'
@@ -1123,27 +1098,27 @@ function DashboardContent() {
                     onClick={() => setStatusFilter(null)}
                   >
                     <div style={{
-                      width: '48px', height: '48px', borderRadius: '12px',
+                      width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                       backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
                       <Package size={24} strokeWidth={2} />
                     </div>
                     <div>
-                      <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
-                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam ┼Şasi</div>
+                      <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
+                      <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Toplam ┼Şasi</div>
                     </div>
                   </div>
                   <div
                     style={{
                       cursor: 'pointer',
                       borderLeft: `4px solid ${COLORS.success}`,
-                      borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                      borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                      borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                      borderRadius: '12px',
+                      borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                      borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                      borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                      borderRadius: 'var(--radius-lg)',
                       padding: '16px',
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--card)',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                       flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
                       transition: 'all 0.2s'
@@ -1151,15 +1126,15 @@ function DashboardContent() {
                     onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
                   >
                     <div style={{
-                      width: '48px', height: '48px', borderRadius: '12px',
+                      width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                       backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
                       <CheckCircle size={24} strokeWidth={2} />
                     </div>
                     <div>
-                      <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
-                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Tamamlanan</div>
+                      <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
+                      <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Tamamlanan</div>
                     </div>
                   </div>
                 </div>
@@ -1170,12 +1145,12 @@ function DashboardContent() {
                     style={{
                       cursor: 'pointer',
                       borderLeft: `4px solid ${COLORS.warning}`,
-                      borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                      borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                      borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                      borderRadius: '12px',
+                      borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                      borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                      borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                      borderRadius: 'var(--radius-lg)',
                       padding: '16px',
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--card)',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                       flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
                       transition: 'all 0.2s'
@@ -1183,27 +1158,27 @@ function DashboardContent() {
                     onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
                   >
                     <div style={{
-                      width: '48px', height: '48px', borderRadius: '12px',
+                      width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                       backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
                       <RefreshCcw size={24} strokeWidth={2} />
                     </div>
                     <div>
-                      <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
-                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Devam Eden</div>
+                      <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
+                      <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Devam Eden</div>
                     </div>
                   </div>
                   <div
                     style={{
                       cursor: 'pointer',
                       borderLeft: `4px solid ${COLORS.danger}`,
-                      borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                      borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                      borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                      borderRadius: '12px',
+                      borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                      borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                      borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                      borderRadius: 'var(--radius-lg)',
                       padding: '16px',
-                      backgroundColor: 'white',
+                      backgroundColor: 'var(--card)',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                       flex: 1, display: 'flex', alignItems: 'center', gap: '16px',
                       transition: 'all 0.2s'
@@ -1211,15 +1186,15 @@ function DashboardContent() {
                     onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
                   >
                     <div style={{
-                      width: '48px', height: '48px', borderRadius: '12px',
+                      width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                       backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.danger,
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
                       <PauseCircle size={24} strokeWidth={2} />
                     </div>
                     <div>
-                      <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
-                      <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Ba┼şlamayan</div>
+                      <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
+                      <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Ba┼şlamayan</div>
                     </div>
                   </div>
                 </div>
@@ -1232,12 +1207,12 @@ function DashboardContent() {
                       style={{
                         cursor: 'pointer',
                         borderLeft: `4px solid ${COLORS.primary}`,
-                        borderTop: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                        borderRight: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                        borderBottom: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                        borderRadius: '12px',
+                        borderTop: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                        borderRight: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                        borderBottom: statusFilter === 'bosStok' ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)',
                         padding: '12px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--card)',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                         transition: 'all 0.2s'
@@ -1245,7 +1220,7 @@ function DashboardContent() {
                       onClick={() => setStatusFilter(statusFilter === 'bosStok' ? null : 'bosStok')}
                     >
                       <div style={{
-                        width: '36px', height: '36px', borderRadius: '8px',
+                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                         backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
@@ -1253,19 +1228,19 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.primary, fontWeight: 700 }}>{stats?.stokSasiCount || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bo┼ş Stok</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Bo┼ş Stok</div>
                       </div>
                     </div>
                     <div
                       style={{
                         cursor: 'pointer',
                         borderLeft: `4px solid ${COLORS.success}`,
-                        borderTop: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                        borderRight: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                        borderBottom: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                        borderRadius: '12px',
+                        borderTop: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                        borderRight: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                        borderBottom: statusFilter === 'tamamlananStok' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)',
                         padding: '12px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--card)',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                         transition: 'all 0.2s'
@@ -1273,7 +1248,7 @@ function DashboardContent() {
                       onClick={() => setStatusFilter(statusFilter === 'tamamlananStok' ? null : 'tamamlananStok')}
                     >
                       <div style={{
-                        width: '36px', height: '36px', borderRadius: '8px',
+                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                         backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
@@ -1281,19 +1256,19 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.success, fontWeight: 700 }}>{stats?.tamamlananStok || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Tamamlanan</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Tamamlanan</div>
                       </div>
                     </div>
                     <div
                       style={{
                         cursor: 'pointer',
                         borderLeft: `4px solid ${COLORS.warning}`,
-                        borderTop: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                        borderRight: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                        borderBottom: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                        borderRadius: '12px',
+                        borderTop: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                        borderRight: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                        borderBottom: statusFilter === 'devamEdenStok' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)',
                         padding: '12px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--card)',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                         transition: 'all 0.2s'
@@ -1301,7 +1276,7 @@ function DashboardContent() {
                       onClick={() => setStatusFilter(statusFilter === 'devamEdenStok' ? null : 'devamEdenStok')}
                     >
                       <div style={{
-                        width: '36px', height: '36px', borderRadius: '8px',
+                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                         backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
@@ -1309,7 +1284,7 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.warning, fontWeight: 700 }}>{stats?.devamEdenStok || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Devam Eden</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Devam Eden</div>
                       </div>
                     </div>
                   </div>
@@ -1323,12 +1298,12 @@ function DashboardContent() {
                       style={{
                         cursor: 'pointer',
                         borderLeft: `4px solid ${COLORS.info}`,
-                        borderTop: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                        borderRight: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                        borderBottom: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                        borderRadius: '12px',
+                        borderTop: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                        borderRight: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                        borderBottom: statusFilter === 'bosMusteri' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)',
                         padding: '12px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--card)',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                         transition: 'all 0.2s'
@@ -1336,7 +1311,7 @@ function DashboardContent() {
                       onClick={() => setStatusFilter(statusFilter === 'bosMusteri' ? null : 'bosMusteri')}
                     >
                       <div style={{
-                        width: '36px', height: '36px', borderRadius: '8px',
+                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.info,
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
@@ -1344,19 +1319,19 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.info, fontWeight: 700 }}>{stats?.musteriSasiCount || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bo┼ş M├╝┼şteri</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Bo┼ş M├╝┼şteri</div>
                       </div>
                     </div>
                     <div
                       style={{
                         cursor: 'pointer',
                         borderLeft: `4px solid ${COLORS.success}`,
-                        borderTop: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                        borderRight: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                        borderBottom: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                        borderRadius: '12px',
+                        borderTop: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                        borderRight: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                        borderBottom: statusFilter === 'tamamlananMusteri' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)',
                         padding: '12px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--card)',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                         transition: 'all 0.2s'
@@ -1364,7 +1339,7 @@ function DashboardContent() {
                       onClick={() => setStatusFilter(statusFilter === 'tamamlananMusteri' ? null : 'tamamlananMusteri')}
                     >
                       <div style={{
-                        width: '36px', height: '36px', borderRadius: '8px',
+                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                         backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
@@ -1372,19 +1347,19 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.success, fontWeight: 700 }}>{stats?.tamamlananMusteri || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Bitmi┼ş M├╝┼şteri</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Bitmi┼ş M├╝┼şteri</div>
                       </div>
                     </div>
                     <div
                       style={{
                         cursor: 'pointer',
                         borderLeft: `4px solid ${COLORS.warning}`,
-                        borderTop: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                        borderRight: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                        borderBottom: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                        borderRadius: '12px',
+                        borderTop: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                        borderRight: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                        borderBottom: statusFilter === 'devamEdenMusteri' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)',
                         padding: '12px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--card)',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                         flex: 1, display: 'flex', alignItems: 'center', gap: '12px',
                         transition: 'all 0.2s'
@@ -1392,7 +1367,7 @@ function DashboardContent() {
                       onClick={() => setStatusFilter(statusFilter === 'devamEdenMusteri' ? null : 'devamEdenMusteri')}
                     >
                       <div style={{
-                        width: '36px', height: '36px', borderRadius: '8px',
+                        width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
                         backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
@@ -1400,7 +1375,7 @@ function DashboardContent() {
                       </div>
                       <div>
                         <div className="stat-value" style={{ fontSize: '18px', color: COLORS.warning, fontWeight: 700 }}>{stats?.devamEdenMusteri || 0}</div>
-                        <div className="stat-label" style={{ fontSize: '11px', color: '#64748B' }}>Devam Eden</div>
+                        <div className="stat-label" style={{ fontSize: '11px', color: 'var(--foreground-secondary)' }}>Devam Eden</div>
                       </div>
                     </div>
                   </div>
@@ -1414,12 +1389,12 @@ function DashboardContent() {
                   style={{
                     cursor: 'pointer',
                     borderLeft: `4px solid ${COLORS.primary}`,
-                    borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                    borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                    borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid #E2E8F0',
-                    borderRadius: '12px',
+                    borderTop: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                    borderRight: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                    borderBottom: statusFilter === null ? `2px solid ${COLORS.primary}` : '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)',
                     padding: '16px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--card)',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                     display: 'flex', alignItems: 'center', gap: '16px',
                     transition: 'all 0.2s'
@@ -1427,15 +1402,15 @@ function DashboardContent() {
                   onClick={() => setStatusFilter(null)}
                 >
                   <div style={{
-                    width: '48px', height: '48px', borderRadius: '12px',
+                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                     backgroundColor: 'rgba(2, 35, 71, 0.1)', color: COLORS.primary,
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     <Package size={24} strokeWidth={2} />
                   </div>
                   <div>
-                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
-                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Toplam {productType === 'DAMPER' ? 'Damper' : 'Dorse'}</div>
+                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.total || 0}</div>
+                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Toplam {productType === 'DAMPER' ? 'Damper' : 'Dorse'}</div>
                   </div>
                 </div>
 
@@ -1443,12 +1418,12 @@ function DashboardContent() {
                   style={{
                     cursor: 'pointer',
                     borderLeft: `4px solid ${COLORS.success}`,
-                    borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                    borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                    borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid #E2E8F0',
-                    borderRadius: '12px',
+                    borderTop: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                    borderRight: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                    borderBottom: statusFilter === 'tamamlanan' ? `2px solid ${COLORS.success}` : '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)',
                     padding: '16px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--card)',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                     display: 'flex', alignItems: 'center', gap: '16px',
                     transition: 'all 0.2s'
@@ -1456,15 +1431,15 @@ function DashboardContent() {
                   onClick={() => setStatusFilter(statusFilter === 'tamamlanan' ? null : 'tamamlanan')}
                 >
                   <div style={{
-                    width: '48px', height: '48px', borderRadius: '12px',
+                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                     backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.success,
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     <CheckCircle size={24} strokeWidth={2} />
                   </div>
                   <div>
-                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
-                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Tamamlanan</div>
+                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.tamamlanan || 0}</div>
+                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Tamamlanan</div>
                   </div>
                 </div>
 
@@ -1472,12 +1447,12 @@ function DashboardContent() {
                   style={{
                     cursor: 'pointer',
                     borderLeft: `4px solid ${COLORS.info}`,
-                    borderTop: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                    borderRight: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                    borderBottom: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid #E2E8F0',
-                    borderRadius: '12px',
+                    borderTop: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                    borderRight: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                    borderBottom: statusFilter === 'teslimEdilen' ? `2px solid ${COLORS.info}` : '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)',
                     padding: '16px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--card)',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                     display: 'flex', alignItems: 'center', gap: '16px',
                     transition: 'all 0.2s'
@@ -1485,15 +1460,15 @@ function DashboardContent() {
                   onClick={() => setStatusFilter(statusFilter === 'teslimEdilen' ? null : 'teslimEdilen')}
                 >
                   <div style={{
-                    width: '48px', height: '48px', borderRadius: '12px',
+                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.info,
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     <Truck size={24} strokeWidth={2} />
                   </div>
                   <div>
-                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.teslimEdilen || 0}</div>
-                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Teslim Edilen</div>
+                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.teslimEdilen || 0}</div>
+                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Teslim Edilen</div>
                   </div>
                 </div>
 
@@ -1501,12 +1476,12 @@ function DashboardContent() {
                   style={{
                     cursor: 'pointer',
                     borderLeft: `4px solid ${COLORS.warning}`,
-                    borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                    borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                    borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid #E2E8F0',
-                    borderRadius: '12px',
+                    borderTop: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                    borderRight: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                    borderBottom: statusFilter === 'devamEden' ? `2px solid ${COLORS.warning}` : '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)',
                     padding: '16px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--card)',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                     display: 'flex', alignItems: 'center', gap: '16px',
                     transition: 'all 0.2s'
@@ -1514,15 +1489,15 @@ function DashboardContent() {
                   onClick={() => setStatusFilter(statusFilter === 'devamEden' ? null : 'devamEden')}
                 >
                   <div style={{
-                    width: '48px', height: '48px', borderRadius: '12px',
+                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                     backgroundColor: 'rgba(245, 158, 11, 0.1)', color: COLORS.warning,
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     <RefreshCcw size={24} strokeWidth={2} />
                   </div>
                   <div>
-                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
-                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Devam Eden</div>
+                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.devamEden || 0}</div>
+                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Devam Eden</div>
                   </div>
                 </div>
 
@@ -1530,12 +1505,12 @@ function DashboardContent() {
                   style={{
                     cursor: 'pointer',
                     borderLeft: `4px solid ${COLORS.danger}`,
-                    borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                    borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                    borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid #E2E8F0',
-                    borderRadius: '12px',
+                    borderTop: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                    borderRight: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                    borderBottom: statusFilter === 'baslamayan' ? `2px solid ${COLORS.danger}` : '1px solid var(--border)',
+                    borderRadius: 'var(--radius-lg)',
                     padding: '16px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--card)',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                     display: 'flex', alignItems: 'center', gap: '16px',
                     transition: 'all 0.2s'
@@ -1543,15 +1518,15 @@ function DashboardContent() {
                   onClick={() => setStatusFilter(statusFilter === 'baslamayan' ? null : 'baslamayan')}
                 >
                   <div style={{
-                    width: '48px', height: '48px', borderRadius: '12px',
+                    width: '48px', height: '48px', borderRadius: 'var(--radius-lg)',
                     backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.danger,
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     <PauseCircle size={24} strokeWidth={2} />
                   </div>
                   <div>
-                    <div className="stat-value" style={{ color: '#1E293B', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
-                    <div className="stat-label" style={{ color: '#64748B', fontSize: '14px' }}>Ba┼şlamayan</div>
+                    <div className="stat-value" style={{ color: 'var(--foreground)', fontSize: '24px', fontWeight: 700 }}>{currentStats?.baslamayan || 0}</div>
+                    <div className="stat-label" style={{ color: 'var(--foreground-secondary)', fontSize: '14px' }}>Ba┼şlamayan</div>
                   </div>
                 </div>
               </>
@@ -1599,7 +1574,7 @@ function DashboardContent() {
                     key={dorse.id}
                     style={{
                       background: 'var(--card-bg)',
-                      borderRadius: '12px',
+                      borderRadius: 'var(--radius-lg)',
                       boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                       border: '1px solid var(--border)',
                       overflow: 'hidden'
@@ -1613,8 +1588,8 @@ function DashboardContent() {
                             <span style={{
                               fontSize: '11px',
                               fontWeight: 700,
-                              color: '#4f46e5',
-                              background: '#eef2ff',
+                              color: 'var(--primary)',
+                              background: 'color-mix(in srgb, var(--primary) 12%, var(--card))',
                               padding: '4px 8px',
                               borderRadius: '4px',
                               letterSpacing: '0.5px'
@@ -1642,7 +1617,7 @@ function DashboardContent() {
                           <div style={{
                             width: `${dorseProgress}%`,
                             height: '100%',
-                            background: dorseProgress === 100 ? 'var(--success)' : '#4f46e5',
+                            background: dorseProgress === 100 ? 'var(--success)' : 'var(--primary)',
                             borderRadius: '3px',
                             transition: 'width 0.3s'
                           }} />
@@ -1661,8 +1636,8 @@ function DashboardContent() {
                             <span style={{
                               fontSize: '11px',
                               fontWeight: 700,
-                              color: '#059669',
-                              background: '#ecfdf5',
+                              color: 'var(--success)',
+                              background: 'color-mix(in srgb, var(--success) 12%, var(--card))',
                               padding: '4px 8px',
                               borderRadius: '4px',
                               letterSpacing: '0.5px'
@@ -1690,7 +1665,7 @@ function DashboardContent() {
                           <div style={{
                             width: `${sasiProgress}%`,
                             height: '100%',
-                            background: sasiProgress === 100 ? 'var(--success)' : '#10b981',
+                            background: sasiProgress === 100 ? 'var(--success)' : 'var(--success)',
                             borderRadius: '3px',
                             transition: 'width 0.3s'
                           }} />
@@ -1712,11 +1687,11 @@ function DashboardContent() {
                 style={{
                   width: '100%',
                   padding: '10px 14px',
-                  borderRadius: '10px',
+                  borderRadius: 'var(--radius-md)',
                   background: 'rgba(245, 158, 11, 0.10)',
                   border: '1px solid rgba(245, 158, 11, 0.28)',
                   fontSize: '13px',
-                  color: '#92400e',
+                  color: 'var(--warning)',
                   marginBottom: '14px',
                 }}
               >
@@ -2026,7 +2001,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: !damper.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2076,7 +2051,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2124,7 +2099,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2172,7 +2147,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2223,7 +2198,7 @@ function DashboardContent() {
                               gridColumn: '1 / -1',
                               background: 'var(--card-bg-secondary)',
                               padding: '16px 20px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               flexDirection: 'column',
@@ -2290,7 +2265,7 @@ function DashboardContent() {
                               <div style={{
                                 background: 'var(--card-bg-secondary)',
                                 padding: '12px 16px',
-                                borderRadius: '10px',
+                                borderRadius: 'var(--radius-md)',
                                 border: '1px solid var(--border)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -2347,7 +2322,7 @@ function DashboardContent() {
                               <div style={{
                                 background: 'var(--card-bg-secondary)',
                                 padding: '12px 16px',
-                                borderRadius: '10px',
+                                borderRadius: 'var(--radius-md)',
                                 border: '1px solid var(--border)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -2419,7 +2394,7 @@ function DashboardContent() {
                               <div style={{
                                 background: 'var(--card-bg-secondary)',
                                 padding: '12px 16px',
-                                borderRadius: '10px',
+                                borderRadius: 'var(--radius-md)',
                                 border: '1px solid var(--border)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -2751,7 +2726,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: !dorse.imalatNo ? '2px solid var(--warning)' : '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2797,7 +2772,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2838,7 +2813,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2877,7 +2852,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2918,7 +2893,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -2958,7 +2933,7 @@ function DashboardContent() {
                               gridColumn: '1 / -1',
                               background: 'var(--card-bg-secondary)',
                               padding: '16px',
-                              borderRadius: '12px',
+                              borderRadius: 'var(--radius-lg)',
                               border: '1px dashed var(--primary)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3004,7 +2979,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3031,7 +3006,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3097,7 +3072,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3143,7 +3118,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3193,7 +3168,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3437,7 +3412,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: !hasDamperDorseImalatNo(sasi.imalatNo) ? '2px solid var(--warning)' : '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3478,7 +3453,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: !hasSasiNoWritten(sasi.sasiNo) ? '2px solid var(--warning)' : '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3520,7 +3495,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3558,7 +3533,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)'
                             }}>
                               <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>TAMPON</div>
@@ -3594,7 +3569,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)'
                             }}>
                               <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, marginBottom: '4px' }}>D─░NG─░L</div>
@@ -3630,7 +3605,7 @@ function DashboardContent() {
                             <div style={{
                               background: 'var(--card-bg-secondary)',
                               padding: '12px 16px',
-                              borderRadius: '10px',
+                              borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
@@ -3731,11 +3706,26 @@ function DashboardContent() {
 
         {/* Add Modal */}
         {showAddModal && (
-          <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay apple-product-form-overlay" onClick={() => setShowAddModal(false)}>
+            <div
+              className="modal modal--premium apple-product-form-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="dashboard-add-product-modal-title"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="modal-header">
-                <h2 className="modal-title">Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : '┼Şasi'} Ekle</h2>
-                <button className="modal-close" onClick={() => setShowAddModal(false)}>Ô£ò</button>
+                <h2 className="modal-title" id="dashboard-add-product-modal-title">
+                  Yeni {productType === 'DAMPER' ? 'Damper' : productType === 'DORSE' ? 'Dorse' : 'Şasi'} Ekle
+                </h2>
+                <button
+                  type="button"
+                  className="modal-close"
+                  onClick={() => setShowAddModal(false)}
+                  aria-label="Kapat"
+                >
+                  <X size={18} strokeWidth={2.25} />
+                </button>
               </div>
               <form onSubmit={handleCreate}>
                 <div className="modal-body">
@@ -4129,10 +4119,10 @@ function DashboardContent() {
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
-                    ─░ptal
+                    İptal
                   </button>
                   <button type="submit" className="btn btn-primary">
-                    {productType === 'DAMPER' ? 'Damper Ekle' : productType === 'DORSE' ? 'Dorse Ekle' : '┼Şasi Ekle'}
+                    {productType === 'DAMPER' ? 'Damper Ekle' : productType === 'DORSE' ? 'Dorse Ekle' : 'Şasi Ekle'}
                   </button>
                 </div>
               </form>
@@ -4154,13 +4144,13 @@ function DashboardContent() {
                 flexDirection: 'column',
                 borderRadius: '24px',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                background: 'white',
+                background: 'var(--card)',
                 overflow: 'hidden'
               }}
             >
               {/* Modal Header */}
               <div className="modal-header" style={{
-                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                background: 'linear-gradient(135deg, #1c1c1e 0%, #000000 100%)',
                 padding: '24px 32px',
                 borderBottom: '1px solid rgba(255,255,255,0.1)',
                 display: 'flex',
@@ -4212,30 +4202,30 @@ function DashboardContent() {
               </div>
 
               {/* Search & Filters */}
-              <div style={{ padding: '24px 32px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ padding: '24px 32px', background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
-                  <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                  <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--foreground-secondary)' }} />
                   <input
                     type="text"
                     placeholder="┼Şasi ara (M├╝┼şteri ad─▒, Stok no veya ─░malat no...)"
                     style={{
                       width: '100%',
                       padding: '12px 16px 12px 48px',
-                      borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
-                      background: 'white',
+                      borderRadius: 'var(--radius-lg)',
+                      border: '1px solid var(--border)',
+                      background: 'var(--card)',
                       fontSize: '15px',
-                      color: '#1e293b',
+                      color: 'var(--foreground)',
                       outline: 'none',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                     }}
                     value={linkSearchTerm}
                     onChange={(e) => setLinkSearchTerm(e.target.value)}
-                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                    onFocus={(e) => e.target.style.borderColor = 'var(--control-fill)'}
+                    onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
                   />
                 </div>
-                <div style={{ display: 'flex', background: '#e2e8f0', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+                <div style={{ display: 'flex', background: 'var(--border)', padding: '4px', borderRadius: 'var(--radius-lg)', gap: '4px' }}>
                   {['hepsi', 'stok', 'musteri'].map((filter) => (
                     <button
                       key={filter}
@@ -4243,10 +4233,10 @@ function DashboardContent() {
                       style={{
                         flex: 1,
                         padding: '8px',
-                        borderRadius: '8px',
+                        borderRadius: 'var(--radius-md)',
                         border: 'none',
                         background: linkFilter === filter ? 'white' : 'transparent',
-                        color: linkFilter === filter ? '#0f172a' : '#64748b',
+                        color: linkFilter === filter ? 'var(--foreground)' : 'var(--foreground-secondary)',
                         fontSize: '14px',
                         fontWeight: 600,
                         cursor: 'pointer',
@@ -4261,13 +4251,13 @@ function DashboardContent() {
               </div>
 
               {/* List Content */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 32px', background: '#fff' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 32px', background: 'var(--card)' }}>
                 {availableSasis.length === 0 ? (
-                  <div style={{ padding: '60px 0', textAlign: 'center', color: '#94a3b8' }}>
+                  <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--muted)' }}>
                     <Package size={64} style={{ opacity: 0.2, marginBottom: '16px' }} />
-                    <p style={{ fontSize: '16px', fontWeight: 500, color: '#64748b' }}>Ba─şlanabilir ┼şasi bulunamad─▒.</p>
+                    <p style={{ fontSize: '16px', fontWeight: 500, color: 'var(--foreground-secondary)' }}>Ba─şlanabilir ┼şasi bulunamad─▒.</p>
                     <button
-                      style={{ marginTop: '16px', padding: '10px 20px', background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                      style={{ marginTop: '16px', padding: '10px 20px', background: 'color-mix(in srgb, var(--primary) 14%, var(--card))', color: 'var(--primary)', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}
                       onClick={() => { setShowLinkModal(false); setShowAddModal(true); setProductType('SASI'); }}
                     >
                       + Yeni ┼Şasi Olu┼ştur
@@ -4303,8 +4293,8 @@ function DashboardContent() {
                             style={{
                               padding: '20px',
                               borderRadius: '16px',
-                              border: isMatch ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                              background: isMatch ? '#eef2ff' : 'white',
+                              border: isMatch ? '2px solid var(--primary)' : '1px solid var(--border)',
+                              background: isMatch ? 'color-mix(in srgb, var(--primary) 12%, var(--card))' : 'var(--card)',
                               cursor: 'pointer',
                               transition: 'all 0.2s',
                               display: 'flex',
@@ -4315,14 +4305,14 @@ function DashboardContent() {
                             }}
                             onMouseOver={(e) => {
                               if (!isMatch) {
-                                e.currentTarget.style.borderColor = '#94a3b8';
+                                e.currentTarget.style.borderColor = 'var(--muted)';
                                 e.currentTarget.style.transform = 'translateY(-2px)';
                                 e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)';
                               }
                             }}
                             onMouseOut={(e) => {
                               if (!isMatch) {
-                                e.currentTarget.style.borderColor = '#e2e8f0';
+                                e.currentTarget.style.borderColor = 'var(--border)';
                                 e.currentTarget.style.transform = 'translateY(0)';
                                 e.currentTarget.style.boxShadow = 'none';
                               }
@@ -4330,39 +4320,39 @@ function DashboardContent() {
                           >
                             <div style={{ flex: 1 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                                <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>
                                   #{sasi.imalatNo} - {sasi.musteri}
                                 </span>
                                 {isMatch && (
-                                  <span style={{ fontSize: '11px', background: '#4f46e5', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, letterSpacing: '0.5px' }}>
+                                  <span style={{ fontSize: '11px', background: 'var(--primary)', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, letterSpacing: '0.5px' }}>
                                     ├ûNER─░LEN
                                   </span>
                                 )}
                                 {progress === 100 && (
-                                  <span style={{ fontSize: '11px', background: '#059669', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '11px', background: 'var(--success)', color: 'white', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <CheckCircle size={12} /> HAZIR
                                   </span>
                                 )}
                               </div>
-                              <div style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: '16px', color: '#64748b', fontSize: '13px', fontWeight: 500 }}>
+                              <div style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--foreground-secondary)', fontSize: '13px', fontWeight: 500 }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Info size={14} /> {sasi.sasiNo || '┼Şasi No Yok'}</span>
-                                <span style={{ width: '4px', height: '4px', background: '#cbd5e1', borderRadius: '50%' }}></span>
+                                <span style={{ width: '4px', height: '4px', background: 'var(--accent)', borderRadius: '50%' }}></span>
                                 <span>{sasi.dingil}</span>
-                                <span style={{ width: '4px', height: '4px', background: '#cbd5e1', borderRadius: '50%' }}></span>
+                                <span style={{ width: '4px', height: '4px', background: 'var(--accent)', borderRadius: '50%' }}></span>
                                 <span>{sasi.tampon}</span>
                               </div>
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                              <span style={{ fontSize: '12px', fontWeight: 700, color: progress === 100 ? '#059669' : '#3b82f6' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: progress === 100 ? 'var(--success)' : 'var(--control-fill)' }}>
                                 %{progress} Tamamland─▒
                               </span>
-                              <div style={{ width: '100px', height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                                <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? '#059669' : '#3b82f6', borderRadius: '3px', transition: 'width 0.5s' }}></div>
+                              <div style={{ width: '100px', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ width: `${progress}%`, height: '100%', background: progress === 100 ? 'var(--success)' : 'var(--control-fill)', borderRadius: '3px', transition: 'width 0.5s' }}></div>
                               </div>
                             </div>
 
-                            <div style={{ marginLeft: '24px', width: '40px', height: '40px', borderRadius: '12px', background: isMatch ? '#4f46e5' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isMatch ? 'white' : '#94a3b8' }}>
+                            <div style={{ marginLeft: '24px', width: '40px', height: '40px', borderRadius: 'var(--radius-lg)', background: isMatch ? 'var(--primary)' : 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isMatch ? 'white' : 'var(--muted)' }}>
                               <LinkIcon size={20} />
                             </div>
                           </div>
@@ -4373,22 +4363,22 @@ function DashboardContent() {
               </div>
 
               {/* Footer */}
-              <div style={{ padding: '20px 32px', background: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ padding: '20px 32px', background: 'var(--card)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   onClick={() => setShowLinkModal(false)}
                   style={{
                     padding: '12px 32px',
-                    borderRadius: '12px',
-                    background: '#f1f5f9',
-                    color: '#64748b',
-                    border: '1px solid #e2e8f0',
+                    borderRadius: 'var(--radius-lg)',
+                    background: 'var(--background)',
+                    color: 'var(--foreground-secondary)',
+                    border: '1px solid var(--border)',
                     fontWeight: 600,
                     cursor: 'pointer',
                     fontSize: '14px',
                     transition: 'all 0.2s'
                   }}
-                  onMouseOver={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = 'var(--border)'; e.currentTarget.style.color = 'var(--foreground)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'var(--background)'; e.currentTarget.style.color = 'var(--foreground-secondary)'; }}
                 >
                   ─░ptal
                 </button>

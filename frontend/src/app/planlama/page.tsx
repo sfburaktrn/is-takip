@@ -23,7 +23,6 @@ import {
     AlertTriangle,
     Clock,
     CheckCircle2,
-    Sparkles,
     RefreshCcw,
     ChevronLeft,
     ChevronRight,
@@ -721,7 +720,7 @@ export default function PlanlamaPage() {
         <AuthGuard>
             <div className="app-shell">
                 <Sidebar />
-                <main className="main-content">
+                <main className="main-content apple-app-page">
                     <div className="content-inner max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8">
                         {/* Hero */}
                         <header className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white via-slate-50/90 to-[color-mix(in_srgb,var(--primary)_6%,white)] shadow-lg shadow-slate-200/60 mb-6">
@@ -959,7 +958,7 @@ export default function PlanlamaPage() {
                                                     label="Tamamlanan"
                                                     value={`${activeUnitPlannedSteps} / ${metaSteps.length} bölüm`}
                                                     hint="Aktif araç için dolu adımlar"
-                                                    icon={<Sparkles size={20} />}
+                                                    icon={<Layers size={20} />}
                                                     tone="primary"
                                                 />
                                             </div>
@@ -1272,7 +1271,7 @@ export default function PlanlamaPage() {
                                                                     onClick={applySequentialDays}
                                                                     disabled={!anchorDate}
                                                                 >
-                                                                    <Sparkles size={16} />
+                                                                    <Layers size={16} />
                                                                     Bu araç için sıralı doldur
                                                                 </button>
                                                             </section>

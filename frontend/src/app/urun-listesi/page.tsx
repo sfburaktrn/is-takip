@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
@@ -503,10 +503,18 @@ function compareSasiRowsBySasiNoAsc(
 }
 
 function UrunListesiContent() {
-    const searchParams = useSearchParams();
-    /** URLSearchParams nesnesi render’lar arası referansta değişebilir; efekt sonsuz tetiklenmesin diye ilkel değerler. */
-    const urlTypeParam = searchParams.get('type');
-    const urlExpandParam = searchParams.get('expand');
+    const pathname = usePathname();
+    /** useSearchParams Suspense ile takılmalara yol açabildiği için sorgu dizesi pathname ile senkron okunur. */
+    const [urlSearch, setUrlSearch] = useState('');
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const sync = () => setUrlSearch(window.location.search);
+        sync();
+        window.addEventListener('popstate', sync);
+        return () => window.removeEventListener('popstate', sync);
+    }, [pathname]);
+    const urlTypeParam = useMemo(() => new URLSearchParams(urlSearch).get('type'), [urlSearch]);
+    const urlExpandParam = useMemo(() => new URLSearchParams(urlSearch).get('expand'), [urlSearch]);
     const [productType, setProductType] = useState<ProductType>('DAMPER');
     const productTypeRef = useRef(productType);
     productTypeRef.current = productType;
@@ -835,9 +843,6 @@ function UrunListesiContent() {
 
     useEffect(() => {
         void loadData();
-        return () => {
-            loadGenRef.current += 1;
-        };
     }, [loadData]);
 
     // Refresh stats when product type changes
@@ -3493,7 +3498,7 @@ function UrunListesiContent() {
                                                                         })();
                                                                     }}
                                                                 >
-                                                                    {dropdowns?.kurumMuayenesi.map(v => (
+                                                                    {(dropdowns?.kurumMuayenesi ?? []).map(v => (
                                                                         <option key={v} value={v}>{v}</option>
                                                                     ))}
                                                                 </select>
@@ -3512,7 +3517,7 @@ function UrunListesiContent() {
                                                                         })();
                                                                     }}
                                                                 >
-                                                                    {dropdowns?.dmoMuayenesi.map(v => (
+                                                                    {(dropdowns?.dmoMuayenesi ?? []).map(v => (
                                                                         <option key={v} value={v}>{v}</option>
                                                                     ))}
                                                                 </select>
@@ -4224,7 +4229,7 @@ function UrunListesiContent() {
                                                                 }}
                                                             >
                                                                 <option value="">Seçiniz</option>
-                                                                {dropdowns?.malzemeCinsi.map(m => (
+                                                                {(dropdowns?.malzemeCinsi ?? []).map(m => (
                                                                     <option key={m} value={m}>{m}</option>
                                                                 ))}
                                                             </select>
@@ -5290,7 +5295,7 @@ function UrunListesiContent() {
                                                                     })();
                                                                 }}
                                                             >
-                                                                {dropdowns?.kurumMuayenesi.map(v => (
+                                                                {(dropdowns?.kurumMuayenesi ?? []).map(v => (
                                                                     <option key={v} value={v}>{v}</option>
                                                                 ))}
                                                             </select>
@@ -5309,7 +5314,7 @@ function UrunListesiContent() {
                                                                     })();
                                                                 }}
                                                             >
-                                                                {dropdowns?.dmoMuayenesi.map(v => (
+                                                                {(dropdowns?.dmoMuayenesi ?? []).map(v => (
                                                                     <option key={v} value={v}>{v}</option>
                                                                 ))}
                                                             </select>
@@ -6166,7 +6171,7 @@ function UrunListesiContent() {
                                                             }}
                                                         >
                                                             <option value="">Seçiniz</option>
-                                                            {dropdowns?.malzemeCinsi.map(m => (
+                                                            {(dropdowns?.malzemeCinsi ?? []).map(m => (
                                                                 <option key={m} value={m}>{m}</option>
                                                             ))}
                                                         </select>
@@ -7016,7 +7021,7 @@ function UrunListesiContent() {
                                                     onChange={(e) => setFormData(prev => ({ ...prev, tip: e.target.value }))}
                                                 >
                                                     <option value="">Seçiniz</option>
-                                                    {dropdowns?.tip.map(t => (
+                                                    {(dropdowns?.tip ?? []).map(t => (
                                                         <option key={t} value={t}>{t}</option>
                                                     ))}
                                                 </select>
@@ -7030,7 +7035,7 @@ function UrunListesiContent() {
                                                     onChange={(e) => setFormData(prev => ({ ...prev, malzemeCinsi: e.target.value }))}
                                                 >
                                                     <option value="">Seçiniz</option>
-                                                    {dropdowns?.malzemeCinsi.map(m => (
+                                                    {(dropdowns?.malzemeCinsi ?? []).map(m => (
                                                         <option key={m} value={m}>{m}</option>
                                                     ))}
                                                 </select>
@@ -7595,20 +7600,7 @@ function UrunListesiContent() {
 export default function UrunListesiPage() {
     return (
         <AuthGuard>
-            <Suspense
-                fallback={
-                    <>
-                        <Sidebar />
-                        <main className="main-content apple-app-page">
-                            <div className="apple-canvas">
-                                <OzunluLoading variant="inline" />
-                            </div>
-                        </main>
-                    </>
-                }
-            >
-                <UrunListesiContent />
-            </Suspense>
+            <UrunListesiContent />
         </AuthGuard>
     );
 }

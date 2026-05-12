@@ -183,6 +183,35 @@ function ProposalCard({ r, onToggleImalat, onRequestDelete, busy, onPdfPreview }
                             </button>
                         </div>
                     )}
+                    {r.teknikSartnamePdfUrl && (
+                        <div className="proposal-pdf-row">
+                            <a
+                                href={r.teknikSartnamePdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="pdf-btn proposal-pdf-link"
+                            >
+                                <FileDown size={15} /> Teknik şartname PDF
+                            </a>
+                            <button
+                                type="button"
+                                onClick={() => onPdfPreview(r.teknikSartnamePdfUrl!)}
+                                className="pdf-btn proposal-pdf-preview-btn"
+                            >
+                                <Eye size={15} /> Önizle
+                            </button>
+                        </div>
+                    )}
+                    {r.ekPdfUrl && (
+                        <div className="proposal-pdf-row">
+                            <a href={r.ekPdfUrl} target="_blank" rel="noopener noreferrer" className="pdf-btn proposal-pdf-link">
+                                <FileDown size={15} /> Ek PDF
+                            </a>
+                            <button type="button" onClick={() => onPdfPreview(r.ekPdfUrl!)} className="pdf-btn proposal-pdf-preview-btn">
+                                <Eye size={15} /> Önizle
+                            </button>
+                        </div>
+                    )}
 
                     {/* imalat notu */}
                     {r.manufacturingNot && (

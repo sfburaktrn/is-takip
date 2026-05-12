@@ -345,6 +345,10 @@ model ProposalIngest {
   approvalLoggedAt       DateTime? @map("approval_logged_at")
   imalataAlindi          Boolean   @default(false) @map("imalata_alindi")
   teknikPdfUrl           String?   @map("teknik_pdf_url")
+  /// Teklif Takip: teknik şartname PDF (public URL); opsiyonel.
+  teknikSartnamePdfUrl   String?   @map("teknik_sartname_pdf_url")
+  /// Teklif Takip: ek PDF (public URL); opsiyonel.
+  ekPdfUrl               String?   @map("ek_pdf_url")
   manufacturingNot       String?   @map("manufacturing_not") @db.Text
   manufacturingAciliyet  String?   @map("manufacturing_aciliyet")
   /// Planlama ekranı: DAMPER | DORSE (bölüm şablonu).

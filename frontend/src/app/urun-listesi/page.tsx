@@ -504,7 +504,13 @@ function compareSasiRowsBySasiNoAsc(
 
 function UrunListesiContent() {
     const searchParams = useSearchParams();
+    /** URLSearchParams nesnesi render’lar arası referansta değişebilir; efekt sonsuz tetiklenmesin diye ilkel değerler. */
+    const urlTypeParam = searchParams.get('type');
+    const urlExpandParam = searchParams.get('expand');
     const [productType, setProductType] = useState<ProductType>('DAMPER');
+    const productTypeRef = useRef(productType);
+    productTypeRef.current = productType;
+    const loadGenRef = useRef(0);
     const productSegTrackRef = useRef<HTMLDivElement>(null);
     const productSegActiveIndex = PRODUCT_SEG_ORDER.indexOf(productType);
     const productSegThumb = useAppleSegmentedThumb(
@@ -771,8 +777,8 @@ function UrunListesiContent() {
 
     useEffect(() => {
         if (loading) return;
-        const t = searchParams.get('type') as ProductType | null;
-        const exp = searchParams.get('expand');
+        const t = urlTypeParam as ProductType | null;
+        const exp = urlExpandParam;
         if (!exp || !t || !['DAMPER', 'DORSE', 'SASI'].includes(t)) return;
         const id = parseInt(exp, 10);
         if (Number.isNaN(id)) return;
@@ -782,7 +788,7 @@ function UrunListesiContent() {
             document.getElementById(`urun-row-${t}-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 150);
         return () => window.clearTimeout(tick);
-    }, [loading, searchParams, dampers.length, dorses.length, sasis.length]);
+    }, [loading, urlTypeParam, urlExpandParam, dampers.length, dorses.length, sasis.length]);
 
     useEffect(() => {
         setSortBy(prev => {
@@ -797,6 +803,7 @@ function UrunListesiContent() {
     }, [productType]);
 
     const loadData = useCallback(async () => {
+        const gen = ++loadGenRef.current;
         try {
             const [damperStats, dorseStats, sasiStats, dampersData, dorsesData, sasisData, dropdownsData] = await Promise.all([
                 getStats('DAMPER'),
@@ -807,9 +814,11 @@ function UrunListesiContent() {
                 getSasis(),
                 getDropdowns()
             ]);
-            if (productType === 'DAMPER') setStats(damperStats);
-            else if (productType === 'DORSE' || productType === 'DORSE_SASI') setStats(dorseStats);
-            else if (productType === 'SASI') setStats(sasiStats);
+            if (gen !== loadGenRef.current) return;
+            const pt = productTypeRef.current;
+            if (pt === 'DAMPER') setStats(damperStats);
+            else if (pt === 'DORSE' || pt === 'DORSE_SASI') setStats(dorseStats);
+            else if (pt === 'SASI') setStats(sasiStats);
 
             setDampers(dampersData);
             setDorses(dorsesData);
@@ -818,12 +827,17 @@ function UrunListesiContent() {
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
-            setLoading(false);
+            if (gen === loadGenRef.current) {
+                setLoading(false);
+            }
         }
-    }, [productType]);
+    }, []);
 
     useEffect(() => {
         void loadData();
+        return () => {
+            loadGenRef.current += 1;
+        };
     }, [loadData]);
 
     // Refresh stats when product type changes

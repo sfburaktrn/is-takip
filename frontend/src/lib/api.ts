@@ -666,6 +666,10 @@ export interface ProposalIngestRow {
     approvalLoggedAt: string | null;
     imalataAlindi: boolean;
     teknikPdfUrl: string | null;
+    /** Teklif Takip: şartname PDF (opsiyonel). */
+    teknikSartnamePdfUrl: string | null;
+    /** Teklif Takip: ek PDF (opsiyonel). */
+    ekPdfUrl: string | null;
     manufacturingNot: string | null;
     manufacturingAciliyet: 'Normal' | 'Acil' | 'Çok Acil' | null;
     planningProductType?: PlanningProductType | null;

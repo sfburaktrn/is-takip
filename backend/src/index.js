@@ -4644,7 +4644,30 @@ app.get('/api/integrations/teklif-takip/ingest', (req, res) => {
             method: 'POST',
             authorization: 'Bearer <IMALAT_INGEST_SECRET>',
             contentType: 'application/json',
-            requiredFields: ['sourceProposalId', 'companyName', 'proposalDate', 'quantity', 'pushedAt']
+            requiredFields: [
+                'sourceProposalId',
+                'companyName',
+                'proposalDate',
+                'quantity',
+                'pushedAt',
+                'teknikPdfUrl'
+            ],
+            optionalFields: [
+                'teknikSartnamePdfUrl',
+                'ekPdfUrl',
+                'deliveryDate',
+                'approvalLoggedAt',
+                'equipment',
+                'vehicle',
+                'volume',
+                'thickness',
+                'contactPerson',
+                'notes',
+                'ownerEmail',
+                'pushedBy',
+                'manufacturingNot',
+                'manufacturingAciliyet'
+            ]
         }
     });
 });
@@ -4702,7 +4725,21 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
             approvalLoggedAt = ad.date;
         }
 
-        const teknikPdfUrl = strOrNull(b.teknikPdfUrl) || strOrNull(b.teknik_pdf_url);
+        const teknikPdfUrlRaw = strOrNull(b.teknikPdfUrl) || strOrNull(b.teknik_pdf_url);
+        if (!teknikPdfUrlRaw) {
+            console.warn('[teklif-takip ingest] teknikPdfUrl eksik veya boş');
+            return res.status(400).json({ error: 'teknikPdfUrl zorunlu ve boş olamaz' });
+        }
+        const teknikPdfUrl = teknikPdfUrlRaw;
+        const teknikSartnamePdfUrl =
+            strOrNull(b.teknikSartnamePdfUrl) || strOrNull(b.teknik_sartname_pdf_url);
+        const ekPdfUrl = strOrNull(b.ekPdfUrl) || strOrNull(b.ek_pdf_url);
+        const hasTeknikSartnameKey =
+            Object.prototype.hasOwnProperty.call(b, 'teknikSartnamePdfUrl') ||
+            Object.prototype.hasOwnProperty.call(b, 'teknik_sartname_pdf_url');
+        const hasEkPdfKey =
+            Object.prototype.hasOwnProperty.call(b, 'ekPdfUrl') ||
+            Object.prototype.hasOwnProperty.call(b, 'ek_pdf_url');
         const manufacturingNot = strOrNull(b.manufacturingNot) || strOrNull(b.manufacturing_not);
         const rawAciliyet = strOrNull(b.manufacturingAciliyet) || strOrNull(b.manufacturing_aciliyet);
         const VALID_ACILIYET = ['Normal', 'Acil', 'Çok Acil'];
@@ -4727,6 +4764,8 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
                 pushedBy: strOrNull(b.pushedBy) || strOrNull(b.pushed_by),
                 approvalLoggedAt,
                 teknikPdfUrl,
+                teknikSartnamePdfUrl: hasTeknikSartnameKey ? teknikSartnamePdfUrl : null,
+                ekPdfUrl: hasEkPdfKey ? ekPdfUrl : null,
                 manufacturingNot,
                 manufacturingAciliyet
             },
@@ -4746,6 +4785,8 @@ app.post('/api/integrations/teklif-takip/ingest', requireTeklifIngestSecret, asy
                 pushedBy: strOrNull(b.pushedBy) || strOrNull(b.pushed_by),
                 approvalLoggedAt,
                 teknikPdfUrl,
+                ...(hasTeknikSartnameKey ? { teknikSartnamePdfUrl } : {}),
+                ...(hasEkPdfKey ? { ekPdfUrl } : {}),
                 manufacturingNot,
                 manufacturingAciliyet
             }

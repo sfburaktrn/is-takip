@@ -2555,9 +2555,7 @@ function UrunListesiContent() {
                                           ? 'bağlı çift'
                                           : productType === 'DORSE'
                                             ? 'Dorse'
-                                            : productType === 'SASI'
-                                              ? 'Şasi'
-                                              : 'Ürün'}
+                                            : 'Ürün'}
                                 </div>
                             </div>
                         </div>

@@ -3026,47 +3026,52 @@ app.get('/api/analytics/recent-activity', requireAuth, async (req, res) => {
                     item.sonKontrol === true;
 
                 completedSubSteps = [];
+                // Damper ile aynı "Adım (Aşama)" biçimi — günlük özet cümlesi aşama bazında gruplansın (Genel yığılması olmasın).
                 // Kesim-Büküm
-                if (item.plazmaProgrami) completedSubSteps.push('Plazma Programı');
-                if (item.sacMalzemeKontrolu) completedSubSteps.push('Sac Malzeme Kontrolü');
-                if (item.plazmaKesim) completedSubSteps.push('Plazma Kesim');
-                if (item.presBukum) completedSubSteps.push('Pres Büküm');
-                if (item.dorseSasi) completedSubSteps.push('Dorse Şasi');
+                if (item.plazmaProgrami) completedSubSteps.push('Plazma Programı (Kesim-Büküm)');
+                if (item.sacMalzemeKontrolu) completedSubSteps.push('Sac Malzeme Kontrolü (Kesim-Büküm)');
+                if (item.plazmaKesim) completedSubSteps.push('Plazma Kesim (Kesim-Büküm)');
+                if (item.presBukum) completedSubSteps.push('Pres Büküm (Kesim-Büküm)');
+                if (item.dorseSasi) completedSubSteps.push('Dorse Şasi (Kesim-Büküm)');
 
                 // Ön Hazırlık
-                if (item.milAltKutuk) completedSubSteps.push('Mil Alt Kütük');
-                if (item.taban) completedSubSteps.push('Taban');
-                if (item.yan) completedSubSteps.push('Yan');
-                if (item.onGogus) completedSubSteps.push('Ön Göğüs');
-                if (item.arkaKapak) completedSubSteps.push('Arka Kapak');
-                if (item.yuklemeMalzemesi) completedSubSteps.push('Yükleme Malzemesi');
+                if (item.milAltKutuk) completedSubSteps.push('Mil Alt Kütük (Ön Hazırlık)');
+                if (item.taban) completedSubSteps.push('Taban (Ön Hazırlık)');
+                if (item.yan) completedSubSteps.push('Yan (Ön Hazırlık)');
+                if (item.onGogus) completedSubSteps.push('Ön Göğüs (Ön Hazırlık)');
+                if (item.arkaKapak) completedSubSteps.push('Arka Kapak (Ön Hazırlık)');
+                if (item.yuklemeMalzemesi) completedSubSteps.push('Yükleme Malzemesi (Ön Hazırlık)');
 
-                // Montaj
-                if (item.dorseKurulmasi) completedSubSteps.push('Dorse Kurulması');
-                if (item.dorseKaynak) completedSubSteps.push('Dorse Kaynak');
-                if (item.kapakSiperlik) completedSubSteps.push('Kapak Siperlik');
-                if (item.yukleme) completedSubSteps.push('Yükleme');
-                if (item.hidrolik) completedSubSteps.push('Hidrolik');
+                // Montaj (Hidrolik kartta montaj grubunda)
+                if (item.dorseKurulmasi) completedSubSteps.push('Dorse Kurulması (Montaj)');
+                if (item.dorseKaynak) completedSubSteps.push('Dorse Kaynak (Montaj)');
+                if (item.kapakSiperlik) completedSubSteps.push('Kapak Siperlik (Montaj)');
+                if (item.yukleme) completedSubSteps.push('Yükleme (Montaj)');
+                if (item.hidrolik) completedSubSteps.push('Hidrolik (Montaj)');
 
                 // Boya
-                if (item.boyaHazirlik) completedSubSteps.push('Boya Hazırlık');
-                if (item.dorseSasiBoyama) completedSubSteps.push('Dorse Şasi Boyama');
+                if (item.boyaHazirlik) completedSubSteps.push('Boya Hazırlık (Boya)');
+                if (item.dorseSasiBoyama) completedSubSteps.push('Dorse Şasi Boyama (Boya)');
+
+                // Çekici
+                if (item.cekiciElektrik) completedSubSteps.push('Çekici Elektrik (Çekici)');
+                if (item.cekiciHidrolik) completedSubSteps.push('Çekici Hidrolik (Çekici)');
 
                 // Tamamlama
-                if (item.frenProgrami) completedSubSteps.push('Fren Programı');
-                if (item.fren) completedSubSteps.push('Fren');
-                if (item.dorseElektrik) completedSubSteps.push('Dorse Elektrik');
-                if (item.tamamlama) completedSubSteps.push('Tamamlama');
-                if (item.cekiciElektrik) completedSubSteps.push('Çekici Elektrik');
-                if (item.cekiciHidrolik) completedSubSteps.push('Çekici Hidrolik');
-                if (item.aracKontrolBypassAyari) completedSubSteps.push('Araç Kontrol Bypass Ayarı');
+                if (item.frenProgrami) completedSubSteps.push('Fren Programı (Tamamlama)');
+                if (item.fren) completedSubSteps.push('Fren (Tamamlama)');
+                if (item.dorseElektrik) completedSubSteps.push('Dorse Elektrik (Tamamlama)');
+                if (item.tamamlama) completedSubSteps.push('Tamamlama (Tamamlama)');
+                if (item.brandaMontaji) completedSubSteps.push('Branda Montajı (Tamamlama)');
+                if (item.aracKontrolBypassAyari) completedSubSteps.push('Araç Kontrol Bypass Ayarı (Tamamlama)');
 
+                // Son kontrol / evrak (ürün kartı SON KONTROL grubu)
                 if (item.sonKontrol) completedSubSteps.push('Son Kontrol');
-                if (item.tipOnay) completedSubSteps.push('Tip Onay');
-                if (item.fatura) completedSubSteps.push('Fatura');
-                if (item.akmTseMuayenesi === 'YAPILDI') completedSubSteps.push('AKM-TSE Muayenesi');
-                if (item.dmoMuayenesi === 'YAPILDI') completedSubSteps.push('DMO Muayenesi');
-                if (item.tahsilat) completedSubSteps.push('Tahsilat');
+                if (item.tipOnay) completedSubSteps.push('Tip Onay (Son Kontrol)');
+                if (item.fatura) completedSubSteps.push('Fatura (Son Kontrol)');
+                if (item.tahsilat) completedSubSteps.push('Tahsilat (Son Kontrol)');
+                if (item.akmTseMuayenesi === 'YAPILDI') completedSubSteps.push('AKM-TSE Muayenesi (Kurum Muayenesi)');
+                if (item.dmoMuayenesi === 'YAPILDI') completedSubSteps.push('DMO Muayenesi (DMO Muayenesi)');
                 if (item.teslimat) completedSubSteps.push('Teslimat ✅');
 
             } else if (productType === 'SASI') {

@@ -60,6 +60,7 @@ const DAILY_PHASE_ORDER: string[] = [
     'Hidrolik',
     'Boya',
     'Boya Bitiş',
+    'Çekici',
     'Tamamlama',
     'Tamamlama Bitiş',
     'Son Kontrol',

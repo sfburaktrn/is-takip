@@ -2106,7 +2106,7 @@ function UrunListesiContent() {
     return (
         <>
             <Sidebar />
-            <main className="main-content apple-app-page">
+            <main className="main-content apple-app-page urun-listesi-page">
                 <div className="apple-canvas">
                 <header className="header header--stack apple-page-hero">
                     <div className="flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3">

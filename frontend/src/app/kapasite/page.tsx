@@ -112,7 +112,7 @@ function KapBtnContent({ icon, label }: KapBtnContentProps) {
 function KapasiteMobileCard(p: KapasiteRowProps) {
     const { r, hoursPerPerson, savingKey, updateRow, applyStandardHours, saveRow, clearRow, saveTargetRow, clearTargetRow } = p;
     return (
-        <article className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-md shadow-slate-200/40 ring-1 ring-slate-100 transition hover:shadow-lg hover:shadow-slate-200/60">
+        <article className="capacity-mobile-card group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-md shadow-slate-200/40 ring-1 ring-slate-100 transition hover:shadow-lg hover:shadow-slate-200/60">
             <div
                 className="h-1.5 w-full bg-gradient-to-r from-[var(--primary)] via-violet-500 to-fuchsia-500 opacity-90"
                 aria-hidden
@@ -152,7 +152,7 @@ function KapasiteMobileCard(p: KapasiteRowProps) {
                         </div>
                         <label className="block text-xs font-medium text-slate-600">
                             Normal saat (toplam)
-                            <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_148px] items-stretch gap-2">
+                            <div className="capacity-normal-row mt-1.5 grid grid-cols-[minmax(0,1fr)_148px] items-stretch gap-2">
                                 <input
                                     type="number"
                                     min={0}
@@ -192,7 +192,7 @@ function KapasiteMobileCard(p: KapasiteRowProps) {
                             <Target size={14} className="text-emerald-600" />
                             Haftalık hedef
                         </div>
-                        <div className="grid grid-cols-[minmax(0,1fr)_180px_2.5rem] items-stretch gap-2">
+                        <div className="capacity-target-row grid grid-cols-[minmax(0,1fr)_180px_2.5rem] items-stretch gap-2">
                             <input
                                 type="number"
                                 min={0}
@@ -231,7 +231,7 @@ function KapasiteMobileCard(p: KapasiteRowProps) {
                     </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-[minmax(0,1fr)_112px] gap-2 border-t border-slate-100 pt-5">
+                <div className="capacity-action-row mt-6 grid grid-cols-[minmax(0,1fr)_112px] gap-2 border-t border-slate-100 pt-5">
                     <button
                         type="button"
                         className={`${kapBtnMotion} ${kapBtnDisabled} ${kapBtnCenterMd} min-w-0 w-full bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/25 hover:brightness-110`}
@@ -378,7 +378,7 @@ export default function KapasitePage() {
     return (
         <AuthGuard>
             <Sidebar />
-            <main className="main-content apple-app-page analytics-page min-h-0">
+            <main className="main-content apple-app-page analytics-page capacity-page min-h-0">
                 <div className="apple-canvas">
                 {/* Hero */}
                 <div className="relative mb-10 overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white via-slate-50/80 to-indigo-50/40 p-6 shadow-lg shadow-slate-200/30 sm:mb-12 sm:p-8">

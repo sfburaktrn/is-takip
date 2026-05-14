@@ -28,3 +28,20 @@
     height: 26px;
   }
 }
+
+/* Tüm uygulama: tablo yatay kaydırma, kart sıkılığı — tablet & telefon */
+@media (max-width: 900px) {
+  .main-content .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .main-content .card {
+    padding: 16px;
+  }
+
+  .main-content .apple-audit-card {
+    padding: 14px 16px;
+  }
+}

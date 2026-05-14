@@ -1,0 +1,1052 @@
+/* Geniş ekran (TV / ultrawide) → mobil: kabuk ve tipografi akışkanlığı */
+
+:root {
+  --shell-pad-x: clamp(16px, 2.4vw, 40px);
+  --shell-pad-y: clamp(16px, 2.2vw, 36px);
+}
+
+body {
+  min-height: 100dvh;
+}
+
+@media (min-width: 1025px) {
+  .main-content {
+    padding: var(--shell-pad-y) var(--shell-pad-x);
+    padding-right: calc(var(--shell-pad-x) + var(--notification-bell-reserve));
+  }
+}
+
+/* İçerik genişliği: küçük ekranda taşma yok, büyük ekranda boşluk kalır */
+.apple-app-page .apple-canvas {
+  max-width: min(1280px, 100%);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1440px) {
+  .apple-app-page .apple-canvas {
+    max-width: min(1500px, 94vw);
+  }
+}
+
+@media (min-width: 1920px) {
+  .apple-app-page .apple-canvas {
+    max-width: min(1680px, 92vw);
+  }
+}
+
+@media (min-width: 2560px) {
+  .apple-app-page .apple-canvas {
+    max-width: min(1920px, 88vw);
+  }
+}
+
+/* Başlıklar: dar pencerede küçülür; genişte üst sınır */
+.header-title {
+  font-size: clamp(1.25rem, 2.2vw + 0.55rem, 1.75rem);
+  line-height: 1.2;
+}
+
+.header-subtitle {
+  font-size: clamp(0.8125rem, 0.85vw + 0.62rem, 0.9375rem);
+  line-height: 1.45;
+}
+
+.stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.main-content img,
+.main-content video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Notch / home indicator ile üst-alt boşluk */
+@media (max-width: 1024px) {
+  :root {
+    /* Tek pill (zil + ses) — içerik sağda daha az “keser” */
+    --notification-bell-reserve: 100px;
+  }
+
+  .main-content {
+    padding-top: calc(76px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  .mobile-toggle {
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    left: max(14px, env(safe-area-inset-left, 0px));
+  }
+
+  .notification-bell-host {
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    right: max(14px, env(safe-area-inset-right, 0px));
+  }
+
+  /* İkinci referanstaki gibi: zil + ses tek yuvarlak “pill” içinde */
+  .notification-bell-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 3px;
+    margin-top: 2px;
+    overflow: visible;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--card) 88%, rgba(255, 255, 255, 0.55));
+    border: 1px solid color-mix(in srgb, var(--foreground) 9%, var(--border));
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+      var(--shadow-sm);
+    backdrop-filter: blur(14px) saturate(165%);
+    -webkit-backdrop-filter: blur(14px) saturate(165%);
+  }
+
+  .notification-bell-host .notification-bell-trigger,
+  .notification-bell-host .notification-sound-toggle {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .notification-bell-host .notification-bell-trigger {
+    border-radius: 999px 0 0 999px;
+  }
+
+  .notification-bell-host .notification-sound-toggle {
+    border-radius: 0 999px 999px 0;
+    border-left: 1px solid var(--hairline);
+  }
+
+  .notification-bell-host .notification-sound-toggle.is-on {
+    background: transparent;
+    color: var(--primary);
+  }
+
+  .notification-bell-host .notification-bell-trigger:hover,
+  .notification-bell-host .notification-sound-toggle:hover {
+    background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  }
+
+  /* Tüm sayfalar: sabit sağ üst bildirim alanı için yapay sağ boşluk bırakma. */
+  .apple-app-page .apple-canvas {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .apple-page-hero,
+  .header--stack {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .header-toolbar {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header-toolbar .btn {
+    min-height: 40px;
+    padding: 9px 14px;
+  }
+
+  .apple-toolbar-row {
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .apple-segmented {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .apple-segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .apple-segmented-btn {
+    flex: 0 0 auto;
+  }
+
+  .apple-search-box {
+    max-width: 100%;
+  }
+
+  .card,
+  .apple-audit-card,
+  .apple-link-card,
+  .analiz-card-pad {
+    border-radius: 20px;
+  }
+
+  .table-container {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --notification-bell-reserve: 96px;
+  }
+
+  .main-content {
+    padding-top: calc(68px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .mobile-toggle {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .notification-bell-host {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .notification-bell-host .notification-bell-trigger,
+  .notification-bell-host .notification-sound-toggle {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .header-toolbar .btn {
+    width: 100%;
+  }
+
+  .apple-page-hero,
+  .header--stack {
+    margin-bottom: 16px;
+  }
+
+  .card,
+  .apple-audit-card,
+  .apple-link-card,
+  .analiz-card-pad {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .mobile-toggle,
+  .notification-bell-host .notification-bell-toolbar,
+  .notification-bell-host .notification-bell-trigger,
+  .notification-bell-host .notification-sound-toggle {
+    transition:
+      background 0.22s ease,
+      border-color 0.22s ease,
+      box-shadow 0.22s ease,
+      backdrop-filter 0.22s ease,
+      -webkit-backdrop-filter 0.22s ease;
+  }
+}
+
+/* Aşağı kaydırınca: menü + bildirim grubu — cam; iç ikonlar şeffaf */
+@media (max-width: 1024px) {
+  html.app-chrome-glass .mobile-toggle {
+    background: color-mix(in srgb, var(--card) 36%, transparent);
+    backdrop-filter: blur(14px) saturate(170%);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    border-color: color-mix(in srgb, var(--foreground) 11%, var(--border));
+    box-shadow: 0 1px 12px rgba(0, 0, 0, 0.07);
+  }
+
+  html.app-chrome-glass .notification-bell-host .notification-bell-toolbar {
+    background: color-mix(in srgb, var(--card) 32%, transparent);
+    backdrop-filter: blur(16px) saturate(175%);
+    -webkit-backdrop-filter: blur(16px) saturate(175%);
+    border-color: color-mix(in srgb, var(--foreground) 10%, var(--border));
+    box-shadow: 0 1px 14px rgba(0, 0, 0, 0.08);
+  }
+
+  html.app-chrome-glass .notification-bell-host .notification-bell-trigger,
+  html.app-chrome-glass .notification-bell-host .notification-sound-toggle {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  html.app-chrome-glass .notification-bell-host .notification-sound-toggle.is-on {
+    background: transparent;
+    color: var(--primary);
+  }
+
+  html.app-chrome-glass .mobile-toggle:hover,
+  html.app-chrome-glass .notification-bell-host .notification-bell-trigger:hover,
+  html.app-chrome-glass .notification-bell-host .notification-sound-toggle:hover {
+    background: color-mix(in srgb, var(--card) 28%, transparent);
+  }
+}
+
+/* Ürün kartları — mobil / tablet: daha büyük radius, daha hafif blur (hız) */
+@media (max-width: 900px) {
+  .damper-card {
+    border-radius: 22px;
+    margin-bottom: 10px;
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+  }
+
+  .damper-card:hover {
+    transform: none;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+      0 2px 10px rgba(0, 0, 0, 0.05),
+      0 10px 28px rgba(0, 0, 0, 0.05);
+  }
+
+  .damper-card-header {
+    padding: 12px 14px;
+  }
+
+  .damper-card-header--apple {
+    padding-inline: 14px;
+  }
+
+  .damper-card-body {
+    padding: 14px 14px 18px;
+  }
+}
+
+/* Ürün Listesi: mobilde sağdaki bildirim/ses rezervi kartları daraltmasın. */
+@media (max-width: 1024px) {
+  .urun-listesi-page {
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  .urun-listesi-page .apple-page-hero {
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+  }
+
+  .urun-listesi-page .apple-toolbar-row {
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .urun-listesi-page .apple-segmented {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 26px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .urun-listesi-page .apple-segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .urun-listesi-page .apple-segmented-btn {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding-inline: 14px;
+  }
+
+  .urun-listesi-page .apple-search-box {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* Ürün kartı: flex-column yüksekliğini kır, iPhone'da kompakt Apple kart yap. */
+@media (max-width: 640px) {
+  .urun-listesi-page .stats-grid {
+    gap: 10px !important;
+    margin-bottom: 18px;
+  }
+
+  .urun-listesi-page .stats-grid > div {
+    min-height: 84px;
+    border-radius: 20px !important;
+    padding: 14px 16px !important;
+  }
+
+  .urun-listesi-page .damper-card {
+    border-radius: 22px;
+    margin-bottom: 10px;
+  }
+
+  .urun-listesi-page .damper-card-header.damper-card-header--apple {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 10px;
+    align-items: center;
+    padding: 16px;
+  }
+
+  .urun-listesi-page .apple-urun-row__imalat,
+  .urun-listesi-page .apple-urun-row__musteri,
+  .urun-listesi-page .apple-urun-row__specs,
+  .urun-listesi-page .apple-urun-row__progress {
+    flex: initial;
+    min-width: 0;
+  }
+
+  .urun-listesi-page .apple-urun-row__imalat {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 14px;
+  }
+
+  .urun-listesi-page .apple-urun-row__trail {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    margin-left: 0;
+    gap: 9px;
+  }
+
+  .urun-listesi-page .apple-urun-row__musteri {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: block;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
+  .urun-listesi-page .damper-card-header--apple > div:nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    min-width: 0;
+  }
+
+  .urun-listesi-page .apple-urun-row__pill {
+    max-width: 100%;
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+
+  .urun-listesi-page .apple-urun-row__specs {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    font-size: 12px;
+  }
+
+  .urun-listesi-page .apple-urun-row__progress {
+    grid-column: 1;
+    grid-row: 5;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .urun-listesi-page .apple-urun-row__progress .progress-bar--compact {
+    max-width: none;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .urun-listesi-page .apple-urun-row__badge {
+    grid-column: 2;
+    grid-row: 5;
+    justify-self: end;
+  }
+
+  .urun-listesi-page .apple-urun-row__badge .badge {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+}
+
+/* Araç Bilgileri: canlı araç kartları için Apple tarzı mobil/tablet düzen. */
+@media (max-width: 1024px) {
+  .vehicle-info-page {
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  .vehicle-info-page .vd-page {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .vehicle-info-page .vd-hero,
+  .vehicle-info-page .vd-card,
+  .vehicle-info-page .vd-empty,
+  .vehicle-info-page .vd-modal {
+    border-radius: 22px;
+    background:
+      linear-gradient(170deg, color-mix(in srgb, var(--card) 94%, transparent), color-mix(in srgb, var(--surface-subtle) 74%, var(--card)));
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.45) inset,
+      0 2px 10px rgba(0, 0, 0, 0.04),
+      0 12px 30px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(12px) saturate(155%);
+    -webkit-backdrop-filter: blur(12px) saturate(155%);
+  }
+
+  .vehicle-info-page .vd-hero {
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+
+  .vehicle-info-page .vd-hero-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .vehicle-info-page .vd-hero-title {
+    font-size: clamp(24px, 6vw, 32px);
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+  }
+
+  .vehicle-info-page .vd-hero-sub {
+    max-width: none;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .vehicle-info-page .vd-hero-actions {
+    width: 100%;
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .vehicle-info-page .vd-btn {
+    justify-content: center;
+    min-height: 44px;
+    border-radius: 999px;
+    padding: 10px 12px;
+  }
+
+  .vehicle-info-page .vd-live-badge {
+    grid-column: 1 / -1;
+    justify-content: center;
+    min-height: 38px;
+  }
+
+  .vehicle-info-page .vd-stat-strip {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-top: 16px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .vehicle-info-page .vd-stat-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .vehicle-info-page .vd-stat {
+    flex: 0 0 min(72vw, 220px);
+    min-width: 0;
+    border-radius: 18px;
+    padding: 12px 14px;
+  }
+
+  .vehicle-info-page .vd-stat-n {
+    font-size: 1.45rem;
+    line-height: 1;
+  }
+
+  .vehicle-info-page .vd-toolbar {
+    margin-bottom: 14px;
+  }
+
+  .vehicle-info-page .vd-search-wrap {
+    max-width: none;
+  }
+
+  .vehicle-info-page .vd-search {
+    min-height: 46px;
+    border-radius: 999px;
+    font-size: 16px;
+  }
+
+  .vehicle-info-page .vd-grid-cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .vehicle-info-page .vd-card:hover {
+    transform: none;
+  }
+
+  .vehicle-info-page .vd-card-inner {
+    padding: 16px;
+  }
+
+  .vehicle-info-page .vd-card-head {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .vehicle-info-page .vd-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .vehicle-info-page .vd-head-text {
+    min-width: 0;
+  }
+
+  .vehicle-info-page .vd-company {
+    font-size: 0.98rem;
+    line-height: 1.25;
+  }
+
+  .vehicle-info-page .vd-status-wrap {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .vehicle-info-page .vd-pill {
+    padding: 6px 10px;
+  }
+
+  .vehicle-info-page .vd-section {
+    border-radius: 18px;
+    padding: 12px;
+  }
+
+  .vehicle-info-page .vd-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .vehicle-info-page .vd-kv {
+    min-width: 0;
+  }
+
+  .vehicle-info-page .vd-v {
+    font-size: 12.5px;
+  }
+
+  .vehicle-info-page .vd-card-actions {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  .vehicle-info-page .vd-del-btn {
+    min-height: 42px;
+    border-radius: 14px;
+  }
+
+  .vehicle-info-page .vd-modal-backdrop {
+    padding: max(14px, env(safe-area-inset-top, 0px)) 12px max(14px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .vehicle-info-page .vd-modal {
+    max-height: min(82vh, 640px);
+    margin: 18px auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .vehicle-info-page {
+    padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .vehicle-info-page .vd-hero,
+  .vehicle-info-page .vd-card,
+  .vehicle-info-page .vd-empty,
+  .vehicle-info-page .vd-modal {
+    border-radius: 20px;
+  }
+
+  .vehicle-info-page .vd-hero {
+    padding: 16px;
+  }
+
+  .vehicle-info-page .vd-hero-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-info-page .vd-stat {
+    flex-basis: min(78vw, 190px);
+  }
+
+  .vehicle-info-page .vd-stat-l {
+    font-size: 10px;
+  }
+
+  .vehicle-info-page .vd-card-inner {
+    padding: 14px;
+  }
+
+  .vehicle-info-page .vd-card-head {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .vehicle-info-page .vd-icon-wrap {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+  }
+
+  .vehicle-info-page .vd-company {
+    font-size: 0.93rem;
+    align-items: flex-start;
+  }
+
+  .vehicle-info-page .vd-id {
+    margin-top: 4px;
+  }
+
+  .vehicle-info-page .vd-section-hint {
+    font-size: 11.5px;
+    margin-bottom: 10px;
+  }
+
+  .vehicle-info-page .vd-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-info-page .vd-kv {
+    display: grid;
+    grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
+    align-items: baseline;
+    gap: 6px 10px;
+  }
+
+  .vehicle-info-page .vd-k {
+    font-size: 9.5px;
+  }
+
+  .vehicle-info-page .vd-v {
+    text-align: right;
+  }
+
+  .vehicle-info-page .vd-modal-head {
+    padding: 14px 14px 10px;
+  }
+
+  .vehicle-info-page .vd-modal-hint {
+    padding-inline: 14px;
+  }
+
+  .vehicle-info-page .vd-log-list {
+    padding: 8px 12px 16px;
+  }
+}
+
+/* Bölüm Kapasitesi: haftalık kapasite formu için mobil/tablet Apple düzeni. */
+@media (max-width: 1024px) {
+  .capacity-page {
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  .capacity-page .apple-canvas {
+    max-width: 100%;
+  }
+
+  .capacity-page > .apple-canvas > div:first-child,
+  .capacity-page > .apple-canvas > div:nth-child(2),
+  .capacity-page > .apple-canvas > div:nth-child(4) {
+    border-radius: 22px;
+    background:
+      linear-gradient(170deg, color-mix(in srgb, var(--card) 94%, transparent), color-mix(in srgb, var(--surface-subtle) 74%, var(--card)));
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.45) inset,
+      0 2px 10px rgba(0, 0, 0, 0.04),
+      0 12px 30px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(12px) saturate(155%);
+    -webkit-backdrop-filter: blur(12px) saturate(155%);
+  }
+
+  .capacity-page > .apple-canvas > div:first-child {
+    margin-bottom: 16px;
+    padding: 18px;
+  }
+
+  .capacity-page > .apple-canvas > div:nth-child(2) {
+    margin-bottom: 16px;
+    padding: 16px;
+  }
+
+  .capacity-page > .apple-canvas > div:nth-child(4) {
+    margin-bottom: 18px;
+    padding: 16px;
+    padding-top: 18px;
+  }
+
+  .capacity-page .capacity-mobile-card {
+    border-radius: 22px;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.45) inset,
+      0 2px 10px rgba(0, 0, 0, 0.04),
+      0 12px 30px rgba(0, 0, 0, 0.05);
+  }
+
+  .capacity-page .capacity-mobile-card:hover {
+    transform: none;
+  }
+
+  .capacity-page input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .capacity-page .analytics-touch-target {
+    min-height: 42px;
+  }
+
+  .capacity-page .capacity-normal-row {
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 140px);
+  }
+
+  .capacity-page .capacity-target-row {
+    grid-template-columns: minmax(0, 1fr) minmax(148px, 172px) 2.5rem;
+  }
+
+  .capacity-page .capacity-action-row {
+    grid-template-columns: minmax(0, 1fr) minmax(90px, 112px);
+  }
+}
+
+@media (max-width: 640px) {
+  .capacity-page {
+    padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .capacity-page > .apple-canvas > div:first-child,
+  .capacity-page > .apple-canvas > div:nth-child(2),
+  .capacity-page > .apple-canvas > div:nth-child(4),
+  .capacity-page .capacity-mobile-card {
+    border-radius: 20px;
+  }
+
+  .capacity-page > .apple-canvas > div:first-child,
+  .capacity-page > .apple-canvas > div:nth-child(2),
+  .capacity-page > .apple-canvas > div:nth-child(4) {
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+
+  .capacity-page > .apple-canvas > div:first-child .inline-flex {
+    align-items: flex-start;
+  }
+
+  .capacity-page > .apple-canvas > div:first-child h1 {
+    font-size: 1.35rem;
+    line-height: 1.12;
+  }
+
+  .capacity-page > .apple-canvas > div:nth-child(2) {
+    gap: 12px;
+  }
+
+  .capacity-page > .apple-canvas > div:nth-child(4) > div {
+    gap: 14px;
+  }
+
+  .capacity-page > .apple-canvas > div:nth-child(4) .grid-cols-3 {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .capacity-page > .apple-canvas > div:nth-child(4) .grid-cols-3::-webkit-scrollbar {
+    display: none;
+  }
+
+  .capacity-page > .apple-canvas > div:nth-child(4) .grid-cols-3 > button {
+    flex: 0 0 min(42vw, 150px);
+  }
+
+  .capacity-page .capacity-mobile-card > div:last-child {
+    padding: 14px;
+  }
+
+  .capacity-page .capacity-mobile-card .space-y-5 {
+    gap: 12px;
+  }
+
+  .capacity-page .capacity-normal-row,
+  .capacity-page .capacity-target-row,
+  .capacity-page .capacity-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .capacity-page .capacity-target-row > button[title='Hedefi sil'] {
+    width: 100%;
+  }
+
+  .capacity-page .capacity-mobile-card button {
+    min-height: 42px;
+  }
+}
+
+/* Verimlilik: filtreler, grafikler ve bölüm kartları için mobil/tablet Apple düzeni. */
+@media (max-width: 1024px) {
+  .verimlilik-page {
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  .verimlilik-page .apple-canvas {
+    max-width: 100%;
+  }
+
+  .verimlilik-page .verimlilik-hero,
+  .verimlilik-page .verimlilik-info-card,
+  .verimlilik-page .verimlilik-chart-card,
+  .verimlilik-page .verimlilik-table-card,
+  .verimlilik-page .verimlilik-step-card {
+    border-radius: 22px;
+    background:
+      linear-gradient(170deg, color-mix(in srgb, var(--card) 94%, transparent), color-mix(in srgb, var(--surface-subtle) 74%, var(--card)));
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.45) inset,
+      0 2px 10px rgba(0, 0, 0, 0.04),
+      0 12px 30px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(12px) saturate(155%);
+    -webkit-backdrop-filter: blur(12px) saturate(155%);
+  }
+
+  .verimlilik-page .verimlilik-hero {
+    padding: 18px;
+    margin-bottom: 16px;
+    border: 1px solid var(--hairline);
+  }
+
+  .verimlilik-page .header-title {
+    font-size: clamp(24px, 6vw, 32px);
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+  }
+
+  .verimlilik-page .header-subtitle {
+    max-width: none;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .verimlilik-page .verimlilik-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .verimlilik-page .verimlilik-actions .btn {
+    min-height: 42px;
+    padding-inline: 12px;
+    border-radius: 999px;
+  }
+
+  .verimlilik-page .verimlilik-toolbar {
+    gap: 12px;
+  }
+
+  .verimlilik-page .verimlilik-tabs {
+    border-radius: 999px;
+    overflow-x: auto;
+    justify-content: flex-start;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .verimlilik-page .verimlilik-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .verimlilik-page .verimlilik-tabs button {
+    flex: 0 0 auto;
+    min-width: 92px;
+    border-radius: 999px;
+  }
+
+  .verimlilik-page .verimlilik-date-grid {
+    width: 100%;
+    max-width: none;
+  }
+
+  .verimlilik-page .verimlilik-date-grid input {
+    min-height: 44px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+
+  .verimlilik-page .verimlilik-info-card,
+  .verimlilik-page .verimlilik-chart-card {
+    padding: 16px;
+  }
+
+  .verimlilik-page .verimlilik-chart-card {
+    margin-bottom: 14px;
+  }
+
+  .verimlilik-page .verimlilik-step-card {
+    padding: 14px;
+  }
+
+  .verimlilik-page .verimlilik-mobile-list {
+    gap: 10px;
+  }
+
+  .verimlilik-page .verimlilik-table-card {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 640px) {
+  .verimlilik-page {
+    padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .verimlilik-page .verimlilik-hero,
+  .verimlilik-page .verimlilik-info-card,
+  .verimlilik-page .verimlilik-chart-card,
+  .verimlilik-page .verimlilik-table-card,
+  .verimlilik-page .verimlilik-step-card {
+    border-radius: 20px;
+  }
+
+  .verimlilik-page .verimlilik-hero {
+    padding: 16px;
+  }
+
+  .verimlilik-page .verimlilik-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .verimlilik-page .verimlilik-actions .col-span-2 {
+    grid-column: auto;
+  }
+
+  .verimlilik-page .verimlilik-tabs button {
+    min-width: 86px;
+    padding-inline: 12px;
+  }
+
+  .verimlilik-page .verimlilik-date-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .verimlilik-page .verimlilik-chart-card > div:last-child {
+    height: 300px;
+    min-height: 260px;
+  }
+
+  .verimlilik-page .verimlilik-step-card > div:last-child {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}

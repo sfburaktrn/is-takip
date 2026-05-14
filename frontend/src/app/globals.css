@@ -38,8 +38,8 @@
   --radius-lg: 20px;
   --radius-xl: 22px;
   --radius-pill: 980px;
-  /* Sabit bildirim zili (sağ üst) için içerik rezervi — butonlarla çakışmayı önler */
-  --notification-bell-reserve: 104px;
+  /* Sabit bildirim + ses (sağ üst pill) için içerik rezervi */
+  --notification-bell-reserve: 100px;
 }
 
 * {
@@ -2741,13 +2741,6 @@ textarea.form-input:focus {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
-}
-
-@media (max-width: 1024px) {
-  .notification-bell-host {
-    top: 16px !important;
-    right: 16px !important;
-  }
 }
 
 @media print {

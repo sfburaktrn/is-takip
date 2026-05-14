@@ -634,7 +634,7 @@ function AracBilgileriContent() {
     return (
         <>
             <Sidebar />
-            <main className="main-content apple-app-page analytics-page" style={{ minHeight: '100vh', paddingBottom: 48 }}>
+            <main className="main-content apple-app-page analytics-page vehicle-info-page" style={{ minHeight: '100vh', paddingBottom: 48 }}>
                 <div className="apple-canvas">
                 <div className="vd-page">
                     <header className="vd-hero">

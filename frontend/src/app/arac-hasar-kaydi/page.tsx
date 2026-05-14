@@ -581,7 +581,7 @@ function AracHasarKaydiPageContent() {
     return (
         <>
             <Sidebar />
-            <main className="main-content apple-app-page analytics-page">
+            <main className="main-content apple-app-page analytics-page vehicle-damage-page">
                 <div className="apple-canvas">
                 <div className="damage-wrap">
                     <header className="hero">
@@ -810,6 +810,284 @@ function AracHasarKaydiPageContent() {
                     @keyframes blink { 0%,100%{opacity:.4} 50%{opacity:1} }
                     @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
                     @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+                    @media (max-width: 900px) {
+                        .vehicle-damage-page .damage-wrap {
+                            max-width: 100%;
+                            padding: 0;
+                            gap: 14px;
+                        }
+
+                        .vehicle-damage-page .hero,
+                        .vehicle-damage-page .create-card,
+                        .vehicle-damage-page .damage-card,
+                        .vehicle-damage-page .filter-bar {
+                            border-radius: 22px;
+                            background:
+                                linear-gradient(170deg, color-mix(in srgb, var(--card) 94%, transparent), color-mix(in srgb, var(--surface-subtle) 72%, var(--card)));
+                            box-shadow:
+                                0 0 0 1px rgba(255, 255, 255, 0.45) inset,
+                                0 2px 10px rgba(0, 0, 0, 0.04),
+                                0 12px 30px rgba(0, 0, 0, 0.05);
+                            backdrop-filter: blur(12px) saturate(155%);
+                            -webkit-backdrop-filter: blur(12px) saturate(155%);
+                        }
+
+                        .vehicle-damage-page .hero {
+                            align-items: stretch;
+                            padding: 18px;
+                            flex-direction: column;
+                        }
+
+                        .vehicle-damage-page .hero h1 {
+                            margin: 5px 0;
+                            font-size: clamp(24px, 6vw, 32px);
+                            line-height: 1.08;
+                            letter-spacing: -0.04em;
+                        }
+
+                        .vehicle-damage-page .hero p:not(.eyebrow) {
+                            font-size: 13px;
+                            line-height: 1.45;
+                        }
+
+                        .vehicle-damage-page .hero-right {
+                            width: 100%;
+                            align-items: stretch;
+                        }
+
+                        .vehicle-damage-page .open-form-btn {
+                            width: 100%;
+                            justify-content: center;
+                            min-height: 44px;
+                            border-radius: 999px;
+                        }
+
+                        .vehicle-damage-page .stats {
+                            display: grid;
+                            grid-template-columns: repeat(2, minmax(0, 1fr));
+                            gap: 10px;
+                        }
+
+                        .vehicle-damage-page .stats div {
+                            min-width: 0;
+                            padding: 12px 14px;
+                            border-radius: 18px;
+                        }
+
+                        .vehicle-damage-page .stats strong {
+                            font-size: 22px;
+                            line-height: 1;
+                        }
+
+                        .vehicle-damage-page .create-card,
+                        .vehicle-damage-page .damage-card {
+                            padding: 14px;
+                        }
+
+                        .vehicle-damage-page .grid4 {
+                            grid-template-columns: repeat(2, minmax(0, 1fr));
+                            gap: 10px;
+                        }
+
+                        .vehicle-damage-page input,
+                        .vehicle-damage-page select,
+                        .vehicle-damage-page textarea {
+                            min-height: 44px;
+                            border-radius: 14px;
+                            font-size: 16px;
+                        }
+
+                        .vehicle-damage-page .filter-bar {
+                            align-items: stretch;
+                            padding: 10px;
+                        }
+
+                        .vehicle-damage-page .filter-chips {
+                            display: flex;
+                            flex-wrap: nowrap;
+                            gap: 8px;
+                            overflow-x: auto;
+                            padding-bottom: 2px;
+                            scrollbar-width: none;
+                            -webkit-overflow-scrolling: touch;
+                        }
+
+                        .vehicle-damage-page .filter-chips::-webkit-scrollbar {
+                            display: none;
+                        }
+
+                        .vehicle-damage-page .filter-chip {
+                            flex: 0 0 auto;
+                            min-height: 38px;
+                            padding: 8px 13px;
+                        }
+
+                        .vehicle-damage-page .card-top {
+                            align-items: flex-start;
+                            gap: 12px;
+                        }
+
+                        .vehicle-damage-page .card-top > div:last-child {
+                            flex-shrink: 0;
+                        }
+
+                        .vehicle-damage-page .card-line {
+                            gap: 4px 8px;
+                        }
+
+                        .vehicle-damage-page .steps {
+                            grid-template-columns: repeat(3, minmax(0, 1fr));
+                            gap: 7px;
+                        }
+
+                        .vehicle-damage-page .step {
+                            padding: 9px 7px;
+                            font-size: 11px;
+                        }
+
+                        .vehicle-damage-page .photo-row {
+                            display: grid;
+                            grid-template-columns: repeat(3, minmax(0, 1fr));
+                        }
+
+                        .vehicle-damage-page .photo-item,
+                        .vehicle-damage-page .add-photo {
+                            width: 100%;
+                        }
+
+                        .vehicle-damage-page .photo-item img {
+                            width: 100%;
+                            height: 86px;
+                        }
+
+                        .vehicle-damage-page .card-foot {
+                            align-items: stretch;
+                            flex-direction: column;
+                            gap: 10px;
+                        }
+
+                        .vehicle-damage-page .card-foot > div:last-child {
+                            width: 100%;
+                            display: grid !important;
+                            grid-template-columns: repeat(3, minmax(0, 1fr));
+                            gap: 8px !important;
+                        }
+
+                        .vehicle-damage-page .save-btn {
+                            justify-content: center;
+                            min-height: 40px;
+                            border-radius: 14px;
+                            padding: 8px 10px;
+                            font-size: 12px;
+                        }
+                    }
+
+                    @media (max-width: 640px) {
+                        .vehicle-damage-page .damage-wrap {
+                            gap: 12px;
+                        }
+
+                        .vehicle-damage-page .hero,
+                        .vehicle-damage-page .create-card,
+                        .vehicle-damage-page .damage-card,
+                        .vehicle-damage-page .filter-bar {
+                            border-radius: 20px;
+                        }
+
+                        .vehicle-damage-page .hero {
+                            padding: 16px;
+                        }
+
+                        .vehicle-damage-page .grid4 {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .vehicle-damage-page .resp-row {
+                            display: grid;
+                            grid-template-columns: minmax(0, 1fr) auto;
+                        }
+
+                        .vehicle-damage-page .upload-label {
+                            display: flex;
+                            align-items: flex-start;
+                            flex-direction: column;
+                            gap: 8px;
+                        }
+
+                        .vehicle-damage-page .upload-label input {
+                            margin-left: 0;
+                            width: 100%;
+                        }
+
+                        .vehicle-damage-page .card-top {
+                            flex-direction: column;
+                            align-items: stretch;
+                        }
+
+                        .vehicle-damage-page .card-top > div:last-child {
+                            display: grid !important;
+                            grid-template-columns: auto minmax(0, 1fr);
+                            width: 100%;
+                            gap: 8px !important;
+                        }
+
+                        .vehicle-damage-page .card-top .pill {
+                            justify-content: center;
+                            min-width: 0;
+                            text-align: center;
+                        }
+
+                        .vehicle-damage-page .steps {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .vehicle-damage-page .step {
+                            display: flex;
+                            align-items: center;
+                            justify-content: flex-start;
+                            gap: 10px;
+                            text-align: left;
+                        }
+
+                        .vehicle-damage-page .step span {
+                            margin: 0;
+                        }
+
+                        .vehicle-damage-page .photo-row,
+                        .vehicle-damage-page .pending-grid {
+                            grid-template-columns: repeat(2, minmax(0, 1fr));
+                        }
+
+                        .vehicle-damage-page .pending-grid {
+                            display: grid;
+                        }
+
+                        .vehicle-damage-page .pending-grid img,
+                        .vehicle-damage-page .photo-item img,
+                        .vehicle-damage-page .add-photo {
+                            width: 100%;
+                            height: 96px;
+                        }
+
+                        .vehicle-damage-page .card-foot > div:last-child {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .vehicle-damage-page .money {
+                            font-size: 17px;
+                        }
+
+                        .vehicle-damage-page .audit-row {
+                            display: grid;
+                            gap: 3px;
+                            justify-content: stretch;
+                        }
+
+                        .vehicle-damage-page .audit-v {
+                            text-align: left;
+                            flex-basis: auto;
+                        }
+                    }
                 `}</style>
             </div>
             </main>

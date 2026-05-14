@@ -53,7 +53,7 @@ function VerimlilikStepMobileCard({ row }: { row: VerimlilikResponse['steps'][nu
               ? `${row.deltaPercent}%`
               : '—';
     return (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="verimlilik-step-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="font-semibold text-slate-900 text-sm border-b border-slate-100 pb-2 mb-3">{row.label}</div>
             <div className="grid grid-cols-2 gap-3">
                 {cell('Adet', row.current)}
@@ -202,9 +202,9 @@ export default function VerimlilikPage() {
         <AuthGuard>
             <>
             <Sidebar />
-            <main className="main-content apple-app-page analytics-page">
+            <main className="main-content apple-app-page analytics-page verimlilik-page">
                 <div className="apple-canvas">
-                <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
+                <header className="header verimlilik-hero" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
                     <div className="flex flex-col lg:flex-row w-full justify-between items-stretch lg:items-start gap-4">
                         <div className="min-w-0 flex-1">
                             <h1 className="header-title">
@@ -217,7 +217,7 @@ export default function VerimlilikPage() {
                                 bölümler).
                             </p>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 w-full lg:w-auto shrink-0">
+                        <div className="verimlilik-actions grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 w-full lg:w-auto shrink-0">
                             <button
                                 type="button"
                                 className="btn btn-primary analytics-touch-target justify-center text-sm px-3 sm:px-4"
@@ -256,8 +256,8 @@ export default function VerimlilikPage() {
                         </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end w-full">
-                        <div className="flex gap-1 sm:gap-2 bg-[var(--card)] p-1 rounded-lg border border-slate-200/80 w-full sm:w-auto justify-between sm:justify-start">
+                    <div className="verimlilik-toolbar flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end w-full">
+                        <div className="verimlilik-tabs flex gap-1 sm:gap-2 bg-[var(--card)] p-1 rounded-lg border border-slate-200/80 w-full sm:w-auto justify-between sm:justify-start">
                             {(['DAMPER', 'DORSE', 'SASI'] as const).map(t => (
                                 <button
                                     key={t}
@@ -273,7 +273,7 @@ export default function VerimlilikPage() {
                                 </button>
                             ))}
                         </div>
-                        <div className="grid grid-cols-2 gap-3 flex-1 min-w-0 sm:max-w-md">
+                        <div className="verimlilik-date-grid grid grid-cols-2 gap-3 flex-1 min-w-0 sm:max-w-md">
                             <label className="flex flex-col gap-1 text-xs text-slate-500 min-w-0">
                                 Başlangıç
                                 <input
@@ -304,7 +304,7 @@ export default function VerimlilikPage() {
                     </div>
                 ) : data ? (
                     <>
-                        <div className="card p-4 sm:p-5 mb-4 text-sm text-slate-600 leading-relaxed">
+                        <div className="verimlilik-info-card card p-4 sm:p-5 mb-4 text-sm text-slate-600 leading-relaxed">
                             <strong className="text-slate-900">T0 kaydı olan ürün sayısı:</strong>{' '}
                             {data.trackedProductCountWithT0}. Önceki dönem:{' '}
                             {new Date(data.previousFrom).toLocaleDateString('tr-TR')} —{' '}
@@ -344,7 +344,7 @@ export default function VerimlilikPage() {
                             </div>
                         )}
 
-                        <div className="card p-4 sm:p-6 mb-4 sm:mb-6">
+                        <div className="verimlilik-chart-card card p-4 sm:p-6 mb-4 sm:mb-6">
                             <h3 className="mb-3 sm:mb-4 text-base font-bold text-slate-900">Dönem karşılaştırması</h3>
                             <div className="w-full h-[260px] sm:h-[320px] md:h-[380px] min-h-[220px] -mx-1 sm:mx-0">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -368,13 +368,13 @@ export default function VerimlilikPage() {
                             </div>
                         </div>
 
-                        <div className="md:hidden space-y-3 pb-6">
+                        <div className="verimlilik-mobile-list md:hidden space-y-3 pb-6">
                             {data.steps.map(row => (
                                 <VerimlilikStepMobileCard key={row.mainStepKey} row={row} />
                             ))}
                         </div>
 
-                        <div className="card hidden md:block p-0 overflow-x-auto">
+                        <div className="verimlilik-table-card card hidden md:block p-0 overflow-x-auto">
                             <table className="w-full border-collapse text-xs lg:text-[13px] min-w-[1000px]">
                                 <thead>
                                     <tr className="bg-[rgba(2,35,71,0.06)] text-left">

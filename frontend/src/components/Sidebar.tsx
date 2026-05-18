@@ -27,6 +27,7 @@ import {
     Package,
     CarFront,
     ShieldAlert,
+    Headphones,
 } from 'lucide-react';
 
 function cn(...classes: (string | false | undefined | null)[]) {
@@ -108,6 +109,7 @@ export default function Sidebar() {
         { key: 'mevcutIsler', href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
         { key: 'aracBilgileri', href: '/arac-bilgileri', label: 'Araç bilgileri', icon: CarFront },
         { href: '/arac-hasar-kaydi', label: 'Araç hasar kaydı', icon: ShieldAlert },
+        { href: '/ssh-takip', label: 'SSH Takip', icon: Headphones },
         { href: '/stok-takip', label: 'Stok takip', icon: Package },
     ];
 

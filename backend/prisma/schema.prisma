@@ -507,3 +507,61 @@ model VehicleDamagePhoto {
 
   @@index([vehicleDamageId, displayOrder])
 }
+
+model SshTalepNoSequence {
+  year       Int @id
+  lastNumber Int @default(0)
+}
+
+model SshComplaint {
+  id                      Int       @id @default(autoincrement())
+  talepNo                 String    @unique
+  talepTipi               String
+  sikayetBildirimTarihi   DateTime
+  garantiBaslangicTarihi  DateTime
+  musteriAdi              String
+  ilgiliKisi             String?
+  ilgiliKisiTel          String?
+  ustYapiTipi            String
+  sasiMarka              String?
+  sasiModel              String?
+  aracPlakasi            String?
+  sasiNo                 String?
+  imalatNo               String?
+  arizaBolge1            String?
+  arizaBolge2            String?
+  arizaBolge3            String?
+  arizaTipi              String?
+  arizaKodu              String?
+  hataKaynagi            String?
+  arizaAciklamasi        String?   @db.Text
+  tekrarEdenHataSayisi   Int       @default(1)
+  aracCikisSuresiGun     Int?
+  cikisSureKatsayisi     Int?
+  oncelikPrio            String?
+  oncelikKatsayisi       Int?
+  etkiAdi                String?
+  etkiKatsayisi          Int?
+  analizPuani            Int?
+  kritikPuan             Int?
+  fabrikaGarantiKarari   String?
+  garantiTipi            String?
+  toplamTutar            Decimal?  @db.Decimal(14, 2)
+  onaylananTutar         Decimal?  @db.Decimal(14, 2)
+  faturaTarihi           DateTime?
+  onarim                 String?   @db.Text
+  onarimTarihi           DateTime?
+  kokNeden               String?   @db.Text
+  kaliciOnlem            String?   @db.Text
+  kaliciOnlemTarihi      DateTime?
+  status                 String    @default("AÇIK")
+  createdByUsername      String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([status])
+  @@index([kritikPuan])
+  @@index([createdAt])
+  @@index([musteriAdi])
+  @@index([aracPlakasi])
+}

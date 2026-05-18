@@ -1,0 +1,318 @@
+{
+  "talepTipleri": [
+    "KULANS",
+    "NORMAL"
+  ],
+  "ustYapiTipleri": [
+    "DAMPER",
+    "DORSE"
+  ],
+  "sasiMarkalar": [
+    "FORD",
+    "IVECO",
+    "MERCEDES",
+    "VB.."
+  ],
+  "arizaTipleri": [
+    "AŞINMA",
+    "BOYA DÖKÜLMESİ",
+    "BOYADA MATLIK / TON FARKI",
+    "EKSİK",
+    "EĞİLME / BÜKÜLME / DEFORME OLMA",
+    "GEVŞEK",
+    "HATALI PARÇA SEÇİMİ",
+    "KABARMA / BALON YAPMA",
+    "KIRIK / ÇATLAK / YIRTIK",
+    "KOPMA / AYRILMA / DÜŞME",
+    "PASLANMA / KOROZYON / OKSİTLENME",
+    "SIYIRMA / KESİLME / DELİNME",
+    "SIZINTI / KAÇAK (SIVI)",
+    "SU ALMA",
+    "SÜRTME / YERE SÜRTME / ÇARPMA",
+    "TİTREŞİMLİ / SARSINTILI / DENGESİZ ÇALIŞMA",
+    "ÇALIŞMAMA / İŞLEV GÖRMEME",
+    "İMALATTA EKSİKLİK / HATALI İŞLEM GÖRME"
+  ],
+  "hataKaynaklari": [
+    "ARGE",
+    "MÜŞTERİ MEMNUNİYETİ",
+    "TEDARİKÇİ",
+    "ÜRETİM"
+  ],
+  "fabrikaGarantiKararlari": [
+    "KABUL",
+    "RED"
+  ],
+  "garantiTipleri": [
+    "GARANTİ",
+    "KULANS",
+    "SATIŞ KULANSI"
+  ],
+  "statusler": [
+    "AÇIK",
+    "KAPALI"
+  ],
+  "regionTree": [
+    {
+      "value": "100(SASI)",
+      "children": [
+        {
+          "value": "110(SASI_KOL)",
+          "children": [
+            "111(SASI_KOL_SG)"
+          ]
+        }
+      ]
+    },
+    {
+      "value": "200(DAMPER)",
+      "children": [
+        {
+          "value": "160(SILINDIR_GECME)",
+          "children": [
+            "112(SASI_KOL_SL)"
+          ]
+        }
+      ]
+    },
+    {
+      "value": "300(HIDROLIK)",
+      "children": [
+        {
+          "value": "170(YAG_TANKI)",
+          "children": [
+            "120(ARKA_TRAVERS)"
+          ]
+        }
+      ]
+    },
+    {
+      "value": "400(ELEKTRIK)",
+      "children": [
+        {
+          "value": "180(DAYAMA_KOLU)",
+          "children": [
+            "130(ARA_TRAVERS)"
+          ]
+        }
+      ]
+    },
+    {
+      "value": "500(TAMAMLAMA)",
+      "children": [
+        {
+          "value": "190(DENGE_KOLU)",
+          "children": [
+            "140(KISA_ESNEK_BRAKET)"
+          ]
+        }
+      ]
+    },
+    {
+      "value": "600(BOYA)",
+      "children": [
+        {
+          "value": "110(SASI_GOVDE)",
+          "children": [
+            "212(KUTUK)"
+          ]
+        },
+        {
+          "value": "201(YAN_CAMURLUK_SG_SL)",
+          "children": [
+            "212(KUTUK_SG)"
+          ]
+        },
+        {
+          "value": "202-(ARKA_KAPAK)",
+          "children": [
+            "213(KUTUK_SL)"
+          ]
+        },
+        {
+          "value": "203-(ON_GOGUS)",
+          "children": [
+            "214(SASI_KACMAZ)"
+          ]
+        },
+        {
+          "value": "204(YAN_SG_SL)",
+          "children": [
+            "216(DENGE_KOLU_BRAKETI)"
+          ]
+        },
+        {
+          "value": "204-(KULE_SG_SL)",
+          "children": [
+            "215(KILIT_SISTEMI)"
+          ]
+        },
+        {
+          "value": "205 (SASE_KACMAZ)",
+          "children": [
+            "231(KULE)"
+          ]
+        },
+        {
+          "value": "206 (MILALT)",
+          "children": [
+            "241(ASKI_KOL)"
+          ]
+        },
+        {
+          "value": "207-(KILIT_BASMA_BRAKET)",
+          "children": [
+            "(113)PLEYT_GRP",
+            "111(SASE_KOL_SG)",
+            "112(SASE_KOL_SL)",
+            "114 (DORSE_SASE_KACMAZ)",
+            "115( DORSE_LASTIK_TAKOZ)",
+            "120 (SASE_KILIT_BASMA)",
+            "130 (TAMPON)",
+            "210 (DORSE_KUTUK_SG_SL)",
+            "215 (ARKA_KAPAK_ASKI_SG_SL)",
+            "220 (KILIT_MILI_SACI)",
+            "220-(MIL_TABLASI)",
+            "225 (ASKI_KOL)",
+            "230 (KILIT_BASMA_AYAK)",
+            "235 (KILIT_MILI)",
+            "240-(ASKI_KOL)",
+            "251 ( SİPERLİK )"
+          ]
+        },
+        {
+          "value": "210(TABAN)",
+          "children": [
+            "150(UZUN_ESNEK_BRAKET)"
+          ]
+        },
+        {
+          "value": "220(YAN)",
+          "children": [
+            "171(YAG_TANKI_GOVDE)"
+          ]
+        },
+        {
+          "value": "230(ON)",
+          "children": [
+            "181(SASI_KULAGI)"
+          ]
+        },
+        {
+          "value": "240(ARKA)",
+          "children": [
+            "182(DAYAMA_PRF)"
+          ]
+        },
+        {
+          "value": "250 SİPERLİK",
+          "children": [
+            "191(DENGE_KOLU_DIS)"
+          ]
+        },
+        {
+          "value": "HİDROLİK ARKA KAPAK",
+          "children": [
+            "192(DENGE_KOLU_IC)"
+          ]
+        },
+        {
+          "value": "KAMU",
+          "children": [
+            "211(MILALT)"
+          ]
+        }
+      ]
+    }
+  ],
+  "etkiOptions": [
+    {
+      "name": "UYARISIZ TEHLİKELİ",
+      "score": 10
+    },
+    {
+      "name": "UYARILI TEHLİKELİ",
+      "score": 9
+    },
+    {
+      "name": "ÇOK YÜKSEK",
+      "score": 8
+    },
+    {
+      "name": "YÜKSEK",
+      "score": 7
+    },
+    {
+      "name": "ORTA",
+      "score": 6
+    },
+    {
+      "name": "DÜŞÜK",
+      "score": 5
+    },
+    {
+      "name": "ÇOK DÜŞÜK",
+      "score": 4
+    },
+    {
+      "name": "ÖNEMSİZ",
+      "score": 3
+    },
+    {
+      "name": "ÇOK ÖNEMSİZ",
+      "score": 2
+    },
+    {
+      "name": "ETKİSİZ",
+      "score": 1
+    }
+  ],
+  "prioOptions": [
+    {
+      "name": "PRİO 1",
+      "coefficient": 10
+    },
+    {
+      "name": "PRİO 2",
+      "coefficient": 7
+    },
+    {
+      "name": "PRİO 3",
+      "coefficient": 4
+    },
+    {
+      "name": "PRİO 4",
+      "coefficient": 1
+    }
+  ],
+  "exitTimeCoefficients": [
+    {
+      "maxDays": 91,
+      "coefficient": 10
+    },
+    {
+      "maxDays": 181,
+      "coefficient": 8
+    },
+    {
+      "maxDays": 271,
+      "coefficient": 6
+    },
+    {
+      "maxDays": 366,
+      "coefficient": 4
+    },
+    {
+      "maxDays": 1825,
+      "coefficient": 2
+    },
+    {
+      "maxDays": null,
+      "coefficient": 1
+    }
+  ],
+  "customerSourceKeywords": [
+    "MÜŞTERİ",
+    "MUSTERI"
+  ]
+}

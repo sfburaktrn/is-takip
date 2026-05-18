@@ -12,6 +12,7 @@ const prisma =
         : new PrismaClient();
 
 const { notifyVehicleDamageSlack } = require('./slackVehicleDamage');
+const { registerSshRoutes } = require('./sshRoutes');
 
 /** SQL LIKE/ILIKE özel karakterlerini kaçır */
 function escapeSqlLikePattern(q) {
@@ -2493,6 +2494,9 @@ app.delete('/api/vehicle-damages/:id/photos/:photoId', requireAuth, async (req, 
         res.status(500).json({ error: 'Fotoğraf silinemedi' });
     }
 });
+
+// ==================== SSH (SATIŞ SONRASI HİZMETLER) ====================
+registerSshRoutes(app, prisma, requireAuth);
 
 // Get statistics - Requires authentication
 app.get('/api/stats', requireAuth, async (req, res) => {

@@ -1750,3 +1750,142 @@ export const SASI_STEP_GROUPS = [
         ],
     },
 ];
+
+// ==================== SSH (Satış Sonrası Hizmetler) ====================
+
+export type SshStatus = 'AÇIK' | 'KAPALI';
+
+export interface SshRegionNode {
+    value: string;
+    children: { value: string; children: string[] }[];
+}
+
+export interface SshLookups {
+    talepTipleri: string[];
+    ustYapiTipleri: string[];
+    sasiMarkalar: string[];
+    arizaTipleri: string[];
+    hataKaynaklari: string[];
+    fabrikaGarantiKararlari: string[];
+    garantiTipleri: string[];
+    statusler: string[];
+    regionTree: SshRegionNode[];
+    etkiOptions: { name: string; score: number }[];
+    prioOptions: { name: string; coefficient: number }[];
+    exitTimeCoefficients: { maxDays: number | null; coefficient: number }[];
+    customerSourceKeywords: string[];
+}
+
+export interface SshComplaint {
+    id: number;
+    talepNo: string;
+    talepTipi: string;
+    sikayetBildirimTarihi: string;
+    garantiBaslangicTarihi: string;
+    musteriAdi: string;
+    ilgiliKisi: string | null;
+    ilgiliKisiTel: string | null;
+    ustYapiTipi: string;
+    sasiMarka: string | null;
+    sasiModel: string | null;
+    aracPlakasi: string | null;
+    sasiNo: string | null;
+    imalatNo: string | null;
+    arizaBolge1: string | null;
+    arizaBolge2: string | null;
+    arizaBolge3: string | null;
+    arizaTipi: string | null;
+    arizaKodu: string | null;
+    hataKaynagi: string | null;
+    arizaAciklamasi: string | null;
+    tekrarEdenHataSayisi: number;
+    aracCikisSuresiGun: number | null;
+    cikisSureKatsayisi: number | null;
+    oncelikPrio: string | null;
+    oncelikKatsayisi: number | null;
+    etkiAdi: string | null;
+    etkiKatsayisi: number | null;
+    analizPuani: number | null;
+    kritikPuan: number | null;
+    fabrikaGarantiKarari: string | null;
+    garantiTipi: string | null;
+    toplamTutar: number | null;
+    onaylananTutar: number | null;
+    faturaTarihi: string | null;
+    onarim: string | null;
+    onarimTarihi: string | null;
+    kokNeden: string | null;
+    kaliciOnlem: string | null;
+    kaliciOnlemTarihi: string | null;
+    status: SshStatus;
+    createdByUsername?: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export type SshComplaintInput = Partial<Omit<SshComplaint, 'id' | 'talepNo' | 'createdAt' | 'updatedAt' | 'createdByUsername'>>;
+
+export interface SshStats {
+    total: number;
+    acik: number;
+    kapali: number;
+    aracBasiMaliyet: number;
+    arizaTipiDagilimi: { name: string; count: number; rate: number }[];
+    hataKaynagiDagilimi: { name: string; count: number; rate: number }[];
+    son5: SshComplaint[];
+}
+
+export async function getSshLookups(): Promise<SshLookups> {
+    const res = await apiFetch(`${API_URL}/ssh/lookups`, { credentials: 'include', cache: 'no-store' });
+    return handleResponse<SshLookups>(res);
+}
+
+export async function getSshStats(): Promise<SshStats> {
+    const res = await apiFetch(`${API_URL}/ssh/stats`, { credentials: 'include', cache: 'no-store' });
+    return handleResponse<SshStats>(res);
+}
+
+export async function getNextSshTalepNo(): Promise<{ talepNo: string }> {
+    const res = await apiFetch(`${API_URL}/ssh/next-talep-no`, { credentials: 'include', cache: 'no-store' });
+    return handleResponse<{ talepNo: string }>(res);
+}
+
+export async function getSshComplaints(params?: { status?: string; q?: string }): Promise<SshComplaint[]> {
+    const sp = new URLSearchParams();
+    if (params?.status) sp.set('status', params.status);
+    if (params?.q) sp.set('q', params.q);
+    const qs = sp.toString();
+    const res = await apiFetch(`${API_URL}/ssh/complaints${qs ? `?${qs}` : ''}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<SshComplaint[]>(res);
+}
+
+export async function createSshComplaint(body: SshComplaintInput): Promise<SshComplaint> {
+    const res = await apiFetch(`${API_URL}/ssh/complaints`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<SshComplaint>(res);
+}
+
+export async function updateSshComplaint(id: number, body: SshComplaintInput): Promise<SshComplaint> {
+    const res = await apiFetch(`${API_URL}/ssh/complaints/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<SshComplaint>(res);
+}
+
+export async function deleteSshComplaint(id: number): Promise<{ ok: boolean }> {
+    const res = await apiFetch(`${API_URL}/ssh/complaints/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: boolean }>(res);
+}

@@ -16,11 +16,13 @@
   "arizaTipleri": [
     "AŞINMA",
     "BOYA DÖKÜLMESİ",
-    "BOYADA MATLIK / TON FARKI",
-    "EKSİK",
+    "BOYADA MATLİK / TON FARKI",
+    "ÇALIŞMAMA / İŞLEV GÖRMEME",
     "EĞİLME / BÜKÜLME / DEFORME OLMA",
+    "EKSİK",
     "GEVŞEK",
     "HATALI PARÇA SEÇİMİ",
+    "İMALATTA EKSİKLİK / HATALI İŞLEM GÖRME",
     "KABARMA / BALON YAPMA",
     "KIRIK / ÇATLAK / YIRTIK",
     "KOPMA / AYRILMA / DÜŞME",
@@ -29,9 +31,7 @@
     "SIZINTI / KAÇAK (SIVI)",
     "SU ALMA",
     "SÜRTME / YERE SÜRTME / ÇARPMA",
-    "TİTREŞİMLİ / SARSINTILI / DENGESİZ ÇALIŞMA",
-    "ÇALIŞMAMA / İŞLEV GÖRMEME",
-    "İMALATTA EKSİKLİK / HATALI İŞLEM GÖRME"
+    "TİTREŞİMLİ / SARSINTILI / DENGESİZ ÇALIŞMA"
   ],
   "hataKaynaklari": [
     "ARGE",

@@ -1,0 +1,107 @@
+{
+  "dorse": {
+    "level1": [
+      "100(SASI)",
+      "200 (DORSE_GOVDE)"
+    ],
+    "tree": {
+      "100(SASI)": {
+        "110(SASI_GOVDE)": [
+          "130 (TAMPON)",
+          "(113)PLEYT_GRP",
+          "111(SASE_KOL_SG)",
+          "112(SASE_KOL_SL)",
+          "120 (SASE_KILIT_BASMA)",
+          "114 (DORSE_SASE_KACMAZ)",
+          "115( DORSE_LASTIK_TAKOZ)"
+        ]
+      },
+      "200 (DORSE_GOVDE)": {
+        "206 (MILALT)": [
+          "235 (KILIT_MILI)",
+          "220-(MIL_TABLASI)",
+          "220 (KILIT_MILI_SACI)",
+          "210 (DORSE_KUTUK_SG_SL)"
+        ],
+        "203-(ON_GOGUS)": [],
+        "204(YAN_SG_SL)": [],
+        "202-(ARKA_KAPAK)": [
+          "225 (ASKI_KOL)",
+          "240-(ASKI_KOL)"
+        ],
+        "204-(KULE_SG_SL)": [],
+        "205 (SASE_KACMAZ)": [],
+        "201(YAN_CAMURLUK_SG_SL)": [],
+        "207-(KILIT_BASMA_BRAKET)": [
+          "230 (KILIT_BASMA_AYAK)"
+        ]
+      }
+    }
+  },
+  "damper": {
+    "level1": [
+      "100(SASI)",
+      "600(BOYA)",
+      "200(DAMPER)",
+      "300(HIDROLIK)",
+      "400(ELEKTRIK)",
+      "500(TAMAMLAMA)",
+      "800 TUZ SERPİCİ",
+      "700 ÖN YAN BIÇAKLAR"
+    ],
+    "tree": {
+      "100(SASI)": {
+        "110(SASI_KOL)": [
+          "111(SASI_KOL_SG)",
+          "112(SASI_KOL_SL)"
+        ],
+        "170(YAG_TANKI)": [
+          "171(YAG_TANKI_GOVDE)"
+        ],
+        "190(DENGE_KOLU)": [
+          "192(DENGE_KOLU_IC)",
+          "191(DENGE_KOLU_DIS)"
+        ],
+        "180(DAYAMA_KOLU)": [
+          "182(DAYAMA_PRF)",
+          "181(SASI_KULAGI)"
+        ],
+        "160(SILINDIR_GECME)": []
+      },
+      "600(BOYA)": {},
+      "200(DAMPER)": {
+        "230(ON)": [
+          "231(KULE)"
+        ],
+        "220(YAN)": [],
+        "240(ARKA)": [
+          "241(ASKI_KOL)"
+        ],
+        "210(TABAN)": [
+          "212(KUTUK)",
+          "211(MILALT)",
+          "212(KUTUK_SG)",
+          "213(KUTUK_SL)",
+          "214(SASI_KACMAZ)",
+          "215(KILIT_SISTEMI)",
+          "216(DENGE_KOLU_BRAKETI)"
+        ],
+        "250 Siperlik": [
+          "251 ( Siperlik )"
+        ]
+      },
+      "300(HIDROLIK)": {
+        "KAMU": [],
+        "HİDROLİK ARKA KAPAK": []
+      },
+      "400(ELEKTRIK)": {
+        "KAMU": []
+      },
+      "500(TAMAMLAMA)": {
+        "KAMU": []
+      },
+      "800 TUZ SERPİCİ": {},
+      "700 ÖN YAN BIÇAKLAR": {}
+    }
+  }
+}

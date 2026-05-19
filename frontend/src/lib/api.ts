@@ -1845,6 +1845,19 @@ export async function getSshStats(): Promise<SshStats> {
     return handleResponse<SshStats>(res);
 }
 
+export type SshPartCodeTree = Record<string, Record<string, string[]>>;
+
+export interface SshPartCodes {
+    damper: { level1: string[]; tree: SshPartCodeTree };
+    dorse: { level1: string[]; tree: SshPartCodeTree };
+    arizaTipleri: string[];
+}
+
+export async function getSshPartCodes(): Promise<SshPartCodes> {
+    const res = await apiFetch(`${API_URL}/ssh/part-codes`, { credentials: 'include', cache: 'no-store' });
+    return handleResponse<SshPartCodes>(res);
+}
+
 export async function getNextSshTalepNo(): Promise<{ talepNo: string }> {
     const res = await apiFetch(`${API_URL}/ssh/next-talep-no`, { credentials: 'include', cache: 'no-store' });
     return handleResponse<{ talepNo: string }>(res);

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AuthGuard from '@/components/AuthGuard';
+import { SshBolgePick, SshModernSelect } from '@/components/ssh/SshChoiceField';
 import Sidebar from '@/components/Sidebar';
 import OzunluLoading from '@/components/OzunluLoading';
 import {
@@ -9,10 +10,12 @@ import {
     deleteSshComplaint,
     getNextSshTalepNo,
     getSshComplaints,
+    getSshPartCodes,
     getSshStats,
     updateSshComplaint,
     type SshComplaint,
     type SshComplaintInput,
+    type SshPartCodes,
     type SshStats,
     type SshStatus,
 } from '@/lib/api';
@@ -113,6 +116,19 @@ function buildArizaKoduLive(
         .map(s => (s ?? '').trim())
         .filter(Boolean)
         .join('/');
+}
+
+function partProductFromUstYapi(ust?: string | null): 'damper' | 'dorse' | null {
+    const u = (ust ?? '').trim().toUpperCase();
+    if (u === 'DAMPER') return 'damper';
+    if (u === 'DORSE') return 'dorse';
+    return null;
+}
+
+function withLegacyOption(options: string[], current?: string | null) {
+    const cur = (current ?? '').trim();
+    if (!cur || options.includes(cur)) return options;
+    return [cur, ...options];
 }
 
 const EMPTY_FORM: SshComplaintInput = {
@@ -396,11 +412,13 @@ function SshFormSections({
     form,
     setForm,
     talepNo,
+    partCodes,
 }: {
     form: SshComplaintInput;
     setForm: React.Dispatch<React.SetStateAction<SshComplaintInput>>;
     /** Mevcut kayıt no veya yeni kayıt için önizleme (otomatik atanır). */
     talepNo?: string | null;
+    partCodes: SshPartCodes | null;
 }) {
     const set = (key: keyof SshComplaintInput, value: unknown) => {
         setForm(prev => ({ ...prev, [key]: value }));
@@ -410,6 +428,24 @@ function SshFormSections({
         () => buildArizaKoduLive(form.arizaBolge1, form.arizaBolge2, form.arizaBolge3, form.arizaTipi),
         [form.arizaBolge1, form.arizaBolge2, form.arizaBolge3, form.arizaTipi]
     );
+
+    const product = useMemo(() => partProductFromUstYapi(form.ustYapiTipi), [form.ustYapiTipi]);
+    const catalog = product && partCodes ? partCodes[product] : null;
+
+    const bolge1Options = useMemo(
+        () => withLegacyOption(catalog?.level1 ?? [], form.arizaBolge1),
+        [catalog, form.arizaBolge1]
+    );
+    const bolge2Options = useMemo(() => {
+        if (!catalog || !form.arizaBolge1) return withLegacyOption([], form.arizaBolge2);
+        const l2s = Object.keys(catalog.tree[form.arizaBolge1] ?? {}).sort((a, b) => a.localeCompare(b, 'tr'));
+        return withLegacyOption(l2s, form.arizaBolge2);
+    }, [catalog, form.arizaBolge1, form.arizaBolge2]);
+    const bolge3Options = useMemo(() => {
+        if (!catalog || !form.arizaBolge1 || !form.arizaBolge2) return withLegacyOption([], form.arizaBolge3);
+        const l3s = catalog.tree[form.arizaBolge1]?.[form.arizaBolge2] ?? [];
+        return withLegacyOption(l3s, form.arizaBolge3);
+    }, [catalog, form.arizaBolge1, form.arizaBolge2, form.arizaBolge3]);
 
     const text = (key: keyof SshComplaintInput, label: string, opts?: { required?: boolean; placeholder?: string }) => (
         <label className="ssh-field">
@@ -471,7 +507,21 @@ function SshFormSections({
                     {text('musteriAdi', 'Müşteri adı', { required: true })}
                     {text('ilgiliKisi', 'İlgili kişi')}
                     {text('ilgiliKisiTel', 'İlgili kişi tel.')}
-                    {text('ustYapiTipi', 'Üst yapı tipi', { required: true, placeholder: 'Örn. DAMPER' })}
+                    <SshModernSelect
+                        label="Üst yapı tipi"
+                        value={form.ustYapiTipi ?? ''}
+                        options={withLegacyOption(['DAMPER', 'DORSE'], form.ustYapiTipi)}
+                        required
+                        onChange={v =>
+                            setForm(prev => ({
+                                ...prev,
+                                ustYapiTipi: v,
+                                arizaBolge1: '',
+                                arizaBolge2: '',
+                                arizaBolge3: '',
+                            }))
+                        }
+                    />
                     {text('sasiMarka', 'Şasi / kamyon marka')}
                     {text('sasiModel', 'Şasi / kamyon model')}
                     {text('aracPlakasi', 'Araç plakası')}
@@ -479,12 +529,45 @@ function SshFormSections({
                     {text('imalatNo', 'İmalat no')}
                 </div>
             </SshFormBlock>
-            <SshFormBlock step={3} title="Arıza" desc="Bölge, tip ve açıklama" icon={<AlertTriangle size={18} strokeWidth={2} />} accent="#ff9500">
+            <SshFormBlock
+                step={3}
+                title="Arıza"
+                desc={product ? `${product === 'damper' ? 'Damper' : 'Dorse'} montaj grupları` : 'Üst yapı tipini seçin'}
+                icon={<AlertTriangle size={18} strokeWidth={2} />}
+                accent="#ff9500"
+            >
                 <div className="ssh-form-grid">
-                    {text('arizaBolge1', 'Arıza bölgesi 1')}
-                    {text('arizaBolge2', 'Arıza bölgesi 2')}
-                    {text('arizaBolge3', 'Arıza bölgesi 3')}
-                    {text('arizaTipi', 'Arıza tipi')}
+                    <SshBolgePick
+                        label="Arıza bölgesi 1"
+                        sublabel="Ana montaj"
+                        value={form.arizaBolge1 ?? ''}
+                        options={bolge1Options}
+                        disabled={!catalog}
+                        onChange={v => setForm(prev => ({ ...prev, arizaBolge1: v, arizaBolge2: '', arizaBolge3: '' }))}
+                    />
+                    <SshBolgePick
+                        label="Arıza bölgesi 2"
+                        sublabel="Ön montaj"
+                        value={form.arizaBolge2 ?? ''}
+                        options={bolge2Options}
+                        disabled={!catalog}
+                        onChange={v => setForm(prev => ({ ...prev, arizaBolge2: v, arizaBolge3: '' }))}
+                    />
+                    <SshBolgePick
+                        label="Arıza bölgesi 3"
+                        sublabel="Alt montaj"
+                        value={form.arizaBolge3 ?? ''}
+                        options={bolge3Options}
+                        disabled={!catalog}
+                        onChange={v => setForm(prev => ({ ...prev, arizaBolge3: v }))}
+                    />
+                    <SshModernSelect
+                        label="Arıza tipi"
+                        value={form.arizaTipi ?? ''}
+                        options={withLegacyOption(partCodes?.arizaTipleri ?? [], form.arizaTipi)}
+                        disabled={!partCodes}
+                        onChange={v => set('arizaTipi', v)}
+                    />
                     <div className="ssh-code-preview span-2">
                         <span className="ssh-field__label">Arıza kodu</span>
                         <div className={`ssh-code-preview__box ${arizaKoduLive ? 'has-value' : ''}`}>
@@ -548,10 +631,12 @@ function SshFormSections({
 
 function SshComplaintCard({
     item,
+    partCodes,
     onUpdated,
     onDeleted,
 }: {
     item: SshComplaint;
+    partCodes: SshPartCodes | null;
     onUpdated: (c: SshComplaint) => void;
     onDeleted: (id: number) => void;
 }) {
@@ -627,7 +712,7 @@ function SshComplaintCard({
             {!collapsed && (
                 <div className="ssh-record-card__body">
                     <div className="ssh-record-card__divider" aria-hidden />
-                    <SshFormSections form={form} setForm={setForm} talepNo={item.talepNo} />
+                    <SshFormSections form={form} setForm={setForm} talepNo={item.talepNo} partCodes={partCodes} />
                     <div className="ssh-record-card__actions">
                         <button type="button" className="ssh-btn ssh-btn--danger" onClick={remove} disabled={deleting}>
                             {deleting ? <Loader2 size={15} className="spin" /> : <Trash2 size={15} />}
@@ -664,6 +749,21 @@ export default function SshTakipPage() {
     const [createForm, setCreateForm] = useState<SshComplaintInput>({ ...EMPTY_FORM });
     const [creating, setCreating] = useState(false);
     const [nextTalepNo, setNextTalepNo] = useState<string | null>(null);
+    const [partCodes, setPartCodes] = useState<SshPartCodes | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        void getSshPartCodes()
+            .then(data => {
+                if (!cancelled) setPartCodes(data);
+            })
+            .catch(() => {
+                if (!cancelled) setPartCodes(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     useEffect(() => {
         const t = window.setTimeout(() => setSearchQ(searchInput.trim()), 300);
@@ -842,7 +942,7 @@ export default function SshTakipPage() {
                                 </div>
                             </header>
                             <div className="ssh-create-card__divider" aria-hidden />
-                            <SshFormSections form={createForm} setForm={setCreateForm} talepNo={nextTalepNo} />
+                            <SshFormSections form={createForm} setForm={setCreateForm} talepNo={nextTalepNo} partCodes={partCodes} />
                             <div className="ssh-create-foot">
                                 <div className="ssh-card-status-bar ssh-card-status-bar--inline">
                                     <span className="ssh-card-status-bar__label">Durum</span>
@@ -883,6 +983,7 @@ export default function SshTakipPage() {
                                 <SshComplaintCard
                                     key={item.id}
                                     item={item}
+                                    partCodes={partCodes}
                                     onUpdated={c => {
                                         setItems(prev => prev.map(x => (x.id === c.id ? c : x)));
                                         void refreshStats();

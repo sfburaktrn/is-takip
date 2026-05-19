@@ -2,6 +2,7 @@
 
 const { Prisma } = require('@prisma/client');
 const { lookups, buildArizaKodu, parseDateOnly } = require('./sshCalculations');
+const partCodes = require('./sshPartCodes.json');
 
 function mapDecimal(v) {
     if (v == null) return null;
@@ -242,6 +243,13 @@ async function allocateTalepNo(prisma, txClient = null) {
 function registerSshRoutes(app, prisma, requireAuth) {
     app.get('/api/ssh/lookups', requireAuth, (_req, res) => {
         res.json(lookups);
+    });
+
+    app.get('/api/ssh/part-codes', requireAuth, (_req, res) => {
+        res.json({
+            ...partCodes,
+            arizaTipleri: lookups.arizaTipleri,
+        });
     });
 
     app.get('/api/ssh/next-talep-no', requireAuth, async (_req, res) => {

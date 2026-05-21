@@ -18,9 +18,9 @@ function calendarDaysBetween(start, end) {
     return Math.max(0, Math.round((e0 - s0) / 86400000));
 }
 
-function exitTimeCoefficient(days) {
-    if (days == null || !Number.isFinite(days)) return 1;
-    for (const row of lookups.exitTimeCoefficients) {
+function exitTimeCoefficient(days, table = lookups.exitTimeCoefficients) {
+    if (days == null || !Number.isFinite(days)) return null;
+    for (const row of table) {
         if (row.maxDays == null) return row.coefficient;
         if (days < row.maxDays) return row.coefficient;
     }
@@ -29,14 +29,14 @@ function exitTimeCoefficient(days) {
 
 function etkiScoreFromName(etkiAdi) {
     if (!etkiAdi) return null;
-    const found = lookups.etkiOptions.find((e) => e.name === etkiAdi);
+    const found = lookups.etkiOptions.find((e) => e.name === String(etkiAdi).trim());
     return found ? found.score : null;
 }
 
 function prioCoefficientFromName(oncelikPrio) {
-    if (!oncelikPrio) return 10;
-    const found = lookups.prioOptions.find((p) => p.name === oncelikPrio);
-    return found ? found.coefficient : 10;
+    if (!oncelikPrio) return null;
+    const found = lookups.prioOptions.find((p) => p.name === String(oncelikPrio).trim());
+    return found ? found.coefficient : null;
 }
 
 function isCustomerSource(hataKaynagi) {
@@ -59,11 +59,42 @@ function parseOptionalInt(raw) {
     return Number.isFinite(n) ? n : null;
 }
 
+/** Araç çıkış süresi (gün) = şikayet bildirim − garanti başlangıç (takvim günü). */
+function calcAracCikisSuresiGun(sikayetBildirimTarihi, garantiBaslangicTarihi) {
+    return calendarDaysBetween(garantiBaslangicTarihi, sikayetBildirimTarihi);
+}
+
+/** Analiz puanı = öncelik katsayısı × etki katsayısı × tekrar eden hata sayısı */
+function calcAnalizPuani(oncelikKatsayisi, etkiKatsayisi, tekrarEdenHataSayisi) {
+    const prio = parseOptionalInt(oncelikKatsayisi);
+    const etki = parseOptionalInt(etkiKatsayisi);
+    if (prio == null || etki == null) return null;
+    const tekrar =
+        tekrarEdenHataSayisi == null || tekrarEdenHataSayisi === ''
+            ? 1
+            : parseOptionalInt(tekrarEdenHataSayisi);
+    if (tekrar == null || tekrar < 1) return null;
+    return prio * etki * tekrar;
+}
+
+/** Kritik puan = analiz puanı × çıkış süre katsayısı */
+function calcKritikPuan(analizPuani, cikisSureKatsayisi) {
+    const analiz = parseOptionalInt(analizPuani);
+    const cikis = parseOptionalInt(cikisSureKatsayisi);
+    if (analiz == null || cikis == null) return null;
+    return analiz * cikis;
+}
+
 module.exports = {
     lookups,
     parseDateOnly,
     calendarDaysBetween,
+    calcAracCikisSuresiGun,
+    calcAnalizPuani,
+    calcKritikPuan,
     exitTimeCoefficient,
+    etkiScoreFromName,
+    prioCoefficientFromName,
     isCustomerSource,
     buildArizaKodu,
     parseOptionalInt,

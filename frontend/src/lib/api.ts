@@ -1,3 +1,7 @@
+import type { SshMaliyetDetay } from './sshCost';
+
+export type { SshMaliyetDetay };
+
 // API base URL
 const getBaseUrl = () => {
     // In browser (client-side)
@@ -1770,8 +1774,8 @@ export interface SshLookups {
     garantiTipleri: string[];
     statusler: string[];
     regionTree: SshRegionNode[];
-    etkiOptions: { name: string; score: number }[];
-    prioOptions: { name: string; coefficient: number }[];
+    etkiOptions: { name: string; score: number; description?: string; tanim?: string }[];
+    prioOptions: { name: string; coefficient: number; description?: string }[];
     exitTimeCoefficients: { maxDays: number | null; coefficient: number }[];
     customerSourceKeywords: string[];
 }
@@ -1809,6 +1813,7 @@ export interface SshComplaint {
     kritikPuan: number | null;
     fabrikaGarantiKarari: string | null;
     garantiTipi: string | null;
+    maliyetDetay: SshMaliyetDetay | null;
     toplamTutar: number | null;
     onaylananTutar: number | null;
     faturaTarihi: string | null;
@@ -1818,9 +1823,46 @@ export interface SshComplaint {
     kaliciOnlem: string | null;
     kaliciOnlemTarihi: string | null;
     status: SshStatus;
+    photos: SshComplaintPhoto[];
     createdByUsername?: string | null;
     createdAt: string;
     updatedAt: string;
+}
+
+export interface SshComplaintPhoto {
+    id: number;
+    mimeType: string;
+    sizeBytes: number;
+    originalFileName: string | null;
+    displayOrder: number;
+    createdAt?: string;
+}
+
+export const SSH_MAX_PHOTOS = 8;
+
+export function getSshComplaintPhotoUrl(complaintId: number, photoId: number): string {
+    return `${API_URL}/ssh/complaints/${complaintId}/photos/${photoId}`;
+}
+
+export async function addSshComplaintPhoto(
+    id: number,
+    body: { mimeType: string; dataBase64: string; originalFileName?: string | null }
+): Promise<SshComplaint> {
+    const res = await apiFetch(`${API_URL}/ssh/complaints/${id}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<SshComplaint>(res);
+}
+
+export async function deleteSshComplaintPhoto(id: number, photoId: number): Promise<SshComplaint> {
+    const res = await apiFetch(`${API_URL}/ssh/complaints/${id}/photos/${photoId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse<SshComplaint>(res);
 }
 
 export type SshComplaintInput = Partial<Omit<SshComplaint, 'id' | 'talepNo' | 'createdAt' | 'updatedAt' | 'createdByUsername'>>;

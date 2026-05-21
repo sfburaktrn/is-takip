@@ -546,6 +546,7 @@ model SshComplaint {
   kritikPuan             Int?
   fabrikaGarantiKarari   String?
   garantiTipi            String?
+  maliyetDetay           Json?
   toplamTutar            Decimal?  @db.Decimal(14, 2)
   onaylananTutar         Decimal?  @db.Decimal(14, 2)
   faturaTarihi           DateTime?
@@ -558,10 +559,25 @@ model SshComplaint {
   createdByUsername      String?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
+  photos                 SshComplaintPhoto[]
 
   @@index([status])
   @@index([kritikPuan])
   @@index([createdAt])
   @@index([musteriAdi])
   @@index([aracPlakasi])
+}
+
+model SshComplaintPhoto {
+  id               Int           @id @default(autoincrement())
+  sshComplaintId   Int
+  sshComplaint     SshComplaint  @relation(fields: [sshComplaintId], references: [id], onDelete: Cascade)
+  mimeType         String
+  data             Bytes
+  sizeBytes        Int
+  originalFileName String?
+  displayOrder     Int           @default(0)
+  createdAt        DateTime      @default(now())
+
+  @@index([sshComplaintId, displayOrder])
 }

@@ -1,7 +1,7 @@
 {
   "talepTipleri": [
-    "KULANS",
-    "NORMAL"
+    "NORMAL",
+    "KULANS"
   ],
   "ustYapiTipleri": [
     "DAMPER",
@@ -34,10 +34,10 @@
     "TİTREŞİMLİ / SARSINTILI / DENGESİZ ÇALIŞMA"
   ],
   "hataKaynaklari": [
+    "ÜRETİM",
     "ARGE",
-    "MÜŞTERİ MEMNUNİYETİ",
     "TEDARİKÇİ",
-    "ÜRETİM"
+    "MÜŞTERİ MEMNUNİYETİ"
   ],
   "fabrikaGarantiKararlari": [
     "KABUL",
@@ -228,61 +228,75 @@
   "etkiOptions": [
     {
       "name": "UYARISIZ TEHLİKELİ",
-      "score": 10
+      "score": 10,
+      "description": "Uyarısız Hayati Tehlike yaratır"
     },
     {
       "name": "UYARILI TEHLİKELİ",
-      "score": 9
+      "score": 9,
+      "description": "Uyarılı Hayati Tehlike yaratır"
     },
     {
       "name": "ÇOK YÜKSEK",
-      "score": 8
+      "score": 8,
+      "description": "Araç/Parça Çalışmaz. Fonksiyonunu tamamen yerine getiremez"
     },
     {
       "name": "YÜKSEK",
-      "score": 7
+      "score": 7,
+      "description": "Araç/Parça Düşük performansla çalışır. Fonksiyonunu tamamen kaybetme riski yüksek ve müşteride ciddi memnuniyetsizlik yaratır."
     },
     {
       "name": "ORTA",
-      "score": 6
+      "score": 6,
+      "description": "Araç/Parça Orta düzeyde performans kaybı ile çalışır. Müşteride memnuniyetsizlik oluşturur."
     },
     {
       "name": "DÜŞÜK",
-      "score": 5
+      "score": 5,
+      "description": "Araç/Parça Düşük Performans ile çalışabilir fakat rahatsızlık ve konforsuzluk oluşturarak Müşteride BİRAZ memnuniyetsizlik yaratır"
     },
     {
       "name": "ÇOK DÜŞÜK",
-      "score": 4
+      "score": 4,
+      "description": "Yüzey/Estetik/Montaj uygunsuzluğu vardır. BİRÇOK müşteri tarafından farkedilir"
     },
     {
       "name": "ÖNEMSİZ",
-      "score": 3
+      "score": 3,
+      "description": "Yüzey/Estetik/Montaj uygunsuzluğu vardır. BAZI müşteriler tarafından farkedilir"
     },
     {
       "name": "ÇOK ÖNEMSİZ",
-      "score": 2
+      "score": 2,
+      "description": "Yüzey/Estetik/Montaj uygunsuzluğu vardır. ÇOK AZ müşteri tarafından farkedilir"
     },
     {
       "name": "ETKİSİZ",
-      "score": 1
+      "score": 1,
+      "description": "Etkisi yoktur"
     }
   ],
   "prioOptions": [
     {
       "name": "PRİO 1",
-      "coefficient": 10
+      "coefficient": 10,
+      "description": "Müşteri Şikayetleri"
     },
     {
       "name": "PRİO 2",
-      "coefficient": 7
+      "coefficient": 7,
+      "description": "Özünlü Ürün Auditleri"
     },
     {
       "name": "PRİO 3",
-      "coefficient": 4
+      "coefficient": 4,
+      "description": "Müşteri Ürün Denetimleri"
     },
     {
       "name": "PRİO 4",
-      "coefficient": 1
+      "coefficient": 1,
+      "description": "Dinamik Çekliste"
     }
   ],
   "exitTimeCoefficients": [

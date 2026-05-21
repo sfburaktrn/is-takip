@@ -1,24 +1,51 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AuthGuard from '@/components/AuthGuard';
 import { SshBolgePick, SshModernSelect } from '@/components/ssh/SshChoiceField';
+import { SshExitCoefPanel } from '@/components/ssh/SshExitCoefPanel';
+import { SshEtkiCoefPanel } from '@/components/ssh/SshEtkiCoefPanel';
+import { SshComplaintPhotos, type PendingSshPhoto } from '@/components/ssh/SshComplaintPhotos';
+import { SshCostBreakdown } from '@/components/ssh/SshCostBreakdown';
+import { SshPrioCoefPanel } from '@/components/ssh/SshPrioCoefPanel';
 import Sidebar from '@/components/Sidebar';
 import OzunluLoading from '@/components/OzunluLoading';
 import {
+    addSshComplaintPhoto,
     createSshComplaint,
     deleteSshComplaint,
     getNextSshTalepNo,
     getSshComplaints,
+    getSshLookups,
     getSshPartCodes,
     getSshStats,
     updateSshComplaint,
     type SshComplaint,
     type SshComplaintInput,
+    type SshComplaintPhoto,
+    type SshLookups,
     type SshPartCodes,
     type SshStats,
     type SshStatus,
 } from '@/lib/api';
+import {
+    calcAracCikisSuresiGun,
+    DEFAULT_ETKI_OPTIONS,
+    mergeEtkiOptionsTable,
+    DEFAULT_EXIT_COEF_TABLE,
+    DEFAULT_PRIO_OPTIONS,
+    calcAnalizPuani,
+    calcKritikPuan,
+    etkiScoreFromName,
+    exitTimeCoefficient,
+    prioCoefficientFromName,
+} from '@/lib/sshScoring';
+import {
+    calcMaliyetTotals,
+    emptyMaliyetDetay,
+    parseMaliyetDetay,
+    type SshMaliyetDetay,
+} from '@/lib/sshCost';
 import {
     AlertCircle,
     AlertTriangle,
@@ -132,7 +159,7 @@ function withLegacyOption(options: string[], current?: string | null) {
 }
 
 const EMPTY_FORM: SshComplaintInput = {
-    talepTipi: '',
+    talepTipi: 'NORMAL',
     sikayetBildirimTarihi: todayInput(),
     garantiBaslangicTarihi: todayInput(),
     musteriAdi: '',
@@ -153,12 +180,15 @@ const EMPTY_FORM: SshComplaintInput = {
     tekrarEdenHataSayisi: undefined,
     aracCikisSuresiGun: null,
     cikisSureKatsayisi: null,
+    oncelikPrio: '',
     oncelikKatsayisi: null,
+    etkiAdi: '',
     etkiKatsayisi: null,
     analizPuani: null,
     kritikPuan: null,
     fabrikaGarantiKarari: '',
     garantiTipi: '',
+    maliyetDetay: emptyMaliyetDetay(),
     toplamTutar: null,
     onaylananTutar: null,
     faturaTarihi: '',
@@ -193,12 +223,15 @@ function complaintToForm(c: SshComplaint): SshComplaintInput {
         tekrarEdenHataSayisi: c.tekrarEdenHataSayisi,
         aracCikisSuresiGun: c.aracCikisSuresiGun,
         cikisSureKatsayisi: c.cikisSureKatsayisi,
+        oncelikPrio: c.oncelikPrio ?? '',
         oncelikKatsayisi: c.oncelikKatsayisi,
+        etkiAdi: c.etkiAdi ?? '',
         etkiKatsayisi: c.etkiKatsayisi,
         analizPuani: c.analizPuani,
         kritikPuan: c.kritikPuan,
         fabrikaGarantiKarari: c.fabrikaGarantiKarari ?? '',
         garantiTipi: c.garantiTipi ?? '',
+        maliyetDetay: c.maliyetDetay ? parseMaliyetDetay(c.maliyetDetay) : emptyMaliyetDetay(),
         toplamTutar: c.toplamTutar,
         onaylananTutar: c.onaylananTutar,
         faturaTarihi: toDateInput(c.faturaTarihi),
@@ -413,12 +446,24 @@ function SshFormSections({
     setForm,
     talepNo,
     partCodes,
+    sshLookups,
+    complaintId = null,
+    photos = [],
+    onPhotosChange,
+    pendingPhotos = [],
+    onPendingPhotosChange,
 }: {
     form: SshComplaintInput;
     setForm: React.Dispatch<React.SetStateAction<SshComplaintInput>>;
     /** Mevcut kayıt no veya yeni kayıt için önizleme (otomatik atanır). */
     talepNo?: string | null;
     partCodes: SshPartCodes | null;
+    sshLookups: SshLookups | null;
+    complaintId?: number | null;
+    photos?: SshComplaintPhoto[];
+    onPhotosChange?: (complaint: SshComplaint) => void;
+    pendingPhotos?: PendingSshPhoto[];
+    onPendingPhotosChange?: (photos: PendingSshPhoto[]) => void;
 }) {
     const set = (key: keyof SshComplaintInput, value: unknown) => {
         setForm(prev => ({ ...prev, [key]: value }));
@@ -447,6 +492,110 @@ function SshFormSections({
         return withLegacyOption(l3s, form.arizaBolge3);
     }, [catalog, form.arizaBolge1, form.arizaBolge2, form.arizaBolge3]);
 
+    const aracCikisGunLive = useMemo(
+        () => calcAracCikisSuresiGun(form.sikayetBildirimTarihi, form.garantiBaslangicTarihi),
+        [form.sikayetBildirimTarihi, form.garantiBaslangicTarihi]
+    );
+
+    const exitCoefTable = sshLookups?.exitTimeCoefficients ?? DEFAULT_EXIT_COEF_TABLE;
+
+    const cikisKatsSuggested = useMemo(
+        () => exitTimeCoefficient(aracCikisGunLive, exitCoefTable),
+        [aracCikisGunLive, exitCoefTable]
+    );
+
+    const prioTable = sshLookups?.prioOptions ?? DEFAULT_PRIO_OPTIONS;
+    const oncelikKatsSuggested = useMemo(
+        () => prioCoefficientFromName(form.oncelikPrio, prioTable),
+        [form.oncelikPrio, prioTable]
+    );
+
+    const prioKatsTouchedRef = useRef(false);
+    const [prioKatsTouched, setPrioKatsTouched] = useState(() => {
+        const cur = form.oncelikKatsayisi;
+        const sug = prioCoefficientFromName(form.oncelikPrio, prioTable);
+        return cur != null && sug != null && cur !== sug;
+    });
+
+    useEffect(() => {
+        prioKatsTouchedRef.current = prioKatsTouched;
+    }, [prioKatsTouched]);
+
+    useEffect(() => {
+        if (prioKatsTouchedRef.current) return;
+        setForm(prev => {
+            if (prev.oncelikKatsayisi === oncelikKatsSuggested) return prev;
+            return { ...prev, oncelikKatsayisi: oncelikKatsSuggested };
+        });
+    }, [oncelikKatsSuggested, setForm]);
+
+    const etkiTable = useMemo(
+        () => mergeEtkiOptionsTable(sshLookups?.etkiOptions),
+        [sshLookups?.etkiOptions]
+    );
+    const etkiKatsSuggested = useMemo(
+        () => etkiScoreFromName(form.etkiAdi, etkiTable),
+        [form.etkiAdi, etkiTable]
+    );
+
+    const etkiKatsTouchedRef = useRef(false);
+    const [etkiKatsTouched, setEtkiKatsTouched] = useState(() => {
+        const cur = form.etkiKatsayisi;
+        const sug = etkiScoreFromName(form.etkiAdi, etkiTable);
+        return cur != null && sug != null && cur !== sug;
+    });
+
+    useEffect(() => {
+        etkiKatsTouchedRef.current = etkiKatsTouched;
+    }, [etkiKatsTouched]);
+
+    useEffect(() => {
+        if (etkiKatsTouchedRef.current) return;
+        setForm(prev => {
+            if (prev.etkiKatsayisi === etkiKatsSuggested) return prev;
+            return { ...prev, etkiKatsayisi: etkiKatsSuggested };
+        });
+    }, [etkiKatsSuggested, setForm]);
+
+    useEffect(() => {
+        setForm(prev => {
+            if (prev.aracCikisSuresiGun === aracCikisGunLive && prev.cikisSureKatsayisi === cikisKatsSuggested) {
+                return prev;
+            }
+            return { ...prev, aracCikisSuresiGun: aracCikisGunLive, cikisSureKatsayisi: cikisKatsSuggested };
+        });
+    }, [aracCikisGunLive, cikisKatsSuggested, setForm]);
+
+    const analizPuaniLive = useMemo(
+        () => calcAnalizPuani(form.oncelikKatsayisi, form.etkiKatsayisi, form.tekrarEdenHataSayisi),
+        [form.oncelikKatsayisi, form.etkiKatsayisi, form.tekrarEdenHataSayisi]
+    );
+
+    const kritikPuanLive = useMemo(
+        () => calcKritikPuan(analizPuaniLive, form.cikisSureKatsayisi ?? cikisKatsSuggested),
+        [analizPuaniLive, form.cikisSureKatsayisi, cikisKatsSuggested]
+    );
+
+    useEffect(() => {
+        setForm(prev => {
+            if (prev.analizPuani === analizPuaniLive && prev.kritikPuan === kritikPuanLive) return prev;
+            return { ...prev, analizPuani: analizPuaniLive, kritikPuan: kritikPuanLive };
+        });
+    }, [analizPuaniLive, kritikPuanLive, setForm]);
+
+    const maliyetDetay = form.maliyetDetay ?? emptyMaliyetDetay();
+    const maliyetTotals = useMemo(() => calcMaliyetTotals(maliyetDetay), [maliyetDetay]);
+    const toplamTutarLive = maliyetTotals.toplamTutar;
+
+    useEffect(() => {
+        setForm(prev => {
+            if (prev.toplamTutar === toplamTutarLive) return prev;
+            return { ...prev, toplamTutar: toplamTutarLive };
+        });
+    }, [toplamTutarLive, setForm]);
+
+    const setMaliyetDetay = (d: SshMaliyetDetay) => setForm(prev => ({ ...prev, maliyetDetay: d }));
+
     const text = (key: keyof SshComplaintInput, label: string, opts?: { required?: boolean; placeholder?: string }) => (
         <label className="ssh-field">
             <span className="ssh-field__label">
@@ -463,7 +612,7 @@ function SshFormSections({
     );
 
     const num = (key: keyof SshComplaintInput, label: string, short?: boolean) => (
-        <label className={`ssh-field ${short ? 'ssh-field--score' : ''}`}>
+        <label className={`ssh-field ${short ? 'ssh-field--score ssh-score-card' : ''}`}>
             <span className="ssh-field__label">{label}</span>
             <input
                 className="ssh-field__input ssh-field__input--num"
@@ -473,6 +622,14 @@ function SshFormSections({
                 onChange={e => set(key, e.target.value === '' ? null : Number(e.target.value))}
             />
         </label>
+    );
+
+    const scoreComputed = (label: string, value: number | null, hint: string) => (
+        <div className="ssh-field ssh-field--score ssh-field--computed ssh-score-card">
+            <span className="ssh-field__label">{label}</span>
+            <p className="ssh-score-hint">{hint}</p>
+            <div className={`ssh-score-value ${value != null ? 'has-value' : ''}`}>{value != null ? value : '—'}</div>
+        </div>
     );
 
     const dateField = (key: keyof SshComplaintInput, label: string) => (
@@ -497,7 +654,14 @@ function SshFormSections({
                             {talepNo ?? 'Otomatik atanacak…'}
                         </div>
                     </div>
-                    {text('talepTipi', 'Talep tipi', { placeholder: 'Örn. NORMAL' })}
+                    <SshModernSelect
+                        label="Talep tipi"
+                        value={form.talepTipi ?? ''}
+                        options={withLegacyOption(sshLookups?.talepTipleri ?? ['NORMAL', 'KULANS'], form.talepTipi)}
+                        required
+                        placeholder="Seçin"
+                        onChange={v => set('talepTipi', v)}
+                    />
                     {dateField('sikayetBildirimTarihi', 'Şikayet bildirim tarihi')}
                 </div>
             </SshFormBlock>
@@ -574,37 +738,133 @@ function SshFormSections({
                             {arizaKoduLive || 'Bölge ve tip yazıldıkça oluşur…'}
                         </div>
                     </div>
-                    {text('hataKaynagi', 'Hata kaynağı')}
+                    <SshModernSelect
+                        label="Hata kaynağı"
+                        value={form.hataKaynagi ?? ''}
+                        options={withLegacyOption(
+                            sshLookups?.hataKaynaklari ?? ['ÜRETİM', 'ARGE', 'TEDARİKÇİ', 'MÜŞTERİ MEMNUNİYETİ'],
+                            form.hataKaynagi
+                        )}
+                        allowEmpty
+                        placeholder="Seçin"
+                        onChange={v => set('hataKaynagi', v)}
+                    />
                     <label className="ssh-field span-2">
                         <span className="ssh-field__label">Arıza açıklaması</span>
                         <textarea className="ssh-field__input ssh-field__textarea" rows={3} value={form.arizaAciklamasi ?? ''} onChange={e => set('arizaAciklamasi', e.target.value)} />
                     </label>
+                    <div className="ssh-form-grid__full">
+                        <SshComplaintPhotos
+                            complaintId={complaintId}
+                            photos={photos}
+                            onPhotosChange={onPhotosChange ?? (() => {})}
+                            pendingPhotos={pendingPhotos}
+                            onPendingPhotosChange={onPendingPhotosChange}
+                        />
+                    </div>
                 </div>
             </SshFormBlock>
-            <SshFormBlock step={4} title="Puanlama" desc="Skor alanları — manuel giriş" icon={<BarChart3 size={18} strokeWidth={2} />} accent="#ff2d55">
+            <SshFormBlock
+                step={4}
+                title="Puanlama"
+                desc="Tekrar eden hata manuel; çıkış süresi ve katsayısı tarihlerden otomatik (tablo referans)"
+                icon={<BarChart3 size={18} strokeWidth={2} />}
+                accent="#ff2d55"
+            >
                 <div className="ssh-score-grid">
-                    {num('tekrarEdenHataSayisi', 'Tekrar eden hata', true)}
-                    {num('aracCikisSuresiGun', 'Çıkış süresi (gün)', true)}
-                    {num('cikisSureKatsayisi', 'Çıkış katsayısı', true)}
-                    {num('oncelikKatsayisi', 'Öncelik katsayısı', true)}
-                    {num('etkiKatsayisi', 'Etki katsayısı', true)}
-                    {num('analizPuani', 'Analiz puanı', true)}
-                    {num('kritikPuan', 'Kritik puan', true)}
+                    <label className="ssh-field ssh-field--score ssh-score-card">
+                        <span className="ssh-field__label">Tekrar eden hata sayısı</span>
+                        <p className="ssh-score-hint">Manuel giriş</p>
+                        <input
+                            className="ssh-field__input ssh-field__input--num"
+                            type="number"
+                            min={1}
+                            step={1}
+                            inputMode="numeric"
+                            value={form.tekrarEdenHataSayisi == null ? '' : String(form.tekrarEdenHataSayisi)}
+                            onChange={e => {
+                                const v = e.target.value;
+                                if (v === '') set('tekrarEdenHataSayisi', undefined);
+                                else {
+                                    const n = parseInt(v, 10);
+                                    if (Number.isFinite(n) && n >= 1) set('tekrarEdenHataSayisi', n);
+                                }
+                            }}
+                        />
+                    </label>
+                    {scoreComputed(
+                        'Araç çıkış süresi (gün)',
+                        aracCikisGunLive,
+                        'Şikayet bildirim − garanti başlangıç (otomatik)'
+                    )}
+                    <SshExitCoefPanel
+                        cikisGun={aracCikisGunLive}
+                        coefficient={cikisKatsSuggested}
+                        table={exitCoefTable}
+                    />
+                    <SshPrioCoefPanel
+                        prioName={form.oncelikPrio?.trim() || null}
+                        coefficient={form.oncelikKatsayisi ?? null}
+                        suggested={oncelikKatsSuggested}
+                        table={prioTable}
+                        onPick={(name, coef) => {
+                            setPrioKatsTouched(true);
+                            setForm(prev => ({ ...prev, oncelikPrio: name, oncelikKatsayisi: coef }));
+                        }}
+                        onChangeCoef={v => set('oncelikKatsayisi', v)}
+                        onManualChange={() => setPrioKatsTouched(true)}
+                    />
+                    <SshEtkiCoefPanel
+                        etkiAdi={form.etkiAdi?.trim() || null}
+                        coefficient={form.etkiKatsayisi ?? null}
+                        suggested={etkiKatsSuggested}
+                        table={etkiTable}
+                        onPick={(name, score) => {
+                            setEtkiKatsTouched(true);
+                            setForm(prev => ({ ...prev, etkiAdi: name, etkiKatsayisi: score }));
+                        }}
+                        onChangeCoef={v => set('etkiKatsayisi', v)}
+                        onManualChange={() => setEtkiKatsTouched(true)}
+                    />
+                    {scoreComputed(
+                        'Analiz puanı',
+                        analizPuaniLive,
+                        'Öncelik × Etki × Tekrar eden hata (otomatik)'
+                    )}
+                    {scoreComputed('Kritik puan', kritikPuanLive, 'Analiz puanı × Çıkış süre katsayısı (otomatik)')}
                 </div>
             </SshFormBlock>
             <SshFormBlock step={5} title="Garanti kararı" desc="Fabrika kararı ve maliyet" icon={<Shield size={18} strokeWidth={2} />} accent="#34c759">
-                <div className="ssh-form-grid">
-                    {text('fabrikaGarantiKarari', 'Fabrika garanti kararı')}
-                    {text('garantiTipi', 'Garanti tipi')}
-                    <label className="ssh-field">
-                        <span className="ssh-field__label">Toplam tutar</span>
-                        <input className="ssh-field__input ssh-field__input--num" type="number" min={0} step="0.01" value={form.toplamTutar ?? ''} onChange={e => set('toplamTutar', e.target.value === '' ? null : Number(e.target.value))} />
-                    </label>
-                    <label className="ssh-field">
-                        <span className="ssh-field__label">Onaylanan tutar</span>
-                        <input className="ssh-field__input ssh-field__input--num" type="number" min={0} step="0.01" value={form.onaylananTutar ?? ''} onChange={e => set('onaylananTutar', e.target.value === '' ? null : Number(e.target.value))} />
-                    </label>
+                <div className="ssh-form-grid ssh-form-grid--cost">
+                    <SshModernSelect
+                        label="Fabrika garanti kararı"
+                        value={form.fabrikaGarantiKarari ?? ''}
+                        options={withLegacyOption(sshLookups?.fabrikaGarantiKararlari ?? ['KABUL', 'RED'], form.fabrikaGarantiKarari)}
+                        allowEmpty
+                        placeholder="Seçin"
+                        onChange={v => set('fabrikaGarantiKarari', v)}
+                    />
+                    <SshModernSelect
+                        label="Garanti kararı"
+                        value={form.garantiTipi ?? ''}
+                        options={withLegacyOption(
+                            sshLookups?.garantiTipleri ?? ['GARANTİ', 'KULANS', 'SATIŞ KULANSI'],
+                            form.garantiTipi
+                        )}
+                        allowEmpty
+                        placeholder="Seçin"
+                        onChange={v => set('garantiTipi', v)}
+                    />
                     {dateField('faturaTarihi', 'Fatura tarihi')}
+                    <div className="ssh-form-grid__full">
+                        <SshCostBreakdown
+                            detay={maliyetDetay}
+                            onChange={setMaliyetDetay}
+                            toplamTutar={toplamTutarLive}
+                            onaylananTutar={form.onaylananTutar ?? null}
+                            onOnaylananChange={v => set('onaylananTutar', v)}
+                        />
+                    </div>
                 </div>
             </SshFormBlock>
             <SshFormBlock step={6} title="Çözüm ve önlem" desc="Onarım, kök neden ve kalıcı önlem" icon={<Wrench size={18} strokeWidth={2} />} accent="#022347">
@@ -632,11 +892,13 @@ function SshFormSections({
 function SshComplaintCard({
     item,
     partCodes,
+    sshLookups,
     onUpdated,
     onDeleted,
 }: {
     item: SshComplaint;
     partCodes: SshPartCodes | null;
+    sshLookups: SshLookups | null;
     onUpdated: (c: SshComplaint) => void;
     onDeleted: (id: number) => void;
 }) {
@@ -712,7 +974,17 @@ function SshComplaintCard({
             {!collapsed && (
                 <div className="ssh-record-card__body">
                     <div className="ssh-record-card__divider" aria-hidden />
-                    <SshFormSections form={form} setForm={setForm} talepNo={item.talepNo} partCodes={partCodes} />
+                    <SshFormSections
+                        key={item.id}
+                        form={form}
+                        setForm={setForm}
+                        talepNo={item.talepNo}
+                        partCodes={partCodes}
+                        sshLookups={sshLookups}
+                        complaintId={item.id}
+                        photos={item.photos ?? []}
+                        onPhotosChange={updated => onUpdated(updated)}
+                    />
                     <div className="ssh-record-card__actions">
                         <button type="button" className="ssh-btn ssh-btn--danger" onClick={remove} disabled={deleting}>
                             {deleting ? <Loader2 size={15} className="spin" /> : <Trash2 size={15} />}
@@ -746,19 +1018,27 @@ export default function SshTakipPage() {
     const [searchInput, setSearchInput] = useState('');
     const [searchQ, setSearchQ] = useState('');
     const [showCreate, setShowCreate] = useState(false);
+    const [createPendingPhotos, setCreatePendingPhotos] = useState<PendingSshPhoto[]>([]);
     const [createForm, setCreateForm] = useState<SshComplaintInput>({ ...EMPTY_FORM });
     const [creating, setCreating] = useState(false);
     const [nextTalepNo, setNextTalepNo] = useState<string | null>(null);
     const [partCodes, setPartCodes] = useState<SshPartCodes | null>(null);
+    const [sshLookups, setSshLookups] = useState<SshLookups | null>(null);
 
     useEffect(() => {
         let cancelled = false;
-        void getSshPartCodes()
-            .then(data => {
-                if (!cancelled) setPartCodes(data);
+        void Promise.all([getSshPartCodes(), getSshLookups()])
+            .then(([parts, lookups]) => {
+                if (!cancelled) {
+                    setPartCodes(parts);
+                    setSshLookups(lookups);
+                }
             })
             .catch(() => {
-                if (!cancelled) setPartCodes(null);
+                if (!cancelled) {
+                    setPartCodes(null);
+                    setSshLookups(null);
+                }
             });
         return () => {
             cancelled = true;
@@ -832,8 +1112,18 @@ export default function SshTakipPage() {
                 ...createForm,
                 status: normalizeStatusValue(createForm.status),
             });
-            setItems(prev => [created, ...prev]);
+            let withPhotos = created;
+            for (const p of createPendingPhotos) {
+                withPhotos = await addSshComplaintPhoto(created.id, {
+                    mimeType: p.mimeType,
+                    dataBase64: p.dataBase64,
+                    originalFileName: p.fileName,
+                });
+            }
+            createPendingPhotos.forEach(p => URL.revokeObjectURL(p.previewUrl));
+            setItems(prev => [withPhotos, ...prev]);
             setShowCreate(false);
+            setCreatePendingPhotos([]);
             setCreateForm({ ...EMPTY_FORM, sikayetBildirimTarihi: todayInput(), garantiBaslangicTarihi: todayInput() });
             await refreshStats();
         } catch (e) {
@@ -914,7 +1204,15 @@ export default function SshTakipPage() {
                             <button
                                 type="button"
                                 className={`ssh-primary-btn ${showCreate ? 'is-secondary' : ''}`}
-                                onClick={() => setShowCreate(v => !v)}
+                                onClick={() => {
+                                    setShowCreate(v => {
+                                        if (v) {
+                                            createPendingPhotos.forEach(p => URL.revokeObjectURL(p.previewUrl));
+                                            setCreatePendingPhotos([]);
+                                        }
+                                        return !v;
+                                    });
+                                }}
                             >
                                 {showCreate ? <X size={17} strokeWidth={2.5} /> : <Plus size={17} strokeWidth={2.5} />}
                                 {showCreate ? 'İptal' : 'Yeni şikayet'}
@@ -942,7 +1240,15 @@ export default function SshTakipPage() {
                                 </div>
                             </header>
                             <div className="ssh-create-card__divider" aria-hidden />
-                            <SshFormSections form={createForm} setForm={setCreateForm} talepNo={nextTalepNo} partCodes={partCodes} />
+                            <SshFormSections
+                                form={createForm}
+                                setForm={setCreateForm}
+                                talepNo={nextTalepNo}
+                                partCodes={partCodes}
+                                sshLookups={sshLookups}
+                                pendingPhotos={createPendingPhotos}
+                                onPendingPhotosChange={setCreatePendingPhotos}
+                            />
                             <div className="ssh-create-foot">
                                 <div className="ssh-card-status-bar ssh-card-status-bar--inline">
                                     <span className="ssh-card-status-bar__label">Durum</span>
@@ -984,6 +1290,7 @@ export default function SshTakipPage() {
                                     key={item.id}
                                     item={item}
                                     partCodes={partCodes}
+                                    sshLookups={sshLookups}
                                     onUpdated={c => {
                                         setItems(prev => prev.map(x => (x.id === c.id ? c : x)));
                                         void refreshStats();

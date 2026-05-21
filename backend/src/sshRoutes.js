@@ -1,8 +1,38 @@
 'use strict';
 
 const { Prisma } = require('@prisma/client');
-const { lookups, buildArizaKodu, parseDateOnly } = require('./sshCalculations');
+const {
+    lookups,
+    buildArizaKodu,
+    calcAracCikisSuresiGun,
+    exitTimeCoefficient,
+    parseDateOnly,
+    prioCoefficientFromName,
+    etkiScoreFromName,
+    calcAnalizPuani,
+    calcKritikPuan,
+} = require('./sshCalculations');
+const { normalizeMaliyetDetay, calcMaliyetTotals, hasMaliyetActivity, roundMoney } = require('./sshCost');
 const partCodes = require('./sshPartCodes.json');
+
+const SSH_MAX_PHOTOS = 8;
+const SSH_MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+const SSH_ALLOWED_PHOTO_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+
+const sshPhotosInclude = {
+    photos: { orderBy: { displayOrder: 'asc' } },
+};
+
+function mapSshPhotos(photos) {
+    return (photos || []).map(p => ({
+        id: p.id,
+        mimeType: p.mimeType,
+        sizeBytes: p.sizeBytes,
+        originalFileName: p.originalFileName,
+        displayOrder: p.displayOrder,
+        createdAt: p.createdAt?.toISOString?.() ?? p.createdAt,
+    }));
+}
 
 function mapDecimal(v) {
     if (v == null) return null;
@@ -44,6 +74,7 @@ function mapSshComplaint(row) {
         kritikPuan: row.kritikPuan,
         fabrikaGarantiKarari: row.fabrikaGarantiKarari,
         garantiTipi: row.garantiTipi,
+        maliyetDetay: row.maliyetDetay ?? null,
         toplamTutar: mapDecimal(row.toplamTutar),
         onaylananTutar: mapDecimal(row.onaylananTutar),
         faturaTarihi: row.faturaTarihi?.toISOString?.() ?? row.faturaTarihi ?? null,
@@ -56,7 +87,15 @@ function mapSshComplaint(row) {
         createdByUsername: row.createdByUsername,
         createdAt: row.createdAt?.toISOString?.() ?? row.createdAt,
         updatedAt: row.updatedAt?.toISOString?.() ?? row.updatedAt,
+        photos: mapSshPhotos(row.photos),
     };
+}
+
+async function loadSshComplaintWithPhotos(prisma, id) {
+    return prisma.sshComplaint.findUnique({
+        where: { id },
+        include: sshPhotosInclude,
+    });
 }
 
 function parseOptionalDate(raw) {
@@ -123,10 +162,7 @@ function parseSshPayload(body, { partial = false } = {}) {
         }
     }
     if (!partial || has('oncelikPrio')) set('oncelikPrio', String(body.oncelikPrio || '').trim() || null);
-    setOptionalIntField(set, body, 'aracCikisSuresiGun', 'Araç çıkış süresi (gün)', { partial, has });
     setOptionalIntField(set, body, 'cikisSureKatsayisi', 'Çıkış süre katsayısı', { partial, has });
-    setOptionalIntField(set, body, 'analizPuani', 'Analiz puanı', { partial, has });
-    setOptionalIntField(set, body, 'kritikPuan', 'Kritik puan', { partial, has });
     if (!partial || has('etkiAdi')) set('etkiAdi', String(body.etkiAdi || '').trim() || null);
     if (!partial || has('oncelikKatsayisi')) {
         const v = body.oncelikKatsayisi;
@@ -150,6 +186,9 @@ function parseSshPayload(body, { partial = false } = {}) {
         set('fabrikaGarantiKarari', String(body.fabrikaGarantiKarari || '').trim() || null);
     }
     if (!partial || has('garantiTipi')) set('garantiTipi', String(body.garantiTipi || '').trim() || null);
+    if (!partial || has('maliyetDetay')) {
+        set('maliyetDetay', body.maliyetDetay != null ? normalizeMaliyetDetay(body.maliyetDetay) : null);
+    }
     if (!partial || has('toplamTutar')) {
         const v = body.toplamTutar;
         if (v == null || v === '') set('toplamTutar', null);
@@ -189,9 +228,48 @@ function validateRequiredForCreate(payload) {
 }
 
 function mergeComputed(data) {
+    const aracCikisSuresiGun = calcAracCikisSuresiGun(data.sikayetBildirimTarihi, data.garantiBaslangicTarihi);
+    const hasManualPrioCoef =
+        data.oncelikKatsayisi != null &&
+        data.oncelikKatsayisi !== '' &&
+        Number.isFinite(Number(data.oncelikKatsayisi));
+    const hasManualEtkiCoef =
+        data.etkiKatsayisi != null &&
+        data.etkiKatsayisi !== '' &&
+        Number.isFinite(Number(data.etkiKatsayisi));
+    const oncelikKatsayisi = hasManualPrioCoef
+        ? parseInt(String(data.oncelikKatsayisi), 10)
+        : prioCoefficientFromName(data.oncelikPrio);
+    const etkiKatsayisi = hasManualEtkiCoef
+        ? parseInt(String(data.etkiKatsayisi), 10)
+        : etkiScoreFromName(data.etkiAdi);
+    const cikisSureKatsayisi = exitTimeCoefficient(aracCikisSuresiGun);
+    const tekrarForCalc =
+        data.tekrarEdenHataSayisi != null && Number.isFinite(Number(data.tekrarEdenHataSayisi))
+            ? parseInt(String(data.tekrarEdenHataSayisi), 10)
+            : 1;
+    const analizPuani = calcAnalizPuani(oncelikKatsayisi, etkiKatsayisi, tekrarForCalc);
+    const kritikPuan = calcKritikPuan(analizPuani, cikisSureKatsayisi);
+
+    const maliyetDetay = data.maliyetDetay != null ? normalizeMaliyetDetay(data.maliyetDetay) : null;
+    let toplamTutar = data.toplamTutar;
+    if (maliyetDetay && hasMaliyetActivity(maliyetDetay)) {
+        toplamTutar = calcMaliyetTotals(maliyetDetay).toplamTutar;
+    } else if (toplamTutar != null && Number.isFinite(Number(toplamTutar))) {
+        toplamTutar = roundMoney(Number(toplamTutar));
+    }
+
     return {
         ...data,
         arizaKodu: buildArizaKodu(data.arizaBolge1, data.arizaBolge2, data.arizaBolge3, data.arizaTipi),
+        aracCikisSuresiGun,
+        cikisSureKatsayisi,
+        oncelikKatsayisi,
+        etkiKatsayisi,
+        analizPuani,
+        kritikPuan,
+        maliyetDetay,
+        toplamTutar,
     };
 }
 
@@ -307,6 +385,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
             const last5 = await prisma.sshComplaint.findMany({
                 orderBy: [{ kritikPuan: 'desc' }, { createdAt: 'desc' }],
                 take: 5,
+                include: sshPhotosInclude,
             });
 
             res.json({
@@ -344,6 +423,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
             const rows = await prisma.sshComplaint.findMany({
                 where,
                 orderBy: [{ kritikPuan: 'desc' }, { createdAt: 'desc' }],
+                include: sshPhotosInclude,
             });
             res.json(rows.map(mapSshComplaint));
         } catch (error) {
@@ -356,7 +436,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
         try {
             const id = parseInt(req.params.id, 10);
             if (!Number.isFinite(id)) return res.status(400).json({ error: 'Geçersiz id' });
-            const row = await prisma.sshComplaint.findUnique({ where: { id } });
+            const row = await loadSshComplaintWithPhotos(prisma, id);
             if (!row) return res.status(404).json({ error: 'Kayıt bulunamadı' });
             res.json(mapSshComplaint(row));
         } catch (error) {
@@ -384,7 +464,8 @@ function registerSshRoutes(app, prisma, requireAuth) {
                     },
                 });
             });
-            res.status(201).json(mapSshComplaint(created));
+            const withPhotos = await loadSshComplaintWithPhotos(prisma, created.id);
+            res.status(201).json(mapSshComplaint(withPhotos ?? created));
         } catch (error) {
             if (error.message && !error.code) {
                 return res.status(400).json({ error: error.message });
@@ -432,6 +513,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
                 etkiKatsayisi: existing.etkiKatsayisi,
                 fabrikaGarantiKarari: existing.fabrikaGarantiKarari,
                 garantiTipi: existing.garantiTipi,
+                maliyetDetay: existing.maliyetDetay ?? null,
                 toplamTutar: existing.toplamTutar != null ? Number(existing.toplamTutar) : null,
                 onaylananTutar: existing.onaylananTutar != null ? Number(existing.onaylananTutar) : null,
                 faturaTarihi: existing.faturaTarihi,
@@ -444,10 +526,11 @@ function registerSshRoutes(app, prisma, requireAuth) {
                 ...patch,
             };
             const merged = mergeComputed(base);
-            const updated = await prisma.sshComplaint.update({
+            await prisma.sshComplaint.update({
                 where: { id },
                 data: toPrismaData(merged),
             });
+            const updated = await loadSshComplaintWithPhotos(prisma, id);
             res.json(mapSshComplaint(updated));
         } catch (error) {
             if (error.message && !error.code) {
@@ -455,6 +538,108 @@ function registerSshRoutes(app, prisma, requireAuth) {
             }
             console.error('SSH update error:', error);
             res.status(500).json({ error: 'SSH kaydı güncellenemedi' });
+        }
+    });
+
+    app.get('/api/ssh/complaints/:id/photos/:photoId', requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            const photoId = parseInt(req.params.photoId, 10);
+            if (!Number.isFinite(id) || !Number.isFinite(photoId)) {
+                return res.status(400).json({ error: 'Geçersiz id' });
+            }
+            const photo = await prisma.sshComplaintPhoto.findUnique({ where: { id: photoId } });
+            if (!photo || photo.sshComplaintId !== id) {
+                return res.status(404).json({ error: 'Fotoğraf bulunamadı' });
+            }
+            res.setHeader('Content-Type', photo.mimeType);
+            res.setHeader('Cache-Control', 'private, max-age=3600');
+            res.send(Buffer.from(photo.data));
+        } catch (error) {
+            console.error('SSH photo get error:', error);
+            res.status(500).json({ error: 'Fotoğraf getirilemedi' });
+        }
+    });
+
+    app.post('/api/ssh/complaints/:id/photos', requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            if (!Number.isFinite(id)) return res.status(400).json({ error: 'Geçersiz id' });
+            const mimeType = String(req.body?.mimeType || '').trim().toLowerCase();
+            const dataBase64 = String(req.body?.dataBase64 || '').trim();
+            const originalFileName = String(req.body?.originalFileName || '').trim() || null;
+
+            if (!SSH_ALLOWED_PHOTO_MIME.has(mimeType)) {
+                return res.status(400).json({ error: 'Desteklenmeyen görsel tipi (JPEG, PNG, WebP)' });
+            }
+            if (!dataBase64) return res.status(400).json({ error: 'Görsel verisi eksik' });
+            const dataBuffer = Buffer.from(dataBase64, 'base64');
+            if (!dataBuffer.length) return res.status(400).json({ error: 'Görsel çözümlenemedi' });
+            if (dataBuffer.length > SSH_MAX_PHOTO_BYTES) {
+                return res.status(400).json({ error: 'Görsel boyutu limiti aşıyor (max 4MB)' });
+            }
+
+            const existing = await prisma.sshComplaint.findUnique({
+                where: { id },
+                include: sshPhotosInclude,
+            });
+            if (!existing) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+            if (existing.photos.length >= SSH_MAX_PHOTOS) {
+                return res.status(400).json({ error: `En fazla ${SSH_MAX_PHOTOS} fotoğraf eklenebilir` });
+            }
+
+            await prisma.sshComplaintPhoto.create({
+                data: {
+                    sshComplaintId: id,
+                    mimeType,
+                    data: dataBuffer,
+                    sizeBytes: dataBuffer.length,
+                    originalFileName,
+                    displayOrder: existing.photos.length,
+                },
+            });
+
+            const updated = await loadSshComplaintWithPhotos(prisma, id);
+            res.status(201).json(mapSshComplaint(updated));
+        } catch (error) {
+            console.error('SSH photo add error:', error);
+            res.status(500).json({ error: 'Fotoğraf eklenemedi' });
+        }
+    });
+
+    app.delete('/api/ssh/complaints/:id/photos/:photoId', requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            const photoId = parseInt(req.params.photoId, 10);
+            if (!Number.isFinite(id) || !Number.isFinite(photoId)) {
+                return res.status(400).json({ error: 'Geçersiz id' });
+            }
+            const photo = await prisma.sshComplaintPhoto.findUnique({ where: { id: photoId } });
+            if (!photo || photo.sshComplaintId !== id) {
+                return res.status(404).json({ error: 'Fotoğraf bulunamadı' });
+            }
+
+            await prisma.$transaction(async tx => {
+                await tx.sshComplaintPhoto.delete({ where: { id: photoId } });
+                const rest = await tx.sshComplaintPhoto.findMany({
+                    where: { sshComplaintId: id },
+                    orderBy: { displayOrder: 'asc' },
+                });
+                for (let i = 0; i < rest.length; i += 1) {
+                    if (rest[i].displayOrder !== i) {
+                        await tx.sshComplaintPhoto.update({
+                            where: { id: rest[i].id },
+                            data: { displayOrder: i },
+                        });
+                    }
+                }
+            });
+
+            const updated = await loadSshComplaintWithPhotos(prisma, id);
+            res.json(mapSshComplaint(updated));
+        } catch (error) {
+            console.error('SSH photo delete error:', error);
+            res.status(500).json({ error: 'Fotoğraf silinemedi' });
         }
     });
 

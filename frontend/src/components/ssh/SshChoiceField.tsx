@@ -155,6 +155,7 @@ export function SshModernSelect(props: {
     disabledHint?: string;
     placeholder?: string;
     required?: boolean;
+    allowEmpty?: boolean;
     onChange: (v: string) => void;
 }) {
     return (

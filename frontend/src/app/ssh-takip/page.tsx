@@ -8,6 +8,8 @@ import { SshEtkiCoefPanel } from '@/components/ssh/SshEtkiCoefPanel';
 import { SshComplaintPhotos, type PendingSshPhoto } from '@/components/ssh/SshComplaintPhotos';
 import { SshCostBreakdown } from '@/components/ssh/SshCostBreakdown';
 import { SshPrioCoefPanel } from '@/components/ssh/SshPrioCoefPanel';
+import { SshAnalyticsPanel } from '@/components/ssh/SshAnalyticsPanel';
+import { SshEntryOverview } from '@/components/ssh/SshEntryOverview';
 import Sidebar from '@/components/Sidebar';
 import OzunluLoading from '@/components/OzunluLoading';
 import {
@@ -47,13 +49,12 @@ import {
     type SshMaliyetDetay,
 } from '@/lib/sshCost';
 import { exportSshComplaintsToExcel } from '@/lib/sshExcelExport';
+import { isTedarikciHataKaynagi } from '@/lib/sshTedarikci';
 import {
     AlertCircle,
     AlertTriangle,
     BarChart3,
-    CheckCircle2,
     ChevronDown,
-    ClipboardList,
     FileSpreadsheet,
     FileText,
     Headphones,
@@ -65,23 +66,12 @@ import {
     Search,
     Shield,
     Trash2,
-    TrendingUp,
     Truck,
-    Wallet,
     Wrench,
     X,
 } from 'lucide-react';
 
 type StatusFilter = 'ALL' | SshStatus;
-
-function fmtCurrency(v: number | null | undefined) {
-    if (v == null || Number.isNaN(v)) return '—';
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(v);
-}
-
-function fmtPct(rate: number) {
-    return `${(rate * 100).toFixed(0)}%`;
-}
 
 function toDateInput(iso: string | null | undefined) {
     if (!iso) return '';
@@ -178,6 +168,7 @@ const EMPTY_FORM: SshComplaintInput = {
     arizaBolge3: '',
     arizaTipi: '',
     hataKaynagi: '',
+    tedarikciAdi: '',
     arizaAciklamasi: '',
     tekrarEdenHataSayisi: undefined,
     aracCikisSuresiGun: null,
@@ -221,6 +212,7 @@ function complaintToForm(c: SshComplaint): SshComplaintInput {
         arizaBolge3: c.arizaBolge3 ?? '',
         arizaTipi: c.arizaTipi ?? '',
         hataKaynagi: c.hataKaynagi ?? '',
+        tedarikciAdi: c.tedarikciAdi ?? '',
         arizaAciklamasi: c.arizaAciklamasi ?? '',
         tekrarEdenHataSayisi: c.tekrarEdenHataSayisi,
         aracCikisSuresiGun: c.aracCikisSuresiGun,
@@ -244,172 +236,6 @@ function complaintToForm(c: SshComplaint): SshComplaintInput {
         kaliciOnlemTarihi: toDateInput(c.kaliciOnlemTarihi),
         status: c.status,
     };
-}
-
-function DistBlock({
-    title,
-    desc,
-    rows,
-    icon,
-}: {
-    title: string;
-    desc: string;
-    rows: { name: string; count: number; rate: number }[];
-    icon: React.ReactNode;
-}) {
-    const max = Math.max(...rows.map(r => r.count), 1);
-    return (
-        <div className="ssh-glass-card ssh-dist-card">
-            <div className="ssh-card-head">
-                <div className="ssh-card-head-icon">{icon}</div>
-                <div>
-                    <h3 className="ssh-card-title">{title}</h3>
-                    <p className="ssh-card-desc">{desc}</p>
-                </div>
-            </div>
-            {rows.length === 0 ? (
-                <div className="ssh-mini-empty">
-                    <Inbox size={28} strokeWidth={1.5} />
-                    <span>Henüz veri yok</span>
-                </div>
-            ) : (
-                <ul className="ssh-dist-list">
-                    {rows.map(row => (
-                        <li key={row.name}>
-                            <div className="ssh-dist-row-top">
-                                <span className="ssh-dist-name" title={row.name}>
-                                    {row.name}
-                                </span>
-                                <span className="ssh-dist-meta">
-                                    {row.count} · {fmtPct(row.rate)}
-                                </span>
-                            </div>
-                            <div className="ssh-dist-bar" aria-hidden>
-                                <span className="ssh-dist-bar-fill" style={{ width: `${(row.count / max) * 100}%` }} />
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-}
-
-function SshPanel({ stats }: { stats: SshStats | null }) {
-    if (!stats) return null;
-    return (
-        <section className="ssh-panel">
-            <div className="stats-grid ssh-kpi-grid">
-                <div className="stat-card stat-card--accent-primary ssh-kpi-card">
-                    <div className="analiz-stat-icon analiz-stat-icon--primary">
-                        <ClipboardList size={24} strokeWidth={2} />
-                    </div>
-                    <div>
-                        <div className="stat-value stat-value--default">{stats.total}</div>
-                        <div className="stat-label stat-label--default">Toplam şikayet</div>
-                    </div>
-                </div>
-                <div className="stat-card stat-card--accent-warning ssh-kpi-card">
-                    <div className="analiz-stat-icon analiz-stat-icon--warning">
-                        <AlertCircle size={24} strokeWidth={2} />
-                    </div>
-                    <div>
-                        <div className="stat-value stat-value--default">{stats.acik}</div>
-                        <div className="stat-label stat-label--default">Açık şikayet</div>
-                    </div>
-                </div>
-                <div className="stat-card stat-card--accent-success ssh-kpi-card">
-                    <div className="analiz-stat-icon analiz-stat-icon--success">
-                        <CheckCircle2 size={24} strokeWidth={2} />
-                    </div>
-                    <div>
-                        <div className="stat-value stat-value--default">{stats.kapali}</div>
-                        <div className="stat-label stat-label--default">Kapalı şikayet</div>
-                    </div>
-                </div>
-                <div className="stat-card stat-card--accent-danger ssh-kpi-card">
-                    <div className="analiz-stat-icon analiz-stat-icon--danger">
-                        <Wallet size={24} strokeWidth={2} />
-                    </div>
-                    <div>
-                        <div className="stat-value stat-value--default">{fmtCurrency(stats.aracBasiMaliyet)}</div>
-                        <div className="stat-label stat-label--default">Araç başı maliyet</div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="ssh-panel-row">
-                <DistBlock
-                    title="Arıza tipi"
-                    desc="En sık görülen 5 arıza tipi"
-                    rows={stats.arizaTipiDagilimi}
-                    icon={<Wrench size={18} strokeWidth={2} />}
-                />
-                <DistBlock
-                    title="Hata kaynağı"
-                    desc="Kaynak bazlı dağılım"
-                    rows={stats.hataKaynagiDagilimi}
-                    icon={<TrendingUp size={18} strokeWidth={2} />}
-                />
-            </div>
-
-            <div className="ssh-glass-card ssh-last5-card">
-                <div className="ssh-card-head">
-                    <div className="ssh-card-head-icon">
-                        <AlertCircle size={18} strokeWidth={2} />
-                    </div>
-                    <div>
-                        <h3 className="ssh-card-title">Son 5 şikayet</h3>
-                        <p className="ssh-card-desc">Kritik puana göre sıralı</p>
-                    </div>
-                </div>
-                {stats.son5.length === 0 ? (
-                    <div className="ssh-mini-empty">
-                        <Inbox size={28} strokeWidth={1.5} />
-                        <span>Kayıt yok</span>
-                    </div>
-                ) : (
-                    <div className="ssh-table-wrap">
-                        <table className="ssh-table">
-                            <thead>
-                                <tr>
-                                    <th>Talep No</th>
-                                    <th>Müşteri</th>
-                                    <th>Plaka</th>
-                                    <th>Arıza tipi</th>
-                                    <th>Kaynak</th>
-                                    <th>Kritik</th>
-                                    <th>Garanti</th>
-                                    <th>Statü</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {stats.son5.map(row => (
-                                    <tr key={row.id}>
-                                        <td className="ssh-td-mono">{row.talepNo}</td>
-                                        <td>{row.musteriAdi}</td>
-                                        <td>{row.aracPlakasi || '—'}</td>
-                                        <td className="ssh-td-wrap">{row.arizaTipi || '—'}</td>
-                                        <td>{row.hataKaynagi || '—'}</td>
-                                        <td>
-                                            <span className="ssh-kritik-badge">{row.kritikPuan ?? '—'}</span>
-                                        </td>
-                                        <td>{row.garantiTipi || '—'}</td>
-                                        <td>
-                                            <span className={`ssh-status-pill ssh-status-${row.status === 'KAPALI' ? 'closed' : 'open'}`}>
-                                                {row.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-
-        </section>
-    );
 }
 
 function SshFormBlock({
@@ -749,8 +575,28 @@ function SshFormSections({
                         )}
                         allowEmpty
                         placeholder="Seçin"
-                        onChange={v => set('hataKaynagi', v)}
+                        onChange={v =>
+                            setForm(prev => ({
+                                ...prev,
+                                hataKaynagi: v,
+                                tedarikciAdi: isTedarikciHataKaynagi(v) ? prev.tedarikciAdi : '',
+                            }))
+                        }
                     />
+                    {isTedarikciHataKaynagi(form.hataKaynagi) ? (
+                        <label className="ssh-field span-2">
+                            <span className="ssh-field__label">
+                                Tedarikçi adı <span className="ssh-field__req">*</span>
+                            </span>
+                            <input
+                                className="ssh-field__input"
+                                type="text"
+                                value={form.tedarikciAdi ?? ''}
+                                placeholder="Tedarikçi firma adı"
+                                onChange={e => set('tedarikciAdi', e.target.value)}
+                            />
+                        </label>
+                    ) : null}
                     <label className="ssh-field span-2">
                         <span className="ssh-field__label">Arıza açıklaması</span>
                         <textarea className="ssh-field__input ssh-field__textarea" rows={3} value={form.arizaAciklamasi ?? ''} onChange={e => set('arizaAciklamasi', e.target.value)} />
@@ -914,6 +760,10 @@ function SshComplaintCard({
     }, [item]);
 
     const save = async () => {
+        if (isTedarikciHataKaynagi(form.hataKaynagi) && !form.tedarikciAdi?.trim()) {
+            alert('Hata kaynağı Tedarikçi seçildiğinde tedarikçi adı zorunludur');
+            return;
+        }
         try {
             setSaving(true);
             const payload = { ...form, status: normalizeStatusValue(form.status) };
@@ -1027,6 +877,7 @@ export default function SshTakipPage() {
     const [partCodes, setPartCodes] = useState<SshPartCodes | null>(null);
     const [sshLookups, setSshLookups] = useState<SshLookups | null>(null);
     const [exporting, setExporting] = useState(false);
+    const [showAnaliz, setShowAnaliz] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -1107,6 +958,10 @@ export default function SshTakipPage() {
     const handleCreate = async () => {
         if (!createForm.musteriAdi?.trim()) {
             alert('Müşteri adı zorunludur');
+            return;
+        }
+        if (isTedarikciHataKaynagi(createForm.hataKaynagi) && !createForm.tedarikciAdi?.trim()) {
+            alert('Hata kaynağı Tedarikçi seçildiğinde tedarikçi adı zorunludur');
             return;
         }
         try {
@@ -1216,6 +1071,20 @@ export default function SshTakipPage() {
                         <div className="ssh-command-actions">
                             <button
                                 type="button"
+                                className={`ssh-primary-btn ${showAnaliz ? 'is-active-analiz' : 'is-secondary'}`}
+                                onClick={() => {
+                                    setShowAnaliz(v => {
+                                        if (!v) setShowCreate(false);
+                                        return !v;
+                                    });
+                                }}
+                                aria-expanded={showAnaliz}
+                            >
+                                <BarChart3 size={17} strokeWidth={2} />
+                                {showAnaliz ? 'Analizi gizle' : 'Analiz'}
+                            </button>
+                            <button
+                                type="button"
                                 className="ssh-primary-btn is-secondary"
                                 disabled={exporting || loading}
                                 onClick={() => void handleExportExcel()}
@@ -1254,9 +1123,11 @@ export default function SshTakipPage() {
                         </div>
                     </div>
 
-                    <SshPanel stats={stats} />
+                    {!showAnaliz ? <SshEntryOverview stats={stats} /> : null}
 
-                    {showCreate && (
+                    {showAnaliz ? <SshAnalyticsPanel stats={stats} /> : null}
+
+                    {showCreate && !showAnaliz && (
                         <section className="ssh-create-card">
                             <header className="ssh-create-card__head">
                                 <div className="ssh-create-card__icon">
@@ -1300,43 +1171,47 @@ export default function SshTakipPage() {
                         </section>
                     )}
 
-                    <div className="ssh-section-rule">
-                        <span className="ssh-section-rule__line" />
-                        <span className="ssh-section-rule__label">Şikayet kayıtları</span>
-                        <span className="ssh-section-rule__line" />
-                    </div>
-
-                    <section className="ssh-list">
-                        {loading && items.length === 0 ? (
-                            <OzunluLoading />
-                        ) : items.length === 0 ? (
-                            <div className="ssh-empty-card">
-                                <div className="ssh-empty-card-icon"><Inbox size={36} strokeWidth={1.5} /></div>
-                                <h3>Henüz şikayet kaydı yok</h3>
-                                <p>Yeni şikayet oluşturarak SSH takibine başlayın.</p>
-                                <button type="button" className="ssh-primary-btn" onClick={() => setShowCreate(true)}>
-                                    <Plus size={17} strokeWidth={2.5} /> Yeni şikayet
-                                </button>
+                    {!showAnaliz ? (
+                        <>
+                            <div className="ssh-section-rule">
+                                <span className="ssh-section-rule__line" />
+                                <span className="ssh-section-rule__label">Şikayet kayıtları</span>
+                                <span className="ssh-section-rule__line" />
                             </div>
-                        ) : (
-                            items.map(item => (
-                                <SshComplaintCard
-                                    key={item.id}
-                                    item={item}
-                                    partCodes={partCodes}
-                                    sshLookups={sshLookups}
-                                    onUpdated={c => {
-                                        setItems(prev => prev.map(x => (x.id === c.id ? c : x)));
-                                        void refreshStats();
-                                    }}
-                                    onDeleted={id => {
-                                        setItems(prev => prev.filter(x => x.id !== id));
-                                        void refreshStats();
-                                    }}
-                                />
-                            ))
-                        )}
-                    </section>
+
+                            <section className="ssh-list">
+                                {loading && items.length === 0 ? (
+                                    <OzunluLoading />
+                                ) : items.length === 0 ? (
+                                    <div className="ssh-empty-card">
+                                        <div className="ssh-empty-card-icon"><Inbox size={36} strokeWidth={1.5} /></div>
+                                        <h3>Henüz şikayet kaydı yok</h3>
+                                        <p>Yeni şikayet oluşturarak SSH takibine başlayın.</p>
+                                        <button type="button" className="ssh-primary-btn" onClick={() => setShowCreate(true)}>
+                                            <Plus size={17} strokeWidth={2.5} /> Yeni şikayet
+                                        </button>
+                                    </div>
+                                ) : (
+                                    items.map(item => (
+                                        <SshComplaintCard
+                                            key={item.id}
+                                            item={item}
+                                            partCodes={partCodes}
+                                            sshLookups={sshLookups}
+                                            onUpdated={c => {
+                                                setItems(prev => prev.map(x => (x.id === c.id ? c : x)));
+                                                void refreshStats();
+                                            }}
+                                            onDeleted={id => {
+                                                setItems(prev => prev.filter(x => x.id !== id));
+                                                void refreshStats();
+                                            }}
+                                        />
+                                    ))
+                                )}
+                            </section>
+                        </>
+                    ) : null}
                 </div>
             </main>
         </AuthGuard>

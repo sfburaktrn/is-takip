@@ -1801,6 +1801,7 @@ export interface SshComplaint {
     arizaTipi: string | null;
     arizaKodu: string | null;
     hataKaynagi: string | null;
+    tedarikciAdi: string | null;
     arizaAciklamasi: string | null;
     tekrarEdenHataSayisi: number;
     aracCikisSuresiGun: number | null;
@@ -1867,13 +1868,30 @@ export async function deleteSshComplaintPhoto(id: number, photoId: number): Prom
 
 export type SshComplaintInput = Partial<Omit<SshComplaint, 'id' | 'talepNo' | 'createdAt' | 'updatedAt' | 'createdByUsername'>>;
 
+export interface SshDistRow {
+    name: string;
+    count: number;
+    rate: number;
+}
+
 export interface SshStats {
     total: number;
     acik: number;
     kapali: number;
+    kapamaOrani: number;
     aracBasiMaliyet: number;
-    arizaTipiDagilimi: { name: string; count: number; rate: number }[];
-    hataKaynagiDagilimi: { name: string; count: number; rate: number }[];
+    toplamMaliyet: number;
+    ortalamaKritikPuan: number | null;
+    yuksekKritikCount: number;
+    ortalamaTekrarHata: number | null;
+    ortalamaCikisSuresiGun: number | null;
+    arizaTipiDagilimi: SshDistRow[];
+    hataKaynagiDagilimi: SshDistRow[];
+    garantiTipiDagilimi: SshDistRow[];
+    ustYapiTipiDagilimi: SshDistRow[];
+    oncelikPrioDagilimi: SshDistRow[];
+    tedarikciDagilimi: SshDistRow[];
+    aylikTrend: { month: string; count: number }[];
     son5: SshComplaint[];
 }
 

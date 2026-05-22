@@ -1233,11 +1233,19 @@ textarea.form-input:focus {
 .apple-segmented--slide .apple-segmented-btn.is-active-brand {
   background: transparent;
   box-shadow: none;
-  color: #ffffff;
+  color: var(--foreground);
 }
 
 .apple-segmented--slide .apple-segmented-btn.is-active-brand:hover {
   background: transparent;
+  color: var(--foreground);
+}
+
+.apple-segmented--slide.is-thumb-ready .apple-segmented-btn.is-active-brand {
+  color: #ffffff;
+}
+
+.apple-segmented--slide.is-thumb-ready .apple-segmented-btn.is-active-brand:hover {
   color: #ffffff;
 }
 
@@ -8075,6 +8083,18 @@ textarea.form-input:focus {
   border-color: color-mix(in srgb, var(--primary) 30%, var(--hairline));
   color: var(--primary);
   transform: none;
+}
+
+.ssh-primary-btn.is-active-analiz {
+  background: var(--primary);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: var(--shadow-sm);
+}
+
+.ssh-primary-btn.is-active-analiz:hover {
+  background: var(--primary-hover);
+  color: #fff;
 }
 
 .ssh-takip-page .ssh-panel {

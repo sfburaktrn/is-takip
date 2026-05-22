@@ -2160,7 +2160,7 @@ function UrunListesiContent() {
                     <div className="apple-toolbar-row">
                         <div
                             ref={productSegTrackRef}
-                            className="apple-segmented apple-segmented--wrap apple-segmented--slide"
+                            className={`apple-segmented apple-segmented--wrap apple-segmented--slide${productSegThumb.ready ? ' is-thumb-ready' : ''}`}
                         >
                             <span
                                 className="apple-segmented__thumb"
@@ -2169,8 +2169,7 @@ function UrunListesiContent() {
                                     transform: `translate3d(${productSegThumb.x}px, ${productSegThumb.y}px, 0)`,
                                     width: Math.max(0, productSegThumb.w),
                                     height: Math.max(0, productSegThumb.h),
-                                    opacity:
-                                        productSegThumb.w > 0 && productSegThumb.h > 0 ? 1 : 0,
+                                    opacity: productSegThumb.ready ? 1 : 0,
                                 }}
                             />
                             <button

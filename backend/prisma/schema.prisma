@@ -534,6 +534,7 @@ model SshComplaint {
   arizaTipi              String?
   arizaKodu              String?
   hataKaynagi            String?
+  tedarikciAdi           String?
   arizaAciklamasi        String?   @db.Text
   tekrarEdenHataSayisi   Int       @default(1)
   aracCikisSuresiGun     Int?

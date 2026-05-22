@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 
-export type AppleSegThumb = { x: number; y: number; w: number; h: number };
+export type AppleSegThumb = { x: number; y: number; w: number; h: number; ready: boolean };
 
 /**
  * iOS benzeri segment: aktif düğüme göre kayan arka plan (transform + boyut).
@@ -9,7 +9,7 @@ export function useAppleSegmentedThumb(
     trackRef: RefObject<HTMLElement | null>,
     activeIndex: number,
 ): AppleSegThumb {
-    const [thumb, setThumb] = useState<AppleSegThumb>({ x: 0, y: 0, w: 0, h: 0 });
+    const [thumb, setThumb] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
     const measure = useCallback(() => {
         const track = trackRef.current;
@@ -31,6 +31,7 @@ export function useAppleSegmentedThumb(
     }, [trackRef, activeIndex]);
 
     useLayoutEffect(() => {
+        measure();
         let inner = 0;
         const outer = requestAnimationFrame(() => {
             measure();
@@ -56,5 +57,8 @@ export function useAppleSegmentedThumb(
         };
     }, [measure, trackRef]);
 
-    return thumb;
+    return {
+        ...thumb,
+        ready: thumb.w > 0 && thumb.h > 0,
+    };
 }

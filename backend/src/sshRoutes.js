@@ -62,6 +62,7 @@ function mapSshComplaint(row) {
         arizaTipi: row.arizaTipi,
         arizaKodu: row.arizaKodu,
         hataKaynagi: row.hataKaynagi,
+        tedarikciAdi: row.tedarikciAdi,
         arizaAciklamasi: row.arizaAciklamasi,
         tekrarEdenHataSayisi: row.tekrarEdenHataSayisi,
         aracCikisSuresiGun: row.aracCikisSuresiGun,
@@ -150,6 +151,7 @@ function parseSshPayload(body, { partial = false } = {}) {
     if (!partial || has('arizaBolge3')) set('arizaBolge3', String(body.arizaBolge3 || '').trim() || null);
     if (!partial || has('arizaTipi')) set('arizaTipi', String(body.arizaTipi || '').trim() || null);
     if (!partial || has('hataKaynagi')) set('hataKaynagi', String(body.hataKaynagi || '').trim() || null);
+    if (!partial || has('tedarikciAdi')) set('tedarikciAdi', String(body.tedarikciAdi || '').trim() || null);
     if (!partial || has('arizaAciklamasi')) set('arizaAciklamasi', String(body.arizaAciklamasi || '').trim() || null);
     if (!partial || has('tekrarEdenHataSayisi')) {
         const v = body.tekrarEdenHataSayisi;
@@ -218,12 +220,32 @@ function parseSshPayload(body, { partial = false } = {}) {
     return out;
 }
 
+function normHataKaynak(v) {
+    return String(v || '')
+        .trim()
+        .toUpperCase()
+        .replace(/İ/g, 'I');
+}
+
+function isTedarikciKaynak(v) {
+    const s = normHataKaynak(v);
+    return s === 'TEDARIKCI' || s.includes('TEDARIK');
+}
+
 function validateRequiredForCreate(payload) {
     const required = ['talepTipi', 'sikayetBildirimTarihi', 'garantiBaslangicTarihi', 'musteriAdi', 'ustYapiTipi'];
     for (const k of required) {
         if (payload[k] == null || payload[k] === '') {
             throw new Error(`${k} zorunludur`);
         }
+    }
+    validateTedarikciAdi(payload);
+}
+
+function validateTedarikciAdi(payload) {
+    if (!isTedarikciKaynak(payload.hataKaynagi)) return;
+    if (!String(payload.tedarikciAdi || '').trim()) {
+        throw new Error('Hata kaynağı Tedarikçi seçildiğinde tedarikçi adı zorunludur');
     }
 }
 
@@ -259,8 +281,13 @@ function mergeComputed(data) {
         toplamTutar = roundMoney(Number(toplamTutar));
     }
 
+    const tedarikciAdi = isTedarikciKaynak(data.hataKaynagi)
+        ? String(data.tedarikciAdi || '').trim() || null
+        : null;
+
     return {
         ...data,
+        tedarikciAdi,
         arizaKodu: buildArizaKodu(data.arizaBolge1, data.arizaBolge2, data.arizaBolge3, data.arizaTipi),
         aracCikisSuresiGun,
         cikisSureKatsayisi,
@@ -347,6 +374,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
                     status: true,
                     arizaTipi: true,
                     hataKaynagi: true,
+                    tedarikciAdi: true,
                     kritikPuan: true,
                     onaylananTutar: true,
                     toplamTutar: true,
@@ -354,19 +382,46 @@ function registerSshRoutes(app, prisma, requireAuth) {
                     musteriAdi: true,
                     aracPlakasi: true,
                     garantiTipi: true,
+                    ustYapiTipi: true,
+                    oncelikPrio: true,
+                    tekrarEdenHataSayisi: true,
+                    aracCikisSuresiGun: true,
+                    sikayetBildirimTarihi: true,
                 },
             });
             const total = rows.length;
             const acik = rows.filter((r) => r.status === 'AÇIK').length;
             const kapali = rows.filter((r) => r.status === 'KAPALI').length;
+            const kapamaOrani = total > 0 ? kapali / total : 0;
             let costSum = 0;
+            let kritikSum = 0;
+            let kritikCount = 0;
+            let yuksekKritikCount = 0;
+            let tekrarSum = 0;
+            let cikisSum = 0;
+            let cikisCount = 0;
             for (const r of rows) {
                 const amt = r.onaylananTutar != null ? Number(r.onaylananTutar) : r.toplamTutar != null ? Number(r.toplamTutar) : 0;
                 costSum += amt;
+                if (r.kritikPuan != null && Number.isFinite(r.kritikPuan)) {
+                    kritikSum += r.kritikPuan;
+                    kritikCount += 1;
+                    if (r.kritikPuan >= 50) yuksekKritikCount += 1;
+                }
+                if (r.tekrarEdenHataSayisi != null && Number.isFinite(r.tekrarEdenHataSayisi)) {
+                    tekrarSum += r.tekrarEdenHataSayisi;
+                }
+                if (r.aracCikisSuresiGun != null && Number.isFinite(r.aracCikisSuresiGun)) {
+                    cikisSum += r.aracCikisSuresiGun;
+                    cikisCount += 1;
+                }
             }
             const aracBasiMaliyet = total > 0 ? costSum / total : 0;
+            const ortalamaKritikPuan = kritikCount > 0 ? kritikSum / kritikCount : null;
+            const ortalamaTekrarHata = total > 0 ? tekrarSum / total : null;
+            const ortalamaCikisSuresiGun = cikisCount > 0 ? cikisSum / cikisCount : null;
 
-            const countBy = (field) => {
+            const countBy = (field, limit = 5) => {
                 const m = new Map();
                 for (const r of rows) {
                     const k = r[field] || 'Belirtilmemiş';
@@ -379,8 +434,37 @@ function registerSshRoutes(app, prisma, requireAuth) {
                         rate: total > 0 ? count / total : 0,
                     }))
                     .sort((a, b) => b.count - a.count)
-                    .slice(0, 5);
+                    .slice(0, limit);
             };
+
+            const tedarikciRows = rows.filter((r) => isTedarikciKaynak(r.hataKaynagi));
+            const tedarikciTotal = tedarikciRows.length;
+            const tedarikciMap = new Map();
+            for (const r of tedarikciRows) {
+                const k = String(r.tedarikciAdi || '').trim() || 'Belirtilmemiş';
+                tedarikciMap.set(k, (tedarikciMap.get(k) || 0) + 1);
+            }
+            const tedarikciDagilimi = [...tedarikciMap.entries()]
+                .map(([name, count]) => ({
+                    name,
+                    count,
+                    rate: tedarikciTotal > 0 ? count / tedarikciTotal : 0,
+                }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 8);
+
+            const monthMap = new Map();
+            for (const r of rows) {
+                if (!r.sikayetBildirimTarihi) continue;
+                const d = new Date(r.sikayetBildirimTarihi);
+                if (Number.isNaN(d.getTime())) continue;
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                monthMap.set(key, (monthMap.get(key) || 0) + 1);
+            }
+            const aylikTrend = [...monthMap.entries()]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .slice(-6)
+                .map(([month, count]) => ({ month, count }));
 
             const last5 = await prisma.sshComplaint.findMany({
                 orderBy: [{ kritikPuan: 'desc' }, { createdAt: 'desc' }],
@@ -392,9 +476,20 @@ function registerSshRoutes(app, prisma, requireAuth) {
                 total,
                 acik,
                 kapali,
+                kapamaOrani,
                 aracBasiMaliyet,
-                arizaTipiDagilimi: countBy('arizaTipi'),
-                hataKaynagiDagilimi: countBy('hataKaynagi'),
+                toplamMaliyet: costSum,
+                ortalamaKritikPuan,
+                yuksekKritikCount,
+                ortalamaTekrarHata,
+                ortalamaCikisSuresiGun,
+                arizaTipiDagilimi: countBy('arizaTipi', 6),
+                hataKaynagiDagilimi: countBy('hataKaynagi', 6),
+                garantiTipiDagilimi: countBy('garantiTipi', 6),
+                ustYapiTipiDagilimi: countBy('ustYapiTipi', 6),
+                oncelikPrioDagilimi: countBy('oncelikPrio', 6),
+                tedarikciDagilimi,
+                aylikTrend,
                 son5: last5.map(mapSshComplaint),
             });
         } catch (error) {
@@ -501,6 +596,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
                 arizaBolge3: existing.arizaBolge3,
                 arizaTipi: existing.arizaTipi,
                 hataKaynagi: existing.hataKaynagi,
+                tedarikciAdi: existing.tedarikciAdi,
                 arizaAciklamasi: existing.arizaAciklamasi,
                 tekrarEdenHataSayisi: existing.tekrarEdenHataSayisi,
                 aracCikisSuresiGun: existing.aracCikisSuresiGun,
@@ -526,6 +622,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
                 ...patch,
             };
             const merged = mergeComputed(base);
+            validateTedarikciAdi(merged);
             await prisma.sshComplaint.update({
                 where: { id },
                 data: toPrismaData(merged),

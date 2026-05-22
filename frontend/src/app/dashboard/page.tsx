@@ -1016,7 +1016,7 @@ function DashboardContent() {
           {/* Product Toggle */}
           <div
             ref={dashSegTrackRef}
-            className="apple-segmented apple-segmented--wrap apple-segmented--slide"
+            className={`apple-segmented apple-segmented--wrap apple-segmented--slide${dashSegThumb.ready ? ' is-thumb-ready' : ''}`}
           >
             <span
               className="apple-segmented__thumb"
@@ -1025,7 +1025,7 @@ function DashboardContent() {
                 transform: `translate3d(${dashSegThumb.x}px, ${dashSegThumb.y}px, 0)`,
                 width: Math.max(0, dashSegThumb.w),
                 height: Math.max(0, dashSegThumb.h),
-                opacity: dashSegThumb.w > 0 && dashSegThumb.h > 0 ? 1 : 0,
+                opacity: dashSegThumb.ready ? 1 : 0,
               }}
             />
             <button

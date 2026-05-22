@@ -1,0 +1,102 @@
+.ssh-analytics-panel__intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 2px 8px;
+  color: var(--primary);
+}
+
+.ssh-analytics-panel__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.ssh-analytics-panel__sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--foreground-secondary);
+}
+
+.ssh-analytics-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .ssh-analytics-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ssh-analytics-metric {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ssh-analytics-metric__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--foreground-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ssh-analytics-metric strong {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.ssh-trend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ssh-trend-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 36px;
+  align-items: center;
+  gap: 10px;
+}
+
+.ssh-trend-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--foreground-secondary);
+}
+
+.ssh-trend-bar-wrap {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface-subtle));
+  overflow: hidden;
+}
+
+.ssh-trend-bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 70%, #6366f1));
+  min-width: 4px;
+  transition: width 0.35s ease;
+}
+
+.ssh-trend-count {
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+  color: var(--foreground);
+}

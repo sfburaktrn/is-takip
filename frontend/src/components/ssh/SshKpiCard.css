@@ -1,0 +1,155 @@
+.ssh-kpi-tiles {
+  display: grid;
+  gap: 14px;
+}
+
+.ssh-kpi-tiles--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ssh-kpi-tiles--5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .ssh-kpi-tiles--5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .ssh-kpi-tiles--3,
+  .ssh-kpi-tiles--5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .ssh-kpi-tiles--3,
+  .ssh-kpi-tiles--5 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ssh-kpi-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 18px 18px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  transition:
+    transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.ssh-kpi-tile:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 4px 12px rgba(15, 23, 42, 0.08),
+    0 16px 36px rgba(15, 23, 42, 0.1);
+}
+
+.ssh-kpi-tile__shine {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 16px 0 0 16px;
+  opacity: 0.95;
+}
+
+.ssh-kpi-tile--primary .ssh-kpi-tile__shine {
+  background: linear-gradient(180deg, #1e3a5f, #022347);
+}
+
+.ssh-kpi-tile--warning .ssh-kpi-tile__shine {
+  background: linear-gradient(180deg, #fbbf24, #d97706);
+}
+
+.ssh-kpi-tile--success .ssh-kpi-tile__shine {
+  background: linear-gradient(180deg, #34d399, #059669);
+}
+
+.ssh-kpi-tile--info .ssh-kpi-tile__shine {
+  background: linear-gradient(180deg, #60a5fa, #2563eb);
+}
+
+.ssh-kpi-tile--money .ssh-kpi-tile__shine {
+  background: linear-gradient(180deg, #f87171, #dc2626);
+}
+
+.ssh-kpi-tile__icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ssh-kpi-tile--primary .ssh-kpi-tile__icon {
+  color: #022347;
+  background: linear-gradient(145deg, rgba(2, 35, 71, 0.12), rgba(2, 35, 71, 0.04));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.ssh-kpi-tile--warning .ssh-kpi-tile__icon {
+  color: #b45309;
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.06));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.ssh-kpi-tile--success .ssh-kpi-tile__icon {
+  color: #047857;
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.06));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.ssh-kpi-tile--info .ssh-kpi-tile__icon {
+  color: #1d4ed8;
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.06));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.ssh-kpi-tile--money .ssh-kpi-tile__icon {
+  color: #b91c1c;
+  background: linear-gradient(145deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.05));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.ssh-kpi-tile__content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ssh-kpi-tile__value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.ssh-kpi-tile--money .ssh-kpi-tile__value {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.ssh-kpi-tile__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--foreground-secondary);
+  line-height: 1.35;
+}

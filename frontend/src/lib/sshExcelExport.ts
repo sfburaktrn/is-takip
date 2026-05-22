@@ -19,6 +19,18 @@ const HIGH_KRITIK_FG = 'FFB91C1C';
 const PHOTO_ROW_HEIGHT = 76;
 const PHOTO_COL_WIDTH = 12;
 
+/** 1-based column index → Excel column letter (A, B, …, AA). */
+function excelColLetter(col1Based: number): string {
+    let n = col1Based;
+    let s = '';
+    while (n > 0) {
+        const rem = (n - 1) % 26;
+        s = String.fromCharCode(65 + rem) + s;
+        n = Math.floor((n - 1) / 26);
+    }
+    return s || 'A';
+}
+
 type ColDef = { header: string; key: string; width: number };
 
 const PHOTO_COLUMNS: ColDef[] = Array.from({ length: SSH_MAX_PHOTOS }, (_, i) => ({
@@ -378,14 +390,11 @@ export async function exportSshComplaintsToExcel(
                 if (!img) continue;
                 const col1 = photoColStart + slot;
                 const imageId = workbook.addImage({
-                    buffer: img.buffer,
+                    buffer: img.buffer as ExcelJS.Buffer,
                     extension: img.extension,
                 });
-                sheet.addImage(imageId, {
-                    tl: { col: col1 - 1, row: row.number - 1 },
-                    br: { col: col1, row: row.number },
-                    editAs: 'oneCell',
-                });
+                const cellRef = `${excelColLetter(col1)}${row.number}`;
+                sheet.addImage(imageId, `${cellRef}:${cellRef}`);
             }
         }
     }

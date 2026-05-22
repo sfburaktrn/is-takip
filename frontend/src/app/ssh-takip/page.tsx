@@ -46,6 +46,7 @@ import {
     parseMaliyetDetay,
     type SshMaliyetDetay,
 } from '@/lib/sshCost';
+import { exportSshComplaintsToExcel } from '@/lib/sshExcelExport';
 import {
     AlertCircle,
     AlertTriangle,
@@ -53,6 +54,7 @@ import {
     CheckCircle2,
     ChevronDown,
     ClipboardList,
+    FileSpreadsheet,
     FileText,
     Headphones,
     Inbox,
@@ -1024,6 +1026,7 @@ export default function SshTakipPage() {
     const [nextTalepNo, setNextTalepNo] = useState<string | null>(null);
     const [partCodes, setPartCodes] = useState<SshPartCodes | null>(null);
     const [sshLookups, setSshLookups] = useState<SshLookups | null>(null);
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -1139,6 +1142,24 @@ export default function SshTakipPage() {
         { key: 'KAPALI', label: 'Kapalı' },
     ];
 
+    const handleExportExcel = async () => {
+        try {
+            setExporting(true);
+            const list = await getSshComplaints({
+                status: statusFilter === 'ALL' ? undefined : statusFilter,
+                q: searchQ || undefined,
+            });
+            await exportSshComplaintsToExcel(list, {
+                statusFilter,
+                searchQ: searchQ || undefined,
+            });
+        } catch (e) {
+            alert(e instanceof Error ? e.message : 'Excel oluşturulamadı');
+        } finally {
+            setExporting(false);
+        }
+    };
+
     if (loading && stats === null && !error) {
         return (
             <AuthGuard>
@@ -1193,6 +1214,19 @@ export default function SshTakipPage() {
                             ))}
                         </div>
                         <div className="ssh-command-actions">
+                            <button
+                                type="button"
+                                className="ssh-primary-btn is-secondary"
+                                disabled={exporting || loading}
+                                onClick={() => void handleExportExcel()}
+                            >
+                                {exporting ? (
+                                    <Loader2 size={17} className="spin" />
+                                ) : (
+                                    <FileSpreadsheet size={17} strokeWidth={2} />
+                                )}
+                                Excel&apos;e Aktar
+                            </button>
                             <label className="ssh-search">
                                 <Search size={17} strokeWidth={2} />
                                 <input

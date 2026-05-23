@@ -1778,6 +1778,21 @@ export interface SshLookups {
     prioOptions: { name: string; coefficient: number; description?: string }[];
     exitTimeCoefficients: { maxDays: number | null; coefficient: number }[];
     customerSourceKeywords: string[];
+    '8dEkipUyeleri'?: Ssh8dEkipUyesi[];
+    '8dDepartmanlar'?: string[];
+}
+
+export interface Ssh8dEkipUyesi {
+    name: string;
+    dept: string;
+}
+
+export interface Ssh8dReportInput {
+    dokumanNo: string;
+    revizyonNo: string;
+    revizyonTarihi?: string;
+    ekipLider?: { name: string; dept: string } | null;
+    ekipUyeleri?: { name: string; dept: string }[];
 }
 
 export interface SshComplaint {
@@ -1823,6 +1838,8 @@ export interface SshComplaint {
     kokNeden: string | null;
     kaliciOnlem: string | null;
     kaliciOnlemTarihi: string | null;
+    d6UygulananAksiyon: string | null;
+    d7SikayetKapanis: string | null;
     status: SshStatus;
     photos: SshComplaintPhoto[];
     createdByUsername?: string | null;
@@ -1961,4 +1978,47 @@ export async function deleteSshComplaint(id: number): Promise<{ ok: boolean }> {
         credentials: 'include',
     });
     return handleResponse<{ ok: boolean }>(res);
+}
+
+export interface Ssh8dEkipDirectory {
+    people: Ssh8dEkipUyesi[];
+    departmanlar: string[];
+}
+
+export async function fetchSsh8dEkipDirectory(): Promise<Ssh8dEkipDirectory> {
+    const res = await apiFetch(`${API_URL}/ssh/8d-ekip-directory`, { credentials: 'include' });
+    return handleResponse<Ssh8dEkipDirectory>(res);
+}
+
+export async function saveSsh8dEkipDirectory(body: Ssh8dEkipDirectory): Promise<Ssh8dEkipDirectory> {
+    const res = await apiFetch(`${API_URL}/ssh/8d-ekip-directory`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return handleResponse<Ssh8dEkipDirectory>(res);
+}
+
+export async function downloadSsh8dReport(id: number, talepNo: string, input: Ssh8dReportInput): Promise<void> {
+    const { saveAs } = await import('file-saver');
+    const res = await apiFetch(`${API_URL}/ssh/complaints/${id}/8d-report`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+        let message = '8D raporu indirilemedi';
+        try {
+            const data = (await res.json()) as { error?: string };
+            if (data.error) message = data.error;
+        } catch {
+            /* binary or empty */
+        }
+        throw new Error(message);
+    }
+    const blob = await res.blob();
+    const safe = talepNo.replace(/[^\w.-]+/g, '_');
+    saveAs(blob, `8D_${safe}.xlsx`);
 }

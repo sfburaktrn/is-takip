@@ -10,12 +10,15 @@ import { SshCostBreakdown } from '@/components/ssh/SshCostBreakdown';
 import { SshPrioCoefPanel } from '@/components/ssh/SshPrioCoefPanel';
 import { SshAnalyticsPanel } from '@/components/ssh/SshAnalyticsPanel';
 import { SshEntryOverview } from '@/components/ssh/SshEntryOverview';
+import { Ssh8dReportButton } from '@/components/ssh/Ssh8dReportButton';
+import { Ssh8dReportModal } from '@/components/ssh/Ssh8dReportModal';
 import Sidebar from '@/components/Sidebar';
 import OzunluLoading from '@/components/OzunluLoading';
 import {
     addSshComplaintPhoto,
     createSshComplaint,
     deleteSshComplaint,
+    downloadSsh8dReport,
     getNextSshTalepNo,
     getSshComplaints,
     getSshLookups,
@@ -28,6 +31,7 @@ import {
     type SshLookups,
     type SshPartCodes,
     type SshStats,
+    type Ssh8dReportInput,
     type SshStatus,
 } from '@/lib/api';
 import {
@@ -190,6 +194,8 @@ const EMPTY_FORM: SshComplaintInput = {
     kokNeden: '',
     kaliciOnlem: '',
     kaliciOnlemTarihi: '',
+    d6UygulananAksiyon: '',
+    d7SikayetKapanis: '',
     status: 'AÇIK',
 };
 
@@ -234,6 +240,8 @@ function complaintToForm(c: SshComplaint): SshComplaintInput {
         kokNeden: c.kokNeden ?? '',
         kaliciOnlem: c.kaliciOnlem ?? '',
         kaliciOnlemTarihi: toDateInput(c.kaliciOnlemTarihi),
+        d6UygulananAksiyon: c.d6UygulananAksiyon ?? '',
+        d7SikayetKapanis: c.d7SikayetKapanis ?? '',
         status: c.status,
     };
 }
@@ -598,7 +606,9 @@ function SshFormSections({
                         </label>
                     ) : null}
                     <label className="ssh-field span-2">
-                        <span className="ssh-field__label">Arıza açıklaması</span>
+                        <span className="ssh-field__label">
+                            Arıza açıklaması <span className="ssh-field__8d-tag">8D D2</span>
+                        </span>
                         <textarea className="ssh-field__input ssh-field__textarea" rows={3} value={form.arizaAciklamasi ?? ''} onChange={e => set('arizaAciklamasi', e.target.value)} />
                     </label>
                     <div className="ssh-form-grid__full">
@@ -715,22 +725,56 @@ function SshFormSections({
                     </div>
                 </div>
             </SshFormBlock>
-            <SshFormBlock step={6} title="Çözüm ve önlem" desc="Onarım, kök neden ve kalıcı önlem" icon={<Wrench size={18} strokeWidth={2} />} accent="#022347">
+            <SshFormBlock
+                step={6}
+                title="8D çözüm alanları"
+                desc="D3–D7 rapor şablonuna aktarılır"
+                icon={<Wrench size={18} strokeWidth={2} />}
+                accent="#022347"
+            >
                 <div className="ssh-form-grid">
                     <label className="ssh-field span-2">
-                        <span className="ssh-field__label">Onarım</span>
+                        <span className="ssh-field__label">
+                            Onarım <span className="ssh-field__8d-tag">8D D3</span>
+                        </span>
+                        <span className="ssh-field__hint">Geçici düzeltici / acil alınan aksiyon</span>
                         <textarea className="ssh-field__input ssh-field__textarea" rows={3} value={form.onarim ?? ''} onChange={e => set('onarim', e.target.value)} />
                     </label>
-                    {dateField('onarimTarihi', 'Onarım tarihi')}
+                    {dateField('onarimTarihi', 'D3 uygulama tarihi')}
                     <label className="ssh-field span-2">
-                        <span className="ssh-field__label">Kök neden</span>
+                        <span className="ssh-field__label">
+                            Kök neden <span className="ssh-field__8d-tag">8D D4</span>
+                        </span>
                         <textarea className="ssh-field__input ssh-field__textarea" rows={3} value={form.kokNeden ?? ''} onChange={e => set('kokNeden', e.target.value)} />
                     </label>
                     <label className="ssh-field span-2">
-                        <span className="ssh-field__label">Kalıcı önlem</span>
+                        <span className="ssh-field__label">
+                            Kalıcı önlem <span className="ssh-field__8d-tag">8D D5</span>
+                        </span>
+                        <span className="ssh-field__hint">Seçilen kalıcı düzeltici aksiyon</span>
                         <textarea className="ssh-field__input ssh-field__textarea" rows={3} value={form.kaliciOnlem ?? ''} onChange={e => set('kaliciOnlem', e.target.value)} />
                     </label>
-                    {dateField('kaliciOnlemTarihi', 'Kalıcı önlem tarihi')}
+                    {dateField('kaliciOnlemTarihi', 'D5 uygulama tarihi')}
+                    <label className="ssh-field span-2">
+                        <span className="ssh-field__label">
+                            Uygulanan kalıcı aksiyon(lar) <span className="ssh-field__8d-tag">8D D6</span>
+                        </span>
+                        <span className="ssh-field__hint">Acil alınan aksiyonlar bölümüne de aynı metin yazılır</span>
+                        <textarea className="ssh-field__input ssh-field__textarea" rows={3} value={form.d6UygulananAksiyon ?? ''} onChange={e => set('d6UygulananAksiyon', e.target.value)} />
+                    </label>
+                    <label className="ssh-field span-2">
+                        <span className="ssh-field__label">
+                            Şikayet kapanışı <span className="ssh-field__8d-tag">8D D7</span>
+                        </span>
+                        <span className="ssh-field__hint">Örn: Yapılan aksiyonlarla şikayet çözülmüştür.</span>
+                        <textarea
+                            className="ssh-field__input ssh-field__textarea"
+                            rows={3}
+                            value={form.d7SikayetKapanis ?? ''}
+                            placeholder="Yapılan aksiyonlarla şikayet çözülmüştür."
+                            onChange={e => set('d7SikayetKapanis', e.target.value)}
+                        />
+                    </label>
                 </div>
             </SshFormBlock>
         </div>
@@ -754,6 +798,7 @@ function SshComplaintCard({
     const [form, setForm] = useState<SshComplaintInput>(() => complaintToForm(item));
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [show8dModal, setShow8dModal] = useState(false);
 
     useEffect(() => {
         setForm(complaintToForm(item));
@@ -849,12 +894,27 @@ function SshComplaintCard({
                     </div>
                 </div>
             )}
+            <Ssh8dReportModal
+                open={show8dModal}
+                talepNo={item.talepNo}
+                sshLookups={sshLookups}
+                onClose={() => setShow8dModal(false)}
+                onGenerate={input => downloadSsh8dReport(item.id, item.talepNo, input)}
+            />
             <div className="ssh-card-status-bar" onClick={e => e.stopPropagation()}>
-                <span className="ssh-card-status-bar__label">Durum</span>
-                <SshStatusToggle
-                    compact
-                    value={normalizeStatusValue(form.status)}
-                    onChange={s => void patchStatus(s)}
+                <div className="ssh-card-status-bar__cluster">
+                    <span className="ssh-card-status-bar__label">Durum</span>
+                    <SshStatusToggle
+                        compact
+                        value={normalizeStatusValue(form.status)}
+                        onChange={s => void patchStatus(s)}
+                    />
+                </div>
+                <Ssh8dReportButton
+                    onClick={e => {
+                        e.stopPropagation();
+                        setShow8dModal(true);
+                    }}
                 />
             </div>
         </article>

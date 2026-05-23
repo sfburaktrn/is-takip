@@ -1,0 +1,86 @@
+.ssh-8d-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  color: #fff;
+  background: linear-gradient(128deg, #4f46e5 0%, #2563eb 42%, #0ea5e9 100%);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 22%, transparent) inset,
+    0 4px 14px color-mix(in srgb, #2563eb 42%, transparent);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ssh-8d-btn__shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    color-mix(in srgb, #fff 28%, transparent) 48%,
+    transparent 62%
+  );
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.ssh-8d-btn__badge {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  background: color-mix(in srgb, #fff 16%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 32%, transparent);
+  box-shadow: 0 1px 4px color-mix(in srgb, #1e3a8a 25%, transparent);
+}
+
+.ssh-8d-btn__label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.ssh-8d-btn__icon {
+  opacity: 0.95;
+}
+
+.ssh-8d-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 28%, transparent) inset,
+    0 8px 22px color-mix(in srgb, #2563eb 48%, transparent);
+}
+
+.ssh-8d-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.98);
+}
+
+.ssh-8d-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, #2563eb 55%, transparent);
+  outline-offset: 2px;
+}

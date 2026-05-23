@@ -556,6 +556,10 @@ model SshComplaint {
   kokNeden               String?   @db.Text
   kaliciOnlem            String?   @db.Text
   kaliciOnlemTarihi      DateTime?
+  /// 8D D6 – Uygulanan kalıcı düzeltici aksiyon(lar)
+  d6UygulananAksiyon     String?   @db.Text
+  /// 8D D7 – Şikayet kapanış / önleyici aksiyon özeti
+  d7SikayetKapanis       String?   @db.Text
   status                 String    @default("AÇIK")
   createdByUsername      String?
   createdAt              DateTime  @default(now())

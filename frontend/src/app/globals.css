@@ -8550,6 +8550,26 @@ textarea.form-input:focus {
   margin-left: 2px;
 }
 
+.ssh-field__8d-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+.ssh-field__hint {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+  margin-top: -2px;
+}
+
 .ssh-field__sublabel {
   font-weight: 400;
   color: color-mix(in srgb, var(--muted) 85%, transparent);
@@ -9389,9 +9409,12 @@ textarea.form-input:focus {
   border-radius: var(--radius-xl);
   border: 1px solid var(--hairline);
   background: var(--card);
-  box-shadow: var(--shadow-card);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 0 0 1px color-mix(in srgb, var(--hairline) 85%, transparent);
   overflow: hidden;
   transition: border-color 0.25s, box-shadow 0.25s;
+  box-sizing: border-box;
 }
 
 .ssh-record-card.is-expanded {
@@ -9527,6 +9550,17 @@ textarea.form-input:focus {
   border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--hairline));
 }
 
+.ssh-btn--secondary {
+  background: var(--card);
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--hairline));
+  box-shadow: var(--shadow-sm);
+}
+
+.ssh-btn--secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 6%, var(--card));
+}
+
 .ssh-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -9615,6 +9649,14 @@ textarea.form-input:focus {
     color-mix(in srgb, var(--foreground) 2%, var(--card)),
     color-mix(in srgb, var(--primary) 4%, var(--card))
   );
+}
+
+.ssh-card-status-bar__cluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .ssh-card-status-bar--inline {
@@ -9711,6 +9753,18 @@ textarea.form-input:focus {
     width: 100%;
     justify-content: flex-start;
     padding-left: 58px;
+  }
+  .ssh-card-status-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ssh-card-status-bar__cluster {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .ssh-8d-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 

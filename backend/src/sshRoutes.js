@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { Prisma } = require('@prisma/client');
 const {
     lookups,
@@ -14,6 +16,9 @@ const {
 } = require('./sshCalculations');
 const { normalizeMaliyetDetay, calcMaliyetTotals, hasMaliyetActivity, roundMoney } = require('./sshCost');
 const partCodes = require('./sshPartCodes.json');
+const { buildSsh8dReport, safe8dFilename, parse8dMeta } = require('./ssh8dReport');
+
+const SSH_8D_EKIP_FILE = path.join(__dirname, '..', 'data', 'ssh8dEkipDirectory.json');
 
 const SSH_MAX_PHOTOS = 8;
 const SSH_MAX_PHOTO_BYTES = 4 * 1024 * 1024;
@@ -84,6 +89,8 @@ function mapSshComplaint(row) {
         kokNeden: row.kokNeden,
         kaliciOnlem: row.kaliciOnlem,
         kaliciOnlemTarihi: row.kaliciOnlemTarihi?.toISOString?.() ?? row.kaliciOnlemTarihi ?? null,
+        d6UygulananAksiyon: row.d6UygulananAksiyon,
+        d7SikayetKapanis: row.d7SikayetKapanis,
         status: row.status,
         createdByUsername: row.createdByUsername,
         createdAt: row.createdAt?.toISOString?.() ?? row.createdAt,
@@ -215,6 +222,12 @@ function parseSshPayload(body, { partial = false } = {}) {
     if (!partial || has('kokNeden')) set('kokNeden', String(body.kokNeden || '').trim() || null);
     if (!partial || has('kaliciOnlem')) set('kaliciOnlem', String(body.kaliciOnlem || '').trim() || null);
     if (!partial || has('kaliciOnlemTarihi')) set('kaliciOnlemTarihi', parseOptionalDate(body.kaliciOnlemTarihi));
+    if (!partial || has('d6UygulananAksiyon')) {
+        set('d6UygulananAksiyon', String(body.d6UygulananAksiyon || '').trim() || null);
+    }
+    if (!partial || has('d7SikayetKapanis')) {
+        set('d7SikayetKapanis', String(body.d7SikayetKapanis || '').trim() || null);
+    }
     if (!partial || has('status')) set('status', normalizeStatus(body.status));
 
     return out;
@@ -345,9 +358,57 @@ async function allocateTalepNo(prisma, txClient = null) {
     return prisma.$transaction(run);
 }
 
+function readSsh8dEkipDirectory() {
+    try {
+        const raw = fs.readFileSync(SSH_8D_EKIP_FILE, 'utf8');
+        const data = JSON.parse(raw);
+        const people = (Array.isArray(data.people) ? data.people : [])
+            .map(p => ({
+                name: String(p?.name || '').trim(),
+                dept: String(p?.dept || '').trim(),
+            }))
+            .filter(p => p.name);
+        const departmanlar = (Array.isArray(data.departmanlar) ? data.departmanlar : [])
+            .map(d => String(d || '').trim())
+            .filter(Boolean);
+        return { people, departmanlar };
+    } catch {
+        return { people: [], departmanlar: [] };
+    }
+}
+
+function writeSsh8dEkipDirectory(payload) {
+    const people = (Array.isArray(payload.people) ? payload.people : [])
+        .map(p => ({
+            name: String(p?.name || '').trim(),
+            dept: String(p?.dept || '').trim(),
+        }))
+        .filter(p => p.name);
+    const departmanlar = (Array.isArray(payload.departmanlar) ? payload.departmanlar : [])
+        .map(d => String(d || '').trim())
+        .filter(Boolean);
+    fs.mkdirSync(path.dirname(SSH_8D_EKIP_FILE), { recursive: true });
+    fs.writeFileSync(SSH_8D_EKIP_FILE, JSON.stringify({ people, departmanlar }, null, 2), 'utf8');
+    return { people, departmanlar };
+}
+
 function registerSshRoutes(app, prisma, requireAuth) {
     app.get('/api/ssh/lookups', requireAuth, (_req, res) => {
         res.json(lookups);
+    });
+
+    app.get('/api/ssh/8d-ekip-directory', requireAuth, (_req, res) => {
+        res.json(readSsh8dEkipDirectory());
+    });
+
+    app.put('/api/ssh/8d-ekip-directory', requireAuth, (req, res) => {
+        try {
+            const saved = writeSsh8dEkipDirectory(req.body || {});
+            res.json(saved);
+        } catch (error) {
+            console.error('SSH 8d ekip directory save error:', error);
+            res.status(500).json({ error: 'Ekip listesi kaydedilemedi' });
+        }
     });
 
     app.get('/api/ssh/part-codes', requireAuth, (_req, res) => {
@@ -540,6 +601,35 @@ function registerSshRoutes(app, prisma, requireAuth) {
         }
     });
 
+    app.post('/api/ssh/complaints/:id/8d-report', requireAuth, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            if (!Number.isFinite(id)) return res.status(400).json({ error: 'Geçersiz id' });
+            const row = await prisma.sshComplaint.findUnique({ where: { id } });
+            if (!row) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+            const meta = parse8dMeta(req.body);
+            const mapped = mapSshComplaint(row);
+            const buffer = await buildSsh8dReport(mapped, meta);
+            const filename = safe8dFilename(mapped.talepNo);
+            res.setHeader(
+                'Content-Type',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.send(buffer);
+        } catch (error) {
+            if (error.message && !error.code) {
+                return res.status(400).json({ error: error.message });
+            }
+            console.error('SSH 8D report error:', error);
+            const msg =
+                error.code === 'ENOENT'
+                    ? '8D şablon dosyası bulunamadı'
+                    : error.message || '8D raporu oluşturulamadı';
+            res.status(500).json({ error: msg });
+        }
+    });
+
     app.post('/api/ssh/complaints', requireAuth, async (req, res) => {
         try {
             const payload = parseSshPayload(req.body);
@@ -618,6 +708,8 @@ function registerSshRoutes(app, prisma, requireAuth) {
                 kokNeden: existing.kokNeden,
                 kaliciOnlem: existing.kaliciOnlem,
                 kaliciOnlemTarihi: existing.kaliciOnlemTarihi,
+                d6UygulananAksiyon: existing.d6UygulananAksiyon,
+                d7SikayetKapanis: existing.d7SikayetKapanis,
                 status: existing.status,
                 ...patch,
             };

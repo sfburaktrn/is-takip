@@ -1,0 +1,290 @@
+.ssh-8d-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ssh-8d-modal {
+  width: min(720px, 100%);
+  max-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 0 0 1px color-mix(in srgb, var(--hairline) 80%, transparent);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.ssh-8d-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ssh-8d-modal__head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ssh-8d-modal__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--foreground-secondary);
+}
+
+.ssh-8d-modal__close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.ssh-8d-modal__close:hover {
+  background: var(--surface-subtle);
+  color: var(--foreground);
+}
+
+.ssh-8d-modal__error {
+  margin: 0 22px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--danger) 12%, var(--card));
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ssh-8d-modal__body {
+  padding: 16px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ssh-8d-modal__section h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.ssh-8d-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .ssh-8d-modal__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ssh-8d-modal__hint,
+.ssh-8d-modal__note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.ssh-8d-modal__note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface-subtle));
+}
+
+.ssh-8d-modal__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.ssh-8d-modal__section-head h3 {
+  margin: 0;
+}
+
+.ssh-8d-modal__add-member {
+  font-size: 12px;
+  padding: 6px 10px;
+  flex-shrink: 0;
+}
+
+.ssh-8d-modal__directory-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.ssh-8d-modal__directory-toggle svg {
+  transition: transform 0.2s ease;
+  color: var(--muted);
+}
+
+.ssh-8d-modal__directory-toggle svg.is-open {
+  transform: rotate(180deg);
+}
+
+.ssh-8d-modal__directory {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-subtle) 60%, var(--card));
+}
+
+.ssh-8d-modal__directory-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.ssh-8d-modal__directory-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-size: 13px;
+}
+
+.ssh-8d-modal__directory-dept {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.ssh-8d-modal__icon-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.ssh-8d-modal__icon-btn:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.ssh-8d-modal__directory-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+@media (max-width: 520px) {
+  .ssh-8d-modal__directory-add {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ssh-8d-modal__add-dir {
+  white-space: nowrap;
+}
+
+.ssh-8d-modal__directory-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.ssh-8d-modal__directory-msg {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.ssh-8d-modal__team-block {
+  margin-bottom: 12px;
+}
+
+.ssh-8d-modal__team-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ssh-8d-modal__remove-member {
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.ssh-8d-modal__remove-member:hover {
+  text-decoration: underline;
+}
+
+.ssh-8d-modal__team-role {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.ssh-8d-modal__team-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ssh-8d-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--hairline);
+}

@@ -328,5 +328,22 @@
   "customerSourceKeywords": [
     "MÜŞTERİ",
     "MUSTERI"
+  ],
+  "8dEkipUyeleri": [
+    { "name": "Mesut Acar", "dept": "Ürün Geliştirme" },
+    { "name": "İsmet Doğan", "dept": "Üretim Planlama" },
+    { "name": "Barkın Kanber", "dept": "Kalite Kontrol" },
+    { "name": "Metin Ünal", "dept": "Satış / Pazarlama" },
+    { "name": "Neciban Akan", "dept": "Tamamlama" }
+  ],
+  "8dDepartmanlar": [
+    "Ürün Geliştirme",
+    "Üretim Planlama",
+    "Kalite Kontrol",
+    "Satış / Pazarlama",
+    "Tamamlama",
+    "SSH",
+    "Üretim",
+    "Satınalma"
   ]
 }

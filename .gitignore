@@ -2,8 +2,10 @@
 logs
 *.log
 
-# Excel files
+# Excel files (8D şablonu deploy için repoda tutulur)
 *.xlsx
+!backend/assets/
+!backend/assets/ssh-8d-template.xlsx
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

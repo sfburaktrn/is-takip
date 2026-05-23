@@ -1,9 +1,19 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
 
 const TEMPLATE_PATH = path.join(__dirname, '..', 'assets', 'ssh-8d-template.xlsx');
+
+function assertTemplateExists() {
+    if (!fs.existsSync(TEMPLATE_PATH)) {
+        throw new Error(
+            `8D şablon dosyası bulunamadı: ${TEMPLATE_PATH}. ` +
+                'backend/assets/ssh-8d-template.xlsx dosyasının repoda ve Docker imajında olduğundan emin olun.'
+        );
+    }
+}
 
 /** Örnek verileri temizle; başlık satırları ve birleşimler kalır. */
 const SAMPLE_CLEAR_RANGES = [
@@ -61,6 +71,29 @@ function clearPercentValueCells(ws) {
     for (const range of PERCENT_VALUE_CLEAR_RANGES) {
         clearRange(ws, range);
     }
+}
+
+/** Paylaşılan örnek Excel’deki doldurulmuş alanları temizler; başlık/birleşim kalır. */
+function clearTemplateSampleData(ws) {
+    for (const range of SAMPLE_CLEAR_RANGES) {
+        clearRange(ws, range);
+    }
+    clearPercentValueCells(ws);
+    clearMisplacedDateInEtkiBlock(ws);
+    clearRange(ws, { r1: 8, c1: 6, r2: 8, c2: 10 });
+    clearRange(ws, { r1: 26, c1: 9, r2: 26, c2: 10 });
+    clearRange(ws, { r1: 41, c1: 9, r2: 42, c2: 10 });
+    clearRange(ws, { r1: 52, c1: 2, r2: 52, c2: 6 });
+}
+
+async function writeCleanSsh8dTemplate() {
+    assertTemplateExists();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(TEMPLATE_PATH);
+    const ws = wb.getWorksheet('8D') || wb.worksheets[0];
+    if (!ws) throw new Error('8D şablon sayfası bulunamadı');
+    clearTemplateSampleData(ws);
+    await wb.xlsx.writeFile(TEMPLATE_PATH);
 }
 
 function setCell(ws, address, value) {
@@ -233,16 +266,14 @@ function fillDocumentMeta(ws, meta) {
  * @param {object} meta parse8dMeta çıktısı
  */
 async function buildSsh8dReport(c, meta = {}) {
+    assertTemplateExists();
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(TEMPLATE_PATH);
     const ws = wb.getWorksheet('8D') || wb.worksheets[0];
     if (!ws) throw new Error('8D şablon sayfası bulunamadı');
 
     applyDocumentMetaLayout(ws);
-
-    for (const range of SAMPLE_CLEAR_RANGES) {
-        clearRange(ws, range);
-    }
+    clearTemplateSampleData(ws);
 
     const opened = toDate(c.sikayetBildirimTarihi);
     const updated = toDate(c.updatedAt);
@@ -306,4 +337,10 @@ function safe8dFilename(talepNo) {
     return `8D_${base}.xlsx`;
 }
 
-module.exports = { buildSsh8dReport, safe8dFilename, parse8dMeta };
+module.exports = {
+    buildSsh8dReport,
+    safe8dFilename,
+    parse8dMeta,
+    writeCleanSsh8dTemplate,
+    clearTemplateSampleData,
+};

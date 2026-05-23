@@ -10,7 +10,8 @@
         "prisma:generate": "prisma generate",
         "prisma:push": "node scripts/db-push-direct.js",
         "prisma:seed": "node prisma/seed.js",
-        "stock:import": "node scripts/import-stock-from-xlsx.js"
+        "stock:import": "node scripts/import-stock-from-xlsx.js",
+        "8d:clean-template": "node scripts/clean-8d-template.js"
     },
     "dependencies": {
         "@prisma/client": "^5.22.0",

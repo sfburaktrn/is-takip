@@ -22,7 +22,7 @@ export function SshTop5KritikTable({ rows }: { rows: SshComplaint[] }) {
                 </div>
             ) : (
                 <div className="ssh-table-wrap">
-                    <table className="ssh-table">
+                    <table className="ssh-table ssh-table--cards-mobile">
                         <thead>
                             <tr>
                                 <th>Talep No</th>
@@ -39,17 +39,17 @@ export function SshTop5KritikTable({ rows }: { rows: SshComplaint[] }) {
                         <tbody>
                             {rows.map(row => (
                                 <tr key={row.id}>
-                                    <td className="ssh-td-mono">{row.talepNo}</td>
-                                    <td>{row.musteriAdi}</td>
-                                    <td>{row.aracPlakasi || '—'}</td>
-                                    <td className="ssh-td-wrap">{row.arizaTipi || '—'}</td>
-                                    <td>{row.hataKaynagi || '—'}</td>
-                                    <td>{row.tedarikciAdi || '—'}</td>
-                                    <td>
+                                    <td className="ssh-td-mono" data-label="Talep no">{row.talepNo}</td>
+                                    <td data-label="Müşteri">{row.musteriAdi}</td>
+                                    <td data-label="Plaka">{row.aracPlakasi || '—'}</td>
+                                    <td className="ssh-td-wrap" data-label="Arıza tipi">{row.arizaTipi || '—'}</td>
+                                    <td data-label="Kaynak">{row.hataKaynagi || '—'}</td>
+                                    <td data-label="Tedarikçi">{row.tedarikciAdi || '—'}</td>
+                                    <td data-label="Kritik">
                                         <span className="ssh-kritik-badge">{row.kritikPuan ?? '—'}</span>
                                     </td>
-                                    <td>{row.garantiTipi || '—'}</td>
-                                    <td>
+                                    <td data-label="Garanti">{row.garantiTipi || '—'}</td>
+                                    <td data-label="Statü">
                                         <span
                                             className={`ssh-status-pill ssh-status-${row.status === 'KAPALI' ? 'closed' : 'open'}`}
                                         >

@@ -6,11 +6,15 @@
   gap: 20px;
   margin-top: 4px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ssh-cost-breakdown section {
   display: block;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ssh-cost-kar-bar {
@@ -30,6 +34,7 @@
   flex-direction: column;
   gap: 0;
   width: 100%;
+  min-width: 0;
 }
 
 .ssh-cost-kar-bar--pre-total {
@@ -132,10 +137,14 @@
   overflow-x: auto;
   border-radius: 12px;
   border: 1px solid var(--hairline);
+  width: 100%;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ssh-cost-table {
   width: 100%;
+  min-width: 38rem;
   border-collapse: collapse;
   font-size: 13px;
   background: var(--card);
@@ -299,6 +308,7 @@
   gap: 12px;
   margin-top: 4px;
   width: 100%;
+  min-width: 0;
 }
 
 .ssh-cost-total-card {
@@ -313,6 +323,8 @@
     color-mix(in srgb, var(--primary) 3%, var(--card))
   );
   box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .ssh-cost-total-card__head {
@@ -320,6 +332,7 @@
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .ssh-cost-total-card__icon {
@@ -365,12 +378,14 @@
   gap: 12px;
   font-size: 12px;
   color: var(--muted);
+  min-width: 0;
 }
 
 .ssh-cost-total-card__lines li span:last-child {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--foreground);
+  text-align: right;
 }
 
 .ssh-cost-total-card__grand {
@@ -380,6 +395,7 @@
   gap: 12px;
   padding-top: 14px;
   border-top: 1px dashed color-mix(in srgb, var(--primary) 22%, var(--hairline));
+  min-width: 0;
 }
 
 .ssh-cost-total-card__grand-label {
@@ -411,6 +427,7 @@
     0 1px 0 color-mix(in srgb, #fff 50%, transparent) inset,
     0 12px 32px color-mix(in srgb, var(--primary) 10%, transparent);
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .ssh-cost-onay-card__glow {
@@ -431,6 +448,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+  min-width: 0;
 }
 
 .ssh-cost-onay-card__brand {
@@ -504,6 +522,7 @@
   background: color-mix(in srgb, var(--primary) 4%, var(--card));
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .ssh-cost-money--hero:focus-within {
@@ -588,9 +607,278 @@
   width: 100%;
 }
 
+@media (max-width: 768px) {
+  .ssh-cost-breakdown {
+    gap: 16px;
+  }
+
+  .ssh-cost-kar-bar,
+  .ssh-cost-total-card,
+  .ssh-cost-onay-card {
+    padding-inline: 14px;
+  }
+
+  .ssh-cost-section__head,
+  .ssh-cost-total-card__head,
+  .ssh-cost-onay-card__top,
+  .ssh-cost-total-card__grand {
+    flex-wrap: wrap;
+  }
+
+  .ssh-cost-breakdown button.ssh-cost-add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ssh-cost-kar-bar {
+    gap: 12px;
+  }
+
+  .ssh-cost-kar-bar__text,
+  .ssh-cost-kar {
+    width: 100%;
+  }
+
+  .ssh-cost-kar {
+    justify-content: flex-start;
+  }
+
+  .ssh-cost-total-card__lines li {
+    gap: 8px;
+  }
+
+  .ssh-cost-total-card__grand-value {
+    font-size: 24px;
+    word-break: break-word;
+  }
+
+  .ssh-cost-onay-card__badge {
+    align-self: flex-start;
+  }
+
+  .ssh-cost-money--hero {
+    padding-left: 12px;
+    padding-right: 4px;
+  }
+
+  .ssh-cost-onay__amount-input {
+    font-size: 22px;
+    padding-block: 10px;
+  }
+}
+
 @media (max-width: 560px) {
+  .ssh-cost-table {
+    min-width: 34rem;
+  }
+
+  .ssh-cost-breakdown {
+    gap: 14px;
+  }
+
+  .ssh-cost-kar-bar,
+  .ssh-cost-total-card,
+  .ssh-cost-onay-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .ssh-cost-kar-bar__label,
+  .ssh-cost-section__title,
+  .ssh-cost-total-card__title,
+  .ssh-cost-total-card__grand-label,
+  .ssh-cost-onay-card__amount-label {
+    font-size: 10px;
+  }
+
+  .ssh-cost-total-card__head,
+  .ssh-cost-onay-card__brand {
+    gap: 10px;
+  }
+
+  .ssh-cost-total-card__icon,
+  .ssh-cost-onay-card__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .ssh-cost-total-card__lines {
+    gap: 8px;
+  }
+
+  .ssh-cost-total-card__lines li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ssh-cost-total-card__lines li span:last-child {
+    text-align: left;
+  }
+
+  .ssh-cost-total-card__grand {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ssh-cost-total-card__grand-value {
+    font-size: 20px;
+  }
+
+  .ssh-cost-onay-card__top {
+    margin-bottom: 12px;
+  }
+
+  .ssh-cost-onay-card__title {
+    font-size: 14px;
+  }
+
+  .ssh-cost-onay-card__desc,
+  .ssh-cost-onay-card__hint,
+  .ssh-cost-kar-bar__sub,
+  .ssh-cost-total-card__formula {
+    font-size: 10px;
+  }
+
+  .ssh-cost-money--hero .ssh-cost-money__sym {
+    font-size: 18px;
+  }
+
+  .ssh-cost-onay__amount-input {
+    font-size: 18px;
+  }
+
   .ssh-cost-onay-card__pcts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ssh-cost-table-wrap {
+    overflow: visible;
+    border: none;
+  }
+
+  .ssh-cost-table--cards-mobile {
+    min-width: 0;
+    background: transparent;
+  }
+
+  .ssh-cost-table--cards-mobile thead {
+    display: none;
+  }
+
+  .ssh-cost-table--cards-mobile tbody,
+  .ssh-cost-table--cards-mobile tr,
+  .ssh-cost-table--cards-mobile td,
+  .ssh-cost-table--cards-mobile tfoot {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .ssh-cost-table--cards-mobile tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ssh-cost-table--cards-mobile tbody tr {
+    padding: 12px;
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ssh-cost-table--cards-mobile tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0;
+    margin-bottom: 10px;
+    border-bottom: none;
+    text-align: left;
+  }
+
+  .ssh-cost-table--cards-mobile tbody td:last-child {
+    margin-bottom: 0;
+  }
+
+  .ssh-cost-table--cards-mobile tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    min-width: 72px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .ssh-cost-table--cards-mobile tbody td.ssh-cost-table__col-no {
+    justify-content: flex-start;
+    gap: 8px;
+    color: var(--foreground);
+  }
+
+  .ssh-cost-table--cards-mobile tbody td.ssh-cost-table__col-action {
+    justify-content: flex-end;
+  }
+
+  .ssh-cost-table--cards-mobile tbody td.ssh-cost-table__col-action::before {
+    display: none;
+  }
+
+  .ssh-cost-table--cards-mobile .ssh-cost-cell-input,
+  .ssh-cost-table--cards-mobile .ssh-cost-money {
+    width: min(100%, 11rem);
+    margin-left: auto;
+  }
+
+  .ssh-cost-table--cards-mobile .ssh-cost-money {
+    justify-content: flex-end;
+  }
+
+  .ssh-cost-table--cards-mobile .ssh-cost-cell-input--num,
+  .ssh-cost-table--cards-mobile .ssh-cost-line-total {
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .ssh-cost-table--cards-mobile tfoot {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--primary) 6%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--hairline));
+  }
+
+  .ssh-cost-table--cards-mobile tfoot tr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .ssh-cost-table--cards-mobile tfoot td {
+    display: block;
+    padding: 0;
+    border: none;
+    width: auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .ssh-cost-table {
+    min-width: 31rem;
+  }
+
+  .ssh-cost-onay-card__pcts {
+    grid-template-columns: 1fr;
+  }
+
+  .ssh-cost-breakdown button.ssh-cost-onay-pill {
+    min-height: 52px;
   }
 }
 

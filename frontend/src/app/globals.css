@@ -7894,6 +7894,11 @@ textarea.form-input:focus {
     radial-gradient(ellipse 70% 45% at 95% 5%, color-mix(in srgb, #5856d6 8%, transparent), transparent 48%),
     radial-gradient(ellipse 100% 72% at 50% -18%, color-mix(in srgb, var(--primary) 7%, transparent) 0%, transparent 58%),
     var(--background);
+  overflow-x: clip;
+}
+
+.ssh-takip-page .apple-canvas {
+  overflow-x: clip;
 }
 
 .ssh-takip-page .apple-page-hero.ssh-hero {
@@ -7971,6 +7976,11 @@ textarea.form-input:focus {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
+}
+
+.ssh-hero-text > div:last-child {
+  min-width: 0;
 }
 
 .ssh-hero-badge {
@@ -8048,6 +8058,10 @@ textarea.form-input:focus {
   flex: 1;
   justify-content: flex-end;
   min-width: min(100%, 280px);
+}
+
+.ssh-command-actions > * {
+  min-width: 0;
 }
 
 .ssh-primary-btn {
@@ -8257,10 +8271,14 @@ textarea.form-input:focus {
   overflow-x: auto;
   margin: 0 -4px;
   border-radius: 12px;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ssh-table {
   width: 100%;
+  min-width: 0;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -8469,6 +8487,10 @@ textarea.form-input:focus {
   align-items: flex-start;
   gap: 14px;
   margin: 0 0 18px 12px;
+}
+
+.ssh-form-block__head > div:last-child {
+  min-width: 0;
 }
 
 .ssh-form-block__step {
@@ -9515,6 +9537,7 @@ textarea.form-input:focus {
 .ssh-record-card__actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 20px;
   padding-top: 16px;
@@ -9684,6 +9707,7 @@ textarea.form-input:focus {
   background: color-mix(in srgb, var(--foreground) 6%, var(--background));
   border: 1px solid var(--hairline);
   box-shadow: inset 0 1px 2px color-mix(in srgb, var(--foreground) 4%, transparent);
+  max-width: 100%;
 }
 
 .ssh-status-toggle--compact .ssh-status-toggle__btn {
@@ -9701,6 +9725,7 @@ textarea.form-input:focus {
   color: var(--muted);
   cursor: pointer;
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
 }
 
 .ssh-status-toggle__btn--open.is-active {
@@ -9732,9 +9757,95 @@ textarea.form-input:focus {
   .ssh-score-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .ssh-command-bar {
+    align-items: stretch;
+  }
+  .ssh-segmented {
+    width: 100%;
+  }
+  .ssh-segmented .apple-segmented-btn {
+    flex: 1 1 0;
+    justify-content: center;
+    text-align: center;
+  }
+  .ssh-command-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .ssh-command-actions > .ssh-primary-btn {
+    flex: 1 1 180px;
+    justify-content: center;
+  }
+  .ssh-command-actions > .ssh-search {
+    flex: 1 1 260px;
+    max-width: none;
+  }
+  .ssh-record-card__actions .ssh-btn {
+    flex: 1 1 180px;
+    justify-content: center;
+  }
+  .ssh-create-foot {
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 768px) {
+  .ssh-hero-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ssh-hero-text {
+    align-items: flex-start;
+  }
+  .ssh-ghost-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .ssh-command-bar {
+    padding: 12px;
+  }
+  .ssh-command-actions {
+    gap: 8px;
+  }
+  .ssh-command-actions > .ssh-primary-btn,
+  .ssh-command-actions > .ssh-search {
+    width: 100%;
+  }
+  .ssh-glass-card,
+  .ssh-create-card {
+    padding: 18px 16px;
+  }
+  .ssh-form-block {
+    padding: 16px 0 20px;
+  }
+  .ssh-form-block__head {
+    gap: 10px;
+    margin: 0 0 16px 10px;
+  }
+  .ssh-form-block__body {
+    padding-left: 10px;
+  }
+  .ssh-card-status-bar--inline {
+    width: 100%;
+    min-width: 0;
+  }
+  .ssh-card-status-bar--inline .ssh-status-toggle {
+    width: 100%;
+  }
+  .ssh-card-status-bar--inline .ssh-status-toggle__btn {
+    flex: 1 1 0;
+  }
+  .ssh-create-foot > .ssh-primary-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 560px) {
+  .ssh-takip-page {
+    --notification-bell-reserve: 76px;
+  }
+
   .ssh-form-grid {
     grid-template-columns: 1fr;
   }
@@ -9746,25 +9857,176 @@ textarea.form-input:focus {
   .ssh-score-grid {
     grid-template-columns: 1fr;
   }
+  .ssh-hero-divider {
+    margin-bottom: 20px;
+  }
+  .ssh-hero-text {
+    gap: 12px;
+  }
+  .ssh-hero-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+  .ssh-section-rule {
+    gap: 10px;
+  }
+  .ssh-section-rule__label {
+    white-space: normal;
+    text-align: center;
+  }
   .ssh-record-card__head {
     flex-wrap: wrap;
+    padding: 14px 14px 12px;
+    gap: 12px;
+  }
+  .ssh-record-card__identity {
+    width: 100%;
+  }
+  .ssh-record-card__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
   }
   .ssh-record-card__badges {
     width: 100%;
-    justify-content: flex-start;
-    padding-left: 58px;
+    justify-content: space-between;
+    padding-left: 0;
+  }
+  .ssh-record-card__body {
+    padding: 0 14px 14px;
+  }
+  .ssh-record-card__actions {
+    gap: 8px;
+  }
+  .ssh-record-card__actions .ssh-btn {
+    width: 100%;
   }
   .ssh-card-status-bar {
     flex-direction: column;
     align-items: stretch;
+    padding: 12px 14px;
   }
   .ssh-card-status-bar__cluster {
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
     width: 100%;
+  }
+  .ssh-status-toggle {
+    width: 100%;
+  }
+  .ssh-status-toggle__btn {
+    flex: 1 1 0;
+    padding-inline: 12px;
   }
   .ssh-8d-btn {
     width: 100%;
     justify-content: center;
+  }
+  .ssh-form-block__rule {
+    width: 2px;
+  }
+  .ssh-form-block__head {
+    flex-wrap: wrap;
+    margin-left: 8px;
+    margin-bottom: 14px;
+  }
+  .ssh-form-block__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+  .ssh-form-block__title {
+    font-size: 14px;
+  }
+  .ssh-form-block__desc {
+    font-size: 11px;
+  }
+  .ssh-form-block__body {
+    padding-left: 8px;
+  }
+  .ssh-field__8d-tag {
+    margin-left: 4px;
+    margin-top: 4px;
+  }
+  .ssh-search {
+    min-width: 0;
+  }
+  .ssh-empty-card {
+    padding: 32px 18px;
+  }
+
+  .ssh-glass-card,
+  .ssh-create-card,
+  .ssh-command-bar,
+  .ssh-record-card {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .ssh-table--cards-mobile {
+    min-width: 0;
+  }
+
+  .ssh-table--cards-mobile thead {
+    display: none;
+  }
+
+  .ssh-table--cards-mobile tbody,
+  .ssh-table--cards-mobile tr,
+  .ssh-table--cards-mobile td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .ssh-table--cards-mobile tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ssh-table--cards-mobile tbody tr {
+    padding: 12px;
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    background: var(--card);
+  }
+
+  .ssh-table--cards-mobile tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 0;
+    margin-bottom: 10px;
+    border-bottom: none;
+    text-align: left;
+  }
+
+  .ssh-table--cards-mobile tbody td:last-child {
+    margin-bottom: 0;
+  }
+
+  .ssh-table--cards-mobile tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    min-width: 74px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .ssh-table--cards-mobile .ssh-kritik-badge,
+  .ssh-table--cards-mobile .ssh-status-pill {
+    margin-left: auto;
+  }
+
+  .ssh-table--cards-mobile .ssh-td-wrap {
+    max-width: 12rem;
+    text-align: right;
   }
 }
 

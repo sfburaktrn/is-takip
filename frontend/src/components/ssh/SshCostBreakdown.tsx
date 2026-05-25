@@ -142,7 +142,7 @@ function CostTableSection<T extends { id: string }>({
                 </button>
             </div>
             <div className="ssh-cost-table-wrap">
-                <table className="ssh-cost-table">
+                <table className="ssh-cost-table ssh-cost-table--cards-mobile">
                     <thead>
                         <tr>
                             <th className="ssh-cost-table__col-no">S.No</th>
@@ -157,9 +157,9 @@ function CostTableSection<T extends { id: string }>({
                     <tbody>
                         {rows.map((row, i) => (
                             <tr key={row.id}>
-                                <td className="ssh-cost-table__col-no">{i + 1}</td>
+                                <td className="ssh-cost-table__col-no" data-label="S.No">{i + 1}</td>
                                 {renderRow(row, i)}
-                                <td className="ssh-cost-table__col-action">
+                                <td className="ssh-cost-table__col-action" data-label="İşlem">
                                     <button
                                         type="button"
                                         className="ssh-cost-remove-btn"
@@ -247,7 +247,7 @@ export function SshCostBreakdown({
                 footerTotal={totals.malzemeToplam}
                 renderRow={row => (
                     <>
-                        <td>
+                        <td data-label="Malzeme">
                             <input
                                 className="ssh-cost-cell-input"
                                 type="text"
@@ -256,13 +256,13 @@ export function SshCostBreakdown({
                                 onChange={e => updateMalzeme(row.id, { aciklama: e.target.value })}
                             />
                         </td>
-                        <td className="ssh-cost-table__col-num">
+                        <td className="ssh-cost-table__col-num" data-label="Birim tutar">
                             <MoneyInput
                                 value={row.birimTutar}
                                 onChange={v => updateMalzeme(row.id, { birimTutar: v })}
                             />
                         </td>
-                        <td className="ssh-cost-table__col-num">
+                        <td className="ssh-cost-table__col-num" data-label="Miktar">
                             <DecimalTextInput
                                 className="ssh-cost-cell-input ssh-cost-cell-input--num"
                                 placeholder="0"
@@ -270,7 +270,7 @@ export function SshCostBreakdown({
                                 onChange={v => updateMalzeme(row.id, { miktar: v })}
                             />
                         </td>
-                        <td className="ssh-cost-table__col-num ssh-cost-line-total">
+                        <td className="ssh-cost-table__col-num ssh-cost-line-total" data-label="Toplam tutar">
                             {fmtTry(lineTotal(row.birimTutar, row.miktar))}
                         </td>
                     </>
@@ -296,7 +296,7 @@ export function SshCostBreakdown({
                 footerTotal={totals.iscilikToplam}
                 renderRow={row => (
                     <>
-                        <td>
+                        <td data-label="İşçilik">
                             <input
                                 className="ssh-cost-cell-input"
                                 type="text"
@@ -305,13 +305,13 @@ export function SshCostBreakdown({
                                 onChange={e => updateIscilik(row.id, { aciklama: e.target.value })}
                             />
                         </td>
-                        <td className="ssh-cost-table__col-num">
+                        <td className="ssh-cost-table__col-num" data-label="Birim tutar">
                             <MoneyInput
                                 value={row.birimTutar}
                                 onChange={v => updateIscilik(row.id, { birimTutar: v })}
                             />
                         </td>
-                        <td className="ssh-cost-table__col-num">
+                        <td className="ssh-cost-table__col-num" data-label="Süre (saat)">
                             <DecimalTextInput
                                 className="ssh-cost-cell-input ssh-cost-cell-input--num"
                                 placeholder="0"
@@ -319,7 +319,7 @@ export function SshCostBreakdown({
                                 onChange={v => updateIscilik(row.id, { sureSaat: v })}
                             />
                         </td>
-                        <td className="ssh-cost-table__col-num ssh-cost-line-total">
+                        <td className="ssh-cost-table__col-num ssh-cost-line-total" data-label="Toplam tutar">
                             {fmtTry(lineTotal(row.birimTutar, row.sureSaat))}
                         </td>
                     </>

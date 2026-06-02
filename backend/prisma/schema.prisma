@@ -156,6 +156,8 @@ model User {
   authoredNotifications Notification[]     @relation("NotificationActor")
   stockMovements        StockMovement[]
   stockSupplierChanges  StockSupplierHistory[]
+  completedMaintenanceSchedules MaintenanceSchedule[] @relation("MaintenanceCompletedBy")
+  handledCompanyReminders       Company[]             @relation("CompanyReminderHandledBy")
 }
 
 /// Yeni ürün / sistem bildirimleri; satırlar uygulama tarafından silinmez (arşiv).
@@ -585,4 +587,61 @@ model SshComplaintPhoto {
   createdAt        DateTime      @default(now())
 
   @@index([sshComplaintId, displayOrder])
+}
+
+/// Firma rehberi (bakım modülü): teslim edilen ürünlerdeki musteri alanından normalize edilerek oluşur.
+model Company {
+  id            Int      @id @default(autoincrement())
+  normalizedKey String   @unique
+  displayName   String
+  email         String?
+  phone         String?
+  phone2        String?
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Firma bazlı bakım hatırlatma takibi (tamamlanma değil; insan eylemi durumu)
+  // PENDING -> ACKNOWLEDGED -> CONTACTED -> SERVICED
+  reminderStatus          String    @default("PENDING")
+  reminderNote            String?   @db.Text
+  reminderHandledAt       DateTime?
+  reminderHandledByUserId Int?
+  reminderHandledByUser   User?     @relation("CompanyReminderHandledBy", fields: [reminderHandledByUserId], references: [id], onDelete: SetNull)
+
+  maintenanceSchedules MaintenanceSchedule[]
+
+  @@index([displayName])
+  @@index([reminderStatus])
+}
+
+/// Teslim edilen her damper/dorse için tek bakım planı (unique productType+productId).
+model MaintenanceSchedule {
+  id                Int      @id @default(autoincrement())
+  productType        String
+  productId          Int
+  companyId          Int
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  deliveredAt        DateTime
+  dueAt              DateTime
+  intervalDays       Int      @default(365)
+  status             String   @default("SCHEDULED")
+
+  completedAt        DateTime?
+  completedByUserId  Int?
+  completedByUser    User?    @relation("MaintenanceCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  completionNote     String?  @db.Text
+
+  lastNotifiedAt     DateTime?
+  snoozedUntil       DateTime?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([productType, productId])
+  @@index([companyId])
+  @@index([dueAt])
+  @@index([status])
+  @@index([productType, dueAt])
 }

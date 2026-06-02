@@ -7903,8 +7903,35 @@ textarea.form-input:focus {
 
 .ssh-takip-page .apple-page-hero.ssh-hero {
   border-bottom: none;
-  margin-bottom: 12px;
-  padding-bottom: 0;
+  margin-bottom: 32px;
+  padding-bottom: 4px;
+}
+
+.ssh-takip-page .header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px 28px;
+}
+
+.ssh-takip-page .header-left {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.ssh-takip-page .header-toolbar {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  max-width: 100%;
+}
+
+.ssh-takip-page .bakim-toolbar-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .ssh-hero-divider {
@@ -8115,7 +8142,7 @@ textarea.form-input:focus {
   margin-bottom: 28px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 28px;
 }
 
 .ssh-kpi-grid {
@@ -10039,4 +10066,1198 @@ textarea.form-input:focus {
 }
 
 /* ssh-cost: SshCostBreakdown.css */
+
+/* --- Bakım modülü --- */
+.bakim-schedule-card__grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr auto;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .bakim-schedule-card__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bakim-countdown {
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+  border: 1px solid var(--hairline);
+}
+
+.bakim-countdown--soon {
+  background: color-mix(in srgb, #f59e0b 12%, var(--card));
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--hairline));
+}
+
+.bakim-countdown--overdue {
+  background: color-mix(in srgb, #ef4444 10%, var(--card));
+  border-color: color-mix(in srgb, #ef4444 40%, var(--hairline));
+}
+
+.bakim-countdown--done {
+  background: color-mix(in srgb, #22c55e 8%, var(--card));
+  border-color: color-mix(in srgb, #22c55e 30%, var(--hairline));
+}
+
+.bakim-countdown__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.bakim-countdown__value {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.bakim-countdown__meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.bakim-schedule-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--foreground-secondary);
+}
+
+.bakim-schedule-meta strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.bakim-schedule-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .bakim-schedule-card__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+.bakim-delivery-log {
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.bakim-delivery-log summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.bakim-delivery-log ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.bakim-delivery-log li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.bakim-delivery-log__time {
+  min-width: 130px;
+  color: var(--muted);
+}
+
+.bakim-delivery-log__field {
+  font-weight: 600;
+  min-width: 100px;
+}
+
+.bakim-company-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.bakim-company-card__head {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.bakim-company-card__head:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.bakim-company-card__name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.bakim-company-card__sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.bakim-company-card__chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.bakim-company-card__chev {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.18s ease;
+  transform: rotate(-90deg);
+}
+
+.bakim-company-card__chev.is-open {
+  transform: rotate(0deg);
+}
+
+.bakim-company-card__body {
+  border-top: 1px solid var(--hairline);
+  padding: 14px 18px 18px;
+}
+
+.bakim-company-card__body.is-closed {
+  display: none;
+}
+
+.bakim-company-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .bakim-company-card__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bakim-mini-card {
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  border-radius: var(--radius-xl);
+  padding: 14px 14px 12px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.bakim-mini-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--hairline));
+}
+
+.bakim-mini-card.is-highlight {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent), var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--hairline));
+}
+
+.bakim-mini-card__top {
+  display: grid;
+  grid-template-columns: minmax(140px, 190px) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 560px) {
+  .bakim-mini-card__top {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bakim-mini-card__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* --- Bakım: kart giriş animasyonu --- */
+@keyframes bakimFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bakim-company-card,
+.bakim-firma-card {
+  animation: bakimFadeUp 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Bakım: KPI kartları --- */
+.bakim-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 0;
+}
+
+@media (max-width: 900px) {
+  .bakim-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.bakim-kpi {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 22px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card) 97%, var(--primary) 3%), var(--card));
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+  animation: bakimFadeUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bakim-kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.bakim-kpi__icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.bakim-kpi--primary .bakim-kpi__icon {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 92%, #000 0%), color-mix(in srgb, var(--primary) 58%, #6366f1 42%));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.bakim-kpi--warn .bakim-kpi__icon {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  box-shadow: 0 6px 16px color-mix(in srgb, #f59e0b 32%, transparent);
+}
+
+.bakim-kpi--danger .bakim-kpi__icon {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 6px 16px color-mix(in srgb, #ef4444 32%, transparent);
+}
+
+.bakim-kpi--success .bakim-kpi__icon {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 6px 16px color-mix(in srgb, #10b981 32%, transparent);
+}
+
+.bakim-kpi__body {
+  min-width: 0;
+}
+
+.bakim-kpi__num {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.bakim-kpi__label {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.bakim-kpi__desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* --- Bakım: filtre / arama paneli --- */
+.bakim-filter {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  padding: 22px 24px;
+  margin-bottom: 20px;
+}
+
+.bakim-filter__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.bakim-filter__icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+.bakim-filter__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.bakim-filter__title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.bakim-filter__desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.bakim-filter__count {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--hairline);
+}
+
+.bakim-filter__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 18px;
+}
+
+.bakim-field--grow {
+  flex: 1 1 300px;
+}
+
+.bakim-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+  min-width: 168px;
+  cursor: pointer;
+}
+
+.bakim-filter__actions {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+.bakim-filter__actions .ssh-primary-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .bakim-filter__actions {
+    margin-left: 0;
+    width: 100%;
+  }
+  .bakim-filter__actions .ssh-primary-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .bakim-field--grow {
+    flex: 1 1 100%;
+  }
+}
+
+/* --- Bakım: firma grid (Apple tarzı kartlar) --- */
+.bakim-firma-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.bakim-firma-card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card) 98%, var(--primary) 2%), var(--card));
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.bakim-firma-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--hairline));
+}
+
+.bakim-firma-card__head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.bakim-firma-card__avatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 92%, #000 0%), color-mix(in srgb, var(--primary) 60%, #6366f1 40%));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 32%, transparent);
+}
+
+.bakim-firma-card__name {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bakim-firma-card__key {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.bakim-firma-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.bakim-stat {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+  background: var(--surface-subtle);
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.bakim-stat--danger {
+  background: color-mix(in srgb, #ef4444 10%, var(--card));
+  border-color: color-mix(in srgb, #ef4444 32%, var(--hairline));
+}
+
+.bakim-stat--warn {
+  background: color-mix(in srgb, #f59e0b 12%, var(--card));
+  border-color: color-mix(in srgb, #f59e0b 32%, var(--hairline));
+}
+
+.bakim-stat__num {
+  display: block;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.bakim-stat__lbl {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.bakim-firma-card__contact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bakim-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--foreground);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 10px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.bakim-contact:hover {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--primary);
+}
+
+.bakim-contact.is-empty {
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.bakim-firma-card__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.bakim-firma-card__actions .ssh-primary-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* --- Bakım: firma hatırlatma durumu --- */
+.bakim-firma-card.is-attention {
+  border-color: color-mix(in srgb, #f59e0b 45%, var(--hairline));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #f59e0b 30%, transparent), var(--shadow-sm);
+}
+
+.bakim-rstatus {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.bakim-rstatus--pending {
+  background: color-mix(in srgb, #f59e0b 14%, var(--card));
+  color: #b45309;
+  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+}
+
+.bakim-rstatus--ack {
+  background: color-mix(in srgb, #3b82f6 14%, var(--card));
+  color: #1d4ed8;
+  border-color: color-mix(in srgb, #3b82f6 30%, transparent);
+}
+
+.bakim-rstatus--contacted {
+  background: color-mix(in srgb, #8b5cf6 15%, var(--card));
+  color: #6d28d9;
+  border-color: color-mix(in srgb, #8b5cf6 32%, transparent);
+}
+
+.bakim-rstatus--serviced {
+  background: color-mix(in srgb, #10b981 16%, var(--card));
+  color: #047857;
+  border-color: color-mix(in srgb, #10b981 34%, transparent);
+}
+
+.bakim-reminder {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+  padding: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bakim-reminder__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bakim-completeall {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.bakim-reminder__steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bakim-reminder__dot {
+  width: 26px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--hairline);
+  transition: background 0.25s ease;
+}
+
+.bakim-reminder__dot.is-active {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 75%, #6366f1), var(--primary));
+}
+
+.bakim-reminder__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bakim-rbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 11px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid var(--hairline);
+  background: var(--surface-subtle);
+  color: var(--foreground);
+  transition: all 0.16s ease;
+}
+
+.bakim-rbtn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+  transform: translateY(-1px);
+}
+
+.bakim-rbtn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.bakim-rbtn.is-on {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 92%, #000 0%), color-mix(in srgb, var(--primary) 62%, #6366f1 38%));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+.bakim-rbtn--note {
+  margin-left: auto;
+}
+
+.bakim-reminder__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bakim-reminder__note {
+  font-style: italic;
+  color: var(--foreground);
+}
+
+.bakim-reminder__reset {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.bakim-reminder__reset:hover:not(:disabled) {
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+}
+
+/* --- Bakım: Apple tarzı düzenleme modalı --- */
+.bakim-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: color-mix(in srgb, #0b1220 48%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  animation: fadeIn 0.18s ease;
+}
+
+.bakim-modal--sm {
+  max-width: 460px;
+}
+
+.bakim-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 24px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 40%, transparent) inset,
+    0 30px 60px -18px rgba(0, 0, 0, 0.35),
+    0 12px 28px rgba(0, 0, 0, 0.14);
+  animation: bakimModalIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes bakimModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bakim-modal__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.bakim-modal__head-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+.bakim-modal__head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.bakim-modal__title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.bakim-modal__subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bakim-modal__close {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  border: 1px solid var(--hairline);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+}
+
+.bakim-modal__close:hover {
+  background: color-mix(in srgb, #ef4444 12%, var(--card));
+  color: #ef4444;
+  border-color: color-mix(in srgb, #ef4444 35%, var(--hairline));
+}
+
+.bakim-modal__body {
+  padding: 20px 22px;
+}
+
+.bakim-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 520px) {
+  .bakim-modal__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bakim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bakim-field--full {
+  grid-column: 1 / -1;
+}
+
+.bakim-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.bakim-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-subtle);
+  padding: 11px 13px;
+  font-size: 14px;
+  color: var(--foreground);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.bakim-input:focus {
+  outline: none;
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--hairline));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.bakim-textarea {
+  resize: vertical;
+  min-height: 76px;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.bakim-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 22px 22px;
+  border-top: 1px solid var(--hairline);
+  position: sticky;
+  bottom: 0;
+  background: var(--card);
+}
+
+/* --- Bakım Takip: responsive (MacBook / tablet / telefon) --- */
+@media (max-width: 1024px) {
+  .ssh-takip-page .apple-canvas {
+    max-width: 100%;
+  }
+
+  .ssh-takip-page .apple-page-hero.ssh-hero {
+    margin-bottom: 24px;
+  }
+
+  .ssh-takip-page .header-row {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ssh-takip-page .apple-page-hero.ssh-hero {
+    margin-bottom: 20px;
+  }
+
+  .ssh-takip-page .header-row {
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ssh-takip-page .header-left {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .ssh-takip-page .header-toolbar {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .ssh-takip-page .header-toolbar > .ssh-primary-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .ssh-takip-page .bakim-toolbar-tabs {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .ssh-takip-page .bakim-toolbar-tabs .ssh-primary-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .ssh-takip-page .ssh-panel {
+    gap: 20px;
+  }
+
+  .bakim-kpi {
+    padding: 16px 18px;
+  }
+
+  .bakim-kpi__num {
+    font-size: 26px;
+  }
+
+  .bakim-filter {
+    padding: 18px;
+  }
+
+  .bakim-filter__head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .bakim-filter__count {
+    width: 100%;
+    text-align: center;
+  }
+
+  .bakim-filter__body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bakim-field--grow,
+  .bakim-filter__body .bakim-field {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .bakim-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .bakim-filter__actions {
+    width: 100%;
+    margin-left: 0;
+    flex-direction: column;
+  }
+
+  .bakim-filter__actions .ssh-primary-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .bakim-company-card__head {
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .bakim-company-card__title {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .bakim-company-card__chips {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .bakim-company-card__body.is-open {
+    padding: 14px 16px 18px;
+  }
+
+  .bakim-reminder__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bakim-reminder__steps {
+    width: 100%;
+  }
+
+  .bakim-reminder__btns {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .bakim-rbtn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .bakim-rbtn--note {
+    margin-left: 0;
+  }
+
+  .bakim-completeall {
+    justify-content: stretch;
+  }
+
+  .bakim-completeall .ssh-primary-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .bakim-mini-card__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bakim-mini-card__actions .ssh-primary-btn,
+  .bakim-mini-card__actions a.ssh-primary-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .bakim-firma-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bakim-modal-overlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .bakim-modal,
+  .bakim-modal--sm {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .bakim-modal__footer {
+    flex-direction: column-reverse;
+    padding-bottom: max(22px, env(safe-area-inset-bottom));
+  }
+
+  .bakim-modal__footer .ssh-primary-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 520px) {
+  .bakim-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .bakim-kpi {
+    padding: 14px 16px;
+  }
+
+  .bakim-kpi__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .bakim-kpi__num {
+    font-size: 24px;
+  }
+
+  .bakim-company-card__name {
+    font-size: 15px;
+  }
+
+  .bakim-rstatus {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .bakim-countdown__value {
+    font-size: 15px;
+  }
+
+  .bakim-schedule-meta {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .bakim-firma-card__actions {
+    flex-direction: column;
+  }
+
+  .bakim-firma-card__actions .ssh-primary-btn {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 380px) {
+  .ssh-takip-page .bakim-toolbar-tabs {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .bakim-company-card__head,
+  .bakim-rbtn,
+  .bakim-contact,
+  .bakim-firma-card {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .bakim-company-card__head {
+    min-height: 48px;
+  }
+}
 

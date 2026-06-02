@@ -962,7 +962,7 @@ export async function getNotifications(params?: {
     limit?: number;
     skip?: number;
     unreadOnly?: boolean;
-    kind?: 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF';
+    kind?: 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF' | 'MAINTENANCE_DUE';
 }): Promise<NotificationsResponse> {
     const q = new URLSearchParams();
     if (params?.limit != null) q.set('limit', String(params.limit));
@@ -992,13 +992,14 @@ export async function getUnreadNotificationCount(params?: {
 export async function getUnreadNotificationBreakdown(): Promise<{
     product: number;
     proposal: number;
+    maintenance: number;
     total: number;
 }> {
     const res = await apiFetch(`${API_URL}/notifications/unread-breakdown`, {
         credentials: 'include',
         cache: 'no-store',
     });
-    return handleResponse<{ product: number; proposal: number; total: number }>(res);
+    return handleResponse<{ product: number; proposal: number; maintenance: number; total: number }>(res);
 }
 
 export async function markNotificationRead(id: number): Promise<{ ok: boolean }> {
@@ -1041,7 +1042,223 @@ export function notificationItemHref(n: NotificationItem): string {
     if (n.productType === 'VEHICLE_DELIVERY') {
         return `/arac-bilgileri?eventId=${n.productId}`;
     }
+    if (n.productType === 'MAINTENANCE') {
+        return `/bakim-takip?highlight=${n.productId}`;
+    }
     return `/urun-listesi?type=${encodeURIComponent(n.productType)}&expand=${n.productId}`;
+}
+
+/** Bakım modülü */
+export type MaintenanceProductType = 'DAMPER' | 'DORSE';
+export type MaintenanceScheduleStatus = 'SCHEDULED' | 'DUE_SOON' | 'OVERDUE' | 'COMPLETED' | 'CANCELLED';
+
+export type ReminderStatus = 'PENDING' | 'ACKNOWLEDGED' | 'CONTACTED' | 'SERVICED';
+
+export const REMINDER_STATUS_ORDER: ReminderStatus[] = ['PENDING', 'ACKNOWLEDGED', 'CONTACTED', 'SERVICED'];
+
+export const REMINDER_STATUS_LABELS: Record<ReminderStatus, string> = {
+    PENDING: 'Bekliyor',
+    ACKNOWLEDGED: 'Görüldü / İşaretlendi',
+    CONTACTED: 'İletişime geçildi',
+    SERVICED: 'Bakım yapıldı',
+};
+
+export interface MaintenanceStats {
+    total: number;
+    dueSoon: number;
+    overdue: number;
+    completed: number;
+    byType: { DAMPER: number; DORSE: number };
+}
+
+export interface MaintenanceReminderHandler {
+    id: number;
+    name: string;
+}
+
+export interface MaintenanceCompanyRow {
+    id: number;
+    normalizedKey: string;
+    displayName: string;
+    email: string | null;
+    phone: string | null;
+    phone2: string | null;
+    notes: string | null;
+    reminderStatus: ReminderStatus;
+    storedReminderStatus?: ReminderStatus;
+    reminderNote: string | null;
+    reminderHandledAt: string | null;
+    reminderHandledBy: MaintenanceReminderHandler | null;
+    needsAttention: boolean;
+    counts: { active: number; dueSoon: number; overdue: number; damper?: number; dorse?: number };
+}
+
+export interface MaintenanceDeliveryLogEntry {
+    fieldKey: string;
+    fromValue: boolean | null;
+    toValue: boolean | null;
+    at: string;
+    username: string | null;
+}
+
+export interface MaintenanceCompanyDetail extends Omit<MaintenanceCompanyRow, 'counts'> {
+    createdAt: string;
+    updatedAt: string;
+    maintenanceSchedules: MaintenanceScheduleRow[];
+}
+
+export interface MaintenanceScheduleRow {
+    id: number;
+    productType: MaintenanceProductType;
+    productId: number;
+    companyId: number;
+    company: { id: number; displayName: string; normalizedKey: string };
+    productSummary: {
+        productType: MaintenanceProductType;
+        productId: number;
+        imalatNo: number | null;
+        m3: string | null;
+        sasiNo: string | null;
+        teslimSasiNo: string | null;
+        teslimAt: string | null;
+        teslimat?: boolean;
+        musteri?: string | null;
+        tip?: string | null;
+        model?: string | null;
+        aracMarka?: string | null;
+        dingil?: string | null;
+        lastik?: string | null;
+        kalinlik?: string | null;
+    } | null;
+    deliveredAt: string;
+    dueAt: string;
+    intervalDays: number;
+    status: MaintenanceScheduleStatus;
+    completedAt: string | null;
+    completionNote: string | null;
+    lastNotifiedAt: string | null;
+    snoozedUntil: string | null;
+    createdAt: string;
+    updatedAt: string;
+    daysUntilDue: number;
+    daysOverdue: number;
+    urgency: 'ok' | 'soon' | 'overdue' | 'completed';
+    deliveryLog?: MaintenanceDeliveryLogEntry[];
+}
+
+export async function getMaintenanceStats(): Promise<MaintenanceStats> {
+    const res = await apiFetch(`${API_URL}/bakim/stats`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<MaintenanceStats>(res);
+}
+
+export async function getMaintenanceCompanies(): Promise<MaintenanceCompanyRow[]> {
+    const res = await apiFetch(`${API_URL}/bakim/companies`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<MaintenanceCompanyRow[]>(res);
+}
+
+export async function getMaintenanceCompany(id: number): Promise<any> {
+    const res = await apiFetch(`${API_URL}/bakim/companies/${id}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<MaintenanceCompanyDetail>(res);
+}
+
+export async function updateMaintenanceCompany(
+    id: number,
+    patch: Partial<Pick<MaintenanceCompanyRow, 'displayName' | 'email' | 'phone' | 'phone2' | 'notes'>>
+): Promise<MaintenanceCompanyDetail> {
+    const res = await apiFetch(`${API_URL}/bakim/companies/${id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+    });
+    return handleResponse<MaintenanceCompanyDetail>(res);
+}
+
+export async function updateMaintenanceReminder(
+    id: number,
+    status: ReminderStatus,
+    note?: string | null
+): Promise<{
+    id: number;
+    reminderStatus: ReminderStatus;
+    reminderNote: string | null;
+    reminderHandledAt: string | null;
+    reminderHandledBy: MaintenanceReminderHandler | null;
+}> {
+    const body: { status: ReminderStatus; note?: string | null } = { status };
+    if (note !== undefined) body.note = note;
+    const res = await apiFetch(`${API_URL}/bakim/companies/${id}/reminder`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+}
+
+export async function completeAllMaintenanceForCompany(
+    companyId: number,
+    note?: string | null
+): Promise<{ ok: boolean; completed: number }> {
+    const res = await apiFetch(`${API_URL}/bakim/companies/${companyId}/complete-all`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: note ?? null }),
+    });
+    return handleResponse(res);
+}
+
+export async function getMaintenanceSchedules(params?: {
+    productType?: MaintenanceProductType;
+    status?: MaintenanceScheduleStatus;
+    companyId?: number;
+    q?: string;
+    sort?: 'dueAt' | 'createdAt';
+}): Promise<MaintenanceScheduleRow[]> {
+    const q = new URLSearchParams();
+    if (params?.productType) q.set('productType', params.productType);
+    if (params?.status) q.set('status', params.status);
+    if (params?.companyId != null) q.set('companyId', String(params.companyId));
+    if (params?.q) q.set('q', params.q);
+    if (params?.sort) q.set('sort', params.sort);
+    const res = await apiFetch(`${API_URL}/bakim/schedules?${q.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<MaintenanceScheduleRow[]>(res);
+}
+
+export async function completeMaintenanceSchedule(id: number, note?: string): Promise<MaintenanceScheduleRow> {
+    const res = await apiFetch(`${API_URL}/bakim/schedules/${id}/complete`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: note ?? null }),
+    });
+    return handleResponse<MaintenanceScheduleRow>(res);
+}
+
+export async function rebuildMaintenanceData(): Promise<{
+    ok: boolean;
+    companies?: { companiesUpserted: number; uniqueKeys: number };
+    schedules?: { scanned: number; created: number; updated: number; skipped: number; failed: number };
+    notify?: { scanned?: number; created?: number };
+}> {
+    const res = await apiFetch(`${API_URL}/bakim/rebuild`, {
+        method: 'POST',
+        credentials: 'include',
+    });
+    return handleResponse(res);
 }
 
 /** Stok takip */

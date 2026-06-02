@@ -13,6 +13,13 @@ const prisma =
 
 const { notifyVehicleDamageSlack } = require('./slackVehicleDamage');
 const { registerSshRoutes } = require('./sshRoutes');
+const { getBaseCompany } = require('./companyUtils');
+const {
+    registerMaintenanceRoutes,
+    syncMaintenanceNotificationGaps,
+    upsertScheduleForProduct,
+    syncMaintenanceData,
+} = require('./maintenanceRoutes');
 
 /** SQL LIKE/ILIKE özel karakterlerini kaçır */
 function escapeSqlLikePattern(q) {
@@ -1508,6 +1515,9 @@ app.put('/api/dampers/:id', requireAuth, async (req, res) => {
             where: { id: idNum },
             data
         });
+        if (damper.teslimat) {
+            await upsertScheduleForProduct(prisma, { productType: 'DAMPER', product: damper });
+        }
         await syncStepCompletionEvents(prisma, 'DAMPER', damper.id, before, damper, getDamperTrackedStatus);
         const changes = collectFieldChanges(before, damper);
         if (changes.length > 0) {
@@ -1825,17 +1835,6 @@ app.get('/api/dampers-summary', requireAuth, async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch summary' });
     }
 });
-
-// Helper function to extract base company name
-function getBaseCompany(name) {
-    if (!name) return null;
-    let baseName = name.trim().toUpperCase();
-    // Remove trailing numbers like "1", "2", etc.
-    baseName = baseName.replace(/\s*\d+\s*$/, '');
-    // Remove trailing dashes like "EFATUR-1" -> "EFATUR"
-    baseName = baseName.replace(/\s*[-_]\s*\d*\s*$/, '');
-    return baseName.trim();
-}
 
 // Get company summary with step completion stats - Requires authentication
 app.get('/api/company-summary', requireAuth, async (req, res) => {
@@ -2497,6 +2496,9 @@ app.delete('/api/vehicle-damages/:id/photos/:photoId', requireAuth, async (req, 
 
 // ==================== SSH (SATIŞ SONRASI HİZMETLER) ====================
 registerSshRoutes(app, prisma, requireAuth);
+
+// ==================== BAKIM (TESLİMAT SONRASI) ====================
+registerMaintenanceRoutes(app, prisma, requireAuth);
 
 // Get statistics - Requires authentication
 app.get('/api/stats', requireAuth, async (req, res) => {
@@ -3320,6 +3322,9 @@ app.put('/api/dorses/:id', requireAuth, async (req, res) => {
             where: { id: idNum },
             data
         });
+        if (dorse.teslimat) {
+            await upsertScheduleForProduct(prisma, { productType: 'DORSE', product: dorse });
+        }
         await syncStepCompletionEvents(prisma, 'DORSE', dorse.id, before, dorse, getDorseTrackedStatus);
         const dorseChanges = collectFieldChanges(before, dorse);
         if (dorseChanges.length > 0) {
@@ -4390,12 +4395,13 @@ app.get('/api/notifications/unread-breakdown', requireAuth, async (req, res) => 
         const userId = req.session.userId;
         const recent = notificationRecentCreatedAtWhere();
         const base = { reads: { none: { userId } }, ...recent };
-        const [product, proposal, total] = await Promise.all([
+        const [product, proposal, maintenance, total] = await Promise.all([
             prisma.notification.count({ where: { ...base, kind: 'NEW_PRODUCT' } }),
             prisma.notification.count({ where: { ...base, kind: 'PROPOSAL_TEKLIF' } }),
+            prisma.notification.count({ where: { ...base, kind: 'MAINTENANCE_DUE' } }),
             prisma.notification.count({ where: base })
         ]);
-        res.json({ product, proposal, total });
+        res.json({ product, proposal, maintenance, total });
     } catch (error) {
         console.error('Error unread breakdown:', error);
         res.status(500).json({ error: 'Okunmamış özet alınamadı' });
@@ -5577,6 +5583,13 @@ async function startServer() {
         console.error('[ensureSchema] Başarısız:', err.message);
         process.exit(1);
     }
+    // Bakım: eksik firma/plan kayıtlarını tamamla + hatırlatma bildirimleri (canlı veriye dokunmaz).
+    void syncMaintenanceData(prisma)
+        .then(() => syncMaintenanceNotificationGaps(prisma, { force: true }))
+        .catch((e) => console.error('[maintenance] startup sync failed:', e));
+    setInterval(() => {
+        void syncMaintenanceNotificationGaps(prisma).catch(() => {});
+    }, 30 * 60 * 1000);
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });

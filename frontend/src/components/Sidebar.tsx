@@ -11,6 +11,7 @@ import {
     Truck,
     ClipboardList,
     Building2,
+    CalendarClock,
     LineChart,
     Gauge,
     Briefcase,
@@ -28,6 +29,7 @@ import {
     CarFront,
     ShieldAlert,
     Headphones,
+    Wrench,
 } from 'lucide-react';
 
 function cn(...classes: (string | false | undefined | null)[]) {
@@ -103,6 +105,7 @@ export default function Sidebar() {
         { href: '/urun-listesi', label: 'Ürün Listesi', icon: Truck },
         { href: '/ozet', label: 'Özet Görünüm', icon: ClipboardList },
         { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
+        { href: '/bakim-takip', label: 'Bakım Takip', icon: Wrench },
         { href: '/analiz', label: 'Analiz', icon: LineChart },
         { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
         { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },

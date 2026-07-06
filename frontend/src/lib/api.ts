@@ -2100,7 +2100,7 @@ export async function deleteSshComplaintPhoto(id: number, photoId: number): Prom
     return handleResponse<SshComplaint>(res);
 }
 
-export type SshComplaintInput = Partial<Omit<SshComplaint, 'id' | 'talepNo' | 'createdAt' | 'updatedAt' | 'createdByUsername'>>;
+export type SshComplaintInput = Partial<Omit<SshComplaint, 'id' | 'createdAt' | 'updatedAt' | 'createdByUsername'>>;
 
 export interface SshDistRow {
     name: string;

@@ -19,7 +19,6 @@ import {
     createSshComplaint,
     deleteSshComplaint,
     downloadSsh8dReport,
-    getNextSshTalepNo,
     getSshComplaints,
     getSshLookups,
     getSshPartCodes,
@@ -155,6 +154,7 @@ function withLegacyOption(options: string[], current?: string | null) {
 }
 
 const EMPTY_FORM: SshComplaintInput = {
+    talepNo: '',
     talepTipi: 'NORMAL',
     sikayetBildirimTarihi: todayInput(),
     garantiBaslangicTarihi: todayInput(),
@@ -291,7 +291,7 @@ function SshFormSections({
 }: {
     form: SshComplaintInput;
     setForm: React.Dispatch<React.SetStateAction<SshComplaintInput>>;
-    /** Mevcut kayıt no veya yeni kayıt için önizleme (otomatik atanır). */
+    /** Mevcut kayıt no (düzenleme); yeni kayıtta form.talepNo kullanılır. */
     talepNo?: string | null;
     partCodes: SshPartCodes | null;
     sshLookups: SshLookups | null;
@@ -486,9 +486,18 @@ function SshFormSections({
                 <div className="ssh-form-grid">
                     <div className="ssh-code-preview ssh-talep-no-field">
                         <span className="ssh-field__label">Talep no</span>
-                        <div className={`ssh-code-preview__box ${talepNo ? 'has-value' : ''}`}>
-                            {talepNo ?? 'Otomatik atanacak…'}
-                        </div>
+                        {complaintId == null ? (
+                            <input
+                                className="ssh-field__input"
+                                value={form.talepNo ?? ''}
+                                onChange={e => set('talepNo', e.target.value)}
+                                placeholder="Örn: 20260001"
+                                required
+                                autoComplete="off"
+                            />
+                        ) : (
+                            <div className={`ssh-code-preview__box has-value`}>{talepNo}</div>
+                        )}
                     </div>
                     <SshModernSelect
                         label="Talep tipi"
@@ -933,7 +942,6 @@ export default function SshTakipPage() {
     const [createPendingPhotos, setCreatePendingPhotos] = useState<PendingSshPhoto[]>([]);
     const [createForm, setCreateForm] = useState<SshComplaintInput>({ ...EMPTY_FORM });
     const [creating, setCreating] = useState(false);
-    const [nextTalepNo, setNextTalepNo] = useState<string | null>(null);
     const [partCodes, setPartCodes] = useState<SshPartCodes | null>(null);
     const [sshLookups, setSshLookups] = useState<SshLookups | null>(null);
     const [exporting, setExporting] = useState(false);
@@ -963,24 +971,6 @@ export default function SshTakipPage() {
         const t = window.setTimeout(() => setSearchQ(searchInput.trim()), 300);
         return () => window.clearTimeout(t);
     }, [searchInput]);
-
-    useEffect(() => {
-        if (!showCreate) {
-            setNextTalepNo(null);
-            return;
-        }
-        let cancelled = false;
-        void getNextSshTalepNo()
-            .then(r => {
-                if (!cancelled) setNextTalepNo(r.talepNo);
-            })
-            .catch(() => {
-                if (!cancelled) setNextTalepNo(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [showCreate, items.length]);
 
     const load = useCallback(async () => {
         try {
@@ -1016,6 +1006,10 @@ export default function SshTakipPage() {
     };
 
     const handleCreate = async () => {
+        if (!createForm.talepNo?.trim()) {
+            alert('Talep no zorunludur');
+            return;
+        }
         if (!createForm.musteriAdi?.trim()) {
             alert('Müşteri adı zorunludur');
             return;
@@ -1028,6 +1022,7 @@ export default function SshTakipPage() {
             setCreating(true);
             const created = await createSshComplaint({
                 ...createForm,
+                talepNo: createForm.talepNo.trim(),
                 status: normalizeStatusValue(createForm.status),
             });
             let withPhotos = created;
@@ -1195,20 +1190,13 @@ export default function SshTakipPage() {
                                 </div>
                                 <div>
                                     <h2>Yeni şikayet kaydı</h2>
-                                    <p>Tüm alanları manuel doldurun; arıza kodu otomatik oluşur.</p>
-                                    {nextTalepNo ? (
-                                        <p className="ssh-create-card__talep-no">
-                                            Talep no: <strong>{nextTalepNo}</strong>
-                                            <span className="ssh-create-card__talep-hint"> (kayıtta atanır)</span>
-                                        </p>
-                                    ) : null}
+                                    <p>Talep numarasını elle girin; diğer alanları doldurun. Arıza kodu otomatik oluşur.</p>
                                 </div>
                             </header>
                             <div className="ssh-create-card__divider" aria-hidden />
                             <SshFormSections
                                 form={createForm}
                                 setForm={setCreateForm}
-                                talepNo={nextTalepNo}
                                 partCodes={partCodes}
                                 sshLookups={sshLookups}
                                 pendingPhotos={createPendingPhotos}

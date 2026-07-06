@@ -137,6 +137,9 @@ function parseSshPayload(body, { partial = false } = {}) {
     };
     const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
 
+    if (!partial || has('talepNo')) {
+        set('talepNo', String(body.talepNo || '').trim() || null);
+    }
     if (!partial || has('talepTipi')) set('talepTipi', String(body.talepTipi || '').trim() || null);
     if (!partial || has('sikayetBildirimTarihi')) {
         set('sikayetBildirimTarihi', parseRequiredDate(body.sikayetBildirimTarihi, 'Şikayet bildirim tarihi'));
@@ -246,9 +249,10 @@ function isTedarikciKaynak(v) {
 }
 
 function validateRequiredForCreate(payload) {
-    const required = ['talepTipi', 'sikayetBildirimTarihi', 'garantiBaslangicTarihi', 'musteriAdi', 'ustYapiTipi'];
+    const required = ['talepNo', 'talepTipi', 'sikayetBildirimTarihi', 'garantiBaslangicTarihi', 'musteriAdi', 'ustYapiTipi'];
     for (const k of required) {
         if (payload[k] == null || payload[k] === '') {
+            if (k === 'talepNo') throw new Error('Talep no zorunludur');
             throw new Error(`${k} zorunludur`);
         }
     }
@@ -638,12 +642,18 @@ function registerSshRoutes(app, prisma, requireAuth) {
                 ...payload,
                 status: normalizeStatus(payload.status),
             });
+            const talepNo = String(merged.talepNo || '').trim();
             const actor = req.session?.username ?? null;
             const created = await prisma.$transaction(async (tx) => {
-                const talepNo = await allocateTalepNo(prisma, tx);
+                const dup = await tx.sshComplaint.findUnique({
+                    where: { talepNo },
+                    select: { id: true },
+                });
+                if (dup) throw new Error('Bu talep numarası zaten kullanılıyor');
+                const { talepNo: _drop, ...rest } = merged;
                 return tx.sshComplaint.create({
                     data: {
-                        ...toPrismaData(merged),
+                        ...toPrismaData(rest),
                         talepNo,
                         createdByUsername: actor,
                     },

@@ -333,11 +333,16 @@ function normalizeStatus(raw) {
     return 'AÇIK';
 }
 
-/** Yıl + 4 hane; silinen kayıtların numarası tekrar kullanılır (en küçük boş sıra). */
+function currentTalepPrefix() {
+    const shortYear = String(new Date().getFullYear()).slice(-2);
+    return `S${shortYear}`;
+}
+
+/** SYYNNNN formatı; 0001 korunur, yeni numara 0002'den başlar ve boşalan en küçük sıra tekrar kullanılır. */
 async function allocateTalepNo(prisma, txClient = null) {
     const run = async (tx) => {
         const year = new Date().getFullYear();
-        const prefix = String(year);
+        const prefix = currentTalepPrefix();
         const rows = await tx.sshComplaint.findMany({
             where: { talepNo: { startsWith: prefix } },
             select: { talepNo: true },
@@ -347,14 +352,14 @@ async function allocateTalepNo(prisma, txClient = null) {
             const n = parseInt(String(r.talepNo).slice(prefix.length), 10);
             if (Number.isFinite(n) && n > 0) used.add(n);
         }
-        let seq = 1;
+        let seq = 2;
         while (used.has(seq)) seq += 1;
         const talepNo = `${prefix}${String(seq).padStart(4, '0')}`;
         const maxUsed = used.size > 0 ? Math.max(...used) : 0;
         await tx.sshTalepNoSequence.upsert({
             where: { year },
-            create: { year, lastNumber: Math.max(seq, maxUsed) },
-            update: { lastNumber: Math.max(seq, maxUsed) },
+            create: { year, lastNumber: Math.max(seq, maxUsed, 1) },
+            update: { lastNumber: Math.max(seq, maxUsed, 1) },
         });
         return talepNo;
     };
@@ -679,6 +684,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
 
             const patch = parseSshPayload(req.body, { partial: true });
             const base = {
+                talepNo: existing.talepNo,
                 talepTipi: existing.talepTipi,
                 sikayetBildirimTarihi: existing.sikayetBildirimTarihi,
                 garantiBaslangicTarihi: existing.garantiBaslangicTarihi,
@@ -724,10 +730,27 @@ function registerSshRoutes(app, prisma, requireAuth) {
                 ...patch,
             };
             const merged = mergeComputed(base);
+            const talepNo = String(merged.talepNo || '').trim();
+            if (!talepNo) {
+                return res.status(400).json({ error: 'Talep no zorunludur' });
+            }
             validateTedarikciAdi(merged);
+            const duplicate = await prisma.sshComplaint.findFirst({
+                where: {
+                    talepNo,
+                    NOT: { id },
+                },
+                select: { id: true },
+            });
+            if (duplicate) {
+                return res.status(400).json({ error: 'Bu talep numarası zaten kullanılıyor' });
+            }
             await prisma.sshComplaint.update({
                 where: { id },
-                data: toPrismaData(merged),
+                data: toPrismaData({
+                    ...merged,
+                    talepNo,
+                }),
             });
             const updated = await loadSshComplaintWithPhotos(prisma, id);
             res.json(mapSshComplaint(updated));

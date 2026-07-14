@@ -339,7 +339,6 @@ export function SshCostBreakdown({
                             <DecimalTextInput
                                 id="ssh-kar-orani"
                                 className="ssh-cost-kar__input"
-                                max={100}
                                 placeholder="15"
                                 value={detay.karOraniYuzde}
                                 onChange={v =>

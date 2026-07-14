@@ -529,8 +529,8 @@ function SshFormSections({
                             }))
                         }
                     />
-                    {text('sasiMarka', 'Şasi / kamyon marka')}
-                    {text('sasiModel', 'Şasi / kamyon model')}
+                    {text('sasiMarka', 'Çekici/Kamyon marka')}
+                    {text('sasiModel', 'Üst yapı marka')}
                     {text('aracPlakasi', 'Araç plakası')}
                     {text('sasiNo', 'Şasi no')}
                     {text('imalatNo', 'İmalat no')}

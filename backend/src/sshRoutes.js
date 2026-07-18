@@ -587,7 +587,7 @@ function registerSshRoutes(app, prisma, requireAuth) {
             }
             const rows = await prisma.sshComplaint.findMany({
                 where,
-                orderBy: [{ kritikPuan: 'desc' }, { createdAt: 'desc' }],
+                orderBy: [{ talepNo: 'desc' }, { createdAt: 'desc' }],
                 include: sshPhotosInclude,
             });
             res.json(rows.map(mapSshComplaint));

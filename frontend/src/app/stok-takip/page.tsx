@@ -1,34 +1,46 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
 import { useAuth } from '@/lib/AuthContext';
 import {
+    addStockItemDocument,
     addStockItemPrice,
     addStockMovement,
     changeStockSupplier,
+    deleteStockItemDocument,
     deleteStockPriceHistory,
     deleteStockSupplierHistory,
     createStockItem,
     getStockGroups,
     getStockItemDetail,
+    getStockItemDocumentUrl,
     getStockItems,
+    resetStockItem,
     updateStockItem,
+    updateStockPriceHistory,
+    type StockDocumentKind,
     type StockGroupRow,
     type StockItemDetail,
     type StockItemRow,
+    type StockPriceCurrency,
     type StockPriceHistoryPoint
 } from '@/lib/api';
+import { fileToWebp, isImageFile } from '@/lib/imageToWebp';
 import {
     ArrowDownRight,
     ArrowUpRight,
     ArrowRight,
     BarChart3,
     Building2,
+    FileImage,
+    FileText,
     Hash,
     History,
+    Image as ImageIcon,
     Layers,
     Loader2,
     Minus,
@@ -38,7 +50,9 @@ import {
     Plus,
     RefreshCcw,
     Repeat,
+    RotateCcw,
     Search,
+    Star,
     Trash2,
     TrendingDown,
     TrendingUp,
@@ -52,13 +66,124 @@ type StockItemPayload = {
     description: string;
     unit: string | null;
     quantity: string | null;
+    criticalQuantity: string | null;
     supplierName: string | null;
     supplierContact: string | null;
+    supplierPaymentTerm: string | null;
+    supplierLeadTime: string | null;
 };
 
-function formatTry(n: number | null | undefined) {
+/** Oran: miktar / kritik. ≥2 → güvenli, 1–2 → yaklaşıyor, ≤1 → kritik */
+type StockLevelZone = 'safe' | 'warn' | 'critical';
+
+function parseStockNum(v: string | number | null | undefined): number | null {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+}
+
+function stockLevelRatio(qty: string | number | null | undefined, critical: string | number | null | undefined): number | null {
+    const q = parseStockNum(qty);
+    const c = parseStockNum(critical);
+    if (q == null || c == null || c <= 0) return null;
+    return q / c;
+}
+
+/** 0 = kritikten uzak (yeşil), 1 = kritikte/altında (kırmızı) — ürüne göre oransal */
+function stockDangerT(qty: string | number | null | undefined, critical: string | number | null | undefined): number | null {
+    const r = stockLevelRatio(qty, critical);
+    if (r == null) return null;
+    // r≥2 → 0, r=1 → 1, r≤1 → 1 (veya biraz daha kırmızı his için 1)
+    if (r >= 2) return 0;
+    if (r <= 1) return 1;
+    return (2 - r) / 1; // 2→0 … 1→1
+}
+
+function stockLevelZone(qty: string | number | null | undefined, critical: string | number | null | undefined): StockLevelZone | null {
+    const r = stockLevelRatio(qty, critical);
+    if (r == null) return null;
+    if (r <= 1) return 'critical';
+    if (r < 2) return 'warn';
+    return 'safe';
+}
+
+function stockLevelLabel(zone: StockLevelZone): string {
+    if (zone === 'safe') return 'Kritik seviyeden uzakta';
+    if (zone === 'warn') return 'Kritik seviyeye yaklaşıyor';
+    return 'Kritik seviyede';
+}
+
+function lerpChannel(a: number, b: number, t: number) {
+    return Math.round(a + (b - a) * t);
+}
+
+function lerpRgb(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
+    return [lerpChannel(a[0], b[0], t), lerpChannel(a[1], b[1], t), lerpChannel(a[2], b[2], t)];
+}
+
+/** Tehlike 0→1: yeşil → sarı → kırmızı */
+function stockHeatRgb(danger: number): [number, number, number] {
+    const d = Math.min(1, Math.max(0, danger));
+    const green: [number, number, number] = [16, 185, 129];
+    const yellow: [number, number, number] = [245, 158, 11];
+    const red: [number, number, number] = [239, 68, 68];
+    if (d <= 0.5) return lerpRgb(green, yellow, d * 2);
+    return lerpRgb(yellow, red, (d - 0.5) * 2);
+}
+
+function stockRowHealthStyle(qty: string | number | null | undefined, critical: string | number | null | undefined): CSSProperties | undefined {
+    const danger = stockDangerT(qty, critical);
+    if (danger == null) return undefined;
+    const mid = stockHeatRgb(danger);
+    const left = stockHeatRgb(Math.max(0, danger - 0.18));
+    const right = stockHeatRgb(Math.min(1, danger + 0.22));
+    const alpha = 0.18 + danger * 0.22;
+    return {
+        ['--stock-c1' as string]: `${left[0]}, ${left[1]}, ${left[2]}`,
+        ['--stock-c2' as string]: `${mid[0]}, ${mid[1]}, ${mid[2]}`,
+        ['--stock-c3' as string]: `${right[0]}, ${right[1]}, ${right[2]}`,
+        ['--stock-alpha' as string]: String(alpha),
+        ['--stock-pulse' as string]: String(2.8 + danger * 2.2),
+        boxShadow: `inset 4px 0 0 rgb(${mid[0]}, ${mid[1]}, ${mid[2]})`,
+    };
+}
+
+function hasStockSupplier(s: {
+    supplierName?: string | null;
+    supplierContact?: string | null;
+    supplierPaymentTerm?: string | null;
+    supplierLeadTime?: string | null;
+}): boolean {
+    return Boolean(
+        (s.supplierName && s.supplierName.trim()) ||
+            (s.supplierContact && s.supplierContact.trim()) ||
+            (s.supplierPaymentTerm && s.supplierPaymentTerm.trim()) ||
+            (s.supplierLeadTime && s.supplierLeadTime.trim())
+    );
+}
+
+const STOCK_VADE_OPTIONS = ['Peşin', '7 gün', '15 gün', '30 gün', '45 gün', '60 gün', '90 gün', '120 gün'] as const;
+const STOCK_TERMIN_OPTIONS = ['Stoktan', '3 gün', '7 gün', '10 gün', '15 gün', '21 gün', '30 gün', '45 gün', '60 gün'] as const;
+
+function withLegacySelectOption(options: readonly string[], current?: string | null) {
+    const cur = (current ?? '').trim();
+    if (!cur) return [...options];
+    if (options.includes(cur)) return [...options];
+    return [cur, ...options];
+}
+
+function withLegacyVadeOption(current?: string | null) {
+    return withLegacySelectOption(STOCK_VADE_OPTIONS, current);
+}
+
+function withLegacyTerminOption(current?: string | null) {
+    return withLegacySelectOption(STOCK_TERMIN_OPTIONS, current);
+}
+
+function formatMoney(n: number | null | undefined, currency: StockPriceCurrency | string | null | undefined = 'TRY') {
     if (n == null || Number.isNaN(n)) return '—';
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 }).format(n);
+    const code = currency === 'USD' || currency === 'EUR' ? currency : 'TRY';
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: code, maximumFractionDigits: 2 }).format(n);
 }
 
 function formatPct(p: number | null | undefined) {
@@ -67,8 +192,74 @@ function formatPct(p: number | null | undefined) {
     return `${sign}${p.toFixed(2).replace('.', ',')} %`;
 }
 
+const STOCK_CURRENCY_OPTIONS: { value: StockPriceCurrency; label: string }[] = [
+    { value: 'TRY', label: 'TRY (₺)' },
+    { value: 'USD', label: 'USD ($)' },
+    { value: 'EUR', label: 'EUR (€)' },
+];
+
+const STOCK_DOC_KIND_LABELS: Record<StockDocumentKind, string> = {
+    PRODUCT_IMAGE: 'Ürün resmi',
+    TECH_DRAWING: 'Teknik resim',
+};
+
+function formatBytes(n: number) {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function fileToStockDocumentPayload(file: File): Promise<{
+    mimeType: string;
+    dataBase64: string;
+    fileName: string;
+}> {
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (isPdf) {
+        if (file.size > 4 * 1024 * 1024) throw new Error('PDF en fazla 4MB olabilir');
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        }
+        return {
+            mimeType: 'application/pdf',
+            dataBase64: btoa(binary),
+            fileName: file.name,
+        };
+    }
+    if (!isImageFile(file)) {
+        throw new Error('JPEG, PNG, WebP veya PDF seçin');
+    }
+    const webp = await fileToWebp(file);
+    return {
+        mimeType: webp.mimeType,
+        dataBase64: webp.dataBase64,
+        fileName: webp.fileName,
+    };
+}
+
 export default function StokTakipPage() {
+    return (
+        <Suspense fallback={<OzunluLoading />}>
+            <StokTakipInner />
+        </Suspense>
+    );
+}
+
+function StokTakipInner() {
     const { isAdmin } = useAuth();
+    const searchParams = useSearchParams();
+    const highlightId = useMemo(() => {
+        const raw = searchParams?.get('highlight');
+        if (!raw) return null;
+        const n = parseInt(raw, 10);
+        return Number.isFinite(n) ? n : null;
+    }, [searchParams]);
+    const highlightOpenedRef = useRef<number | null>(null);
+
     const [groups, setGroups] = useState<StockGroupRow[]>([]);
     const [items, setItems] = useState<StockItemRow[]>([]);
     const [total, setTotal] = useState(0);
@@ -79,9 +270,16 @@ export default function StokTakipPage() {
     const [searchQ, setSearchQ] = useState('');
 
     const [itemModal, setItemModal] = useState<'new' | StockItemRow | null>(null);
-    const [priceModal, setPriceModal] = useState<StockItemRow | null>(null);
+    const [priceModal, setPriceModal] = useState<{
+        item: StockItemRow;
+        edit?: StockPriceHistoryPoint;
+    } | null>(null);
     const [detailId, setDetailId] = useState<number | null>(null);
+    const [detailNonce, setDetailNonce] = useState(0);
     const [saving, setSaving] = useState(false);
+    /** Varsayılan: sayfa açılışında yalnızca ana kalemler */
+    const [listScope, setListScope] = useState<'main' | 'all'>('main');
+    const [togglingMainId, setTogglingMainId] = useState<number | null>(null);
 
     useEffect(() => {
         const t = window.setTimeout(() => {
@@ -99,6 +297,7 @@ export default function StokTakipPage() {
                 getStockItems({
                     groupId: groupFilter === 'all' ? undefined : groupFilter,
                     q: searchQ.length >= 2 ? searchQ : undefined,
+                    mainOnly: listScope === 'main',
                     limit: 2000,
                     skip: 0
                 })
@@ -113,11 +312,51 @@ export default function StokTakipPage() {
         } finally {
             setLoading(false);
         }
-    }, [groupFilter, searchQ]);
+    }, [groupFilter, searchQ, listScope]);
 
     useEffect(() => {
         void load();
     }, [load]);
+
+    const toggleMainItem = useCallback(
+        async (row: StockItemRow, e?: { stopPropagation: () => void }) => {
+            e?.stopPropagation();
+            const next = !row.isMainItem;
+            setTogglingMainId(row.id);
+            try {
+                await updateStockItem(row.id, { isMainItem: next });
+                if (listScope === 'main' && !next) {
+                    setItems((prev) => prev.filter((i) => i.id !== row.id));
+                    setTotal((t) => Math.max(0, t - 1));
+                } else {
+                    setItems((prev) => prev.map((i) => (i.id === row.id ? { ...i, isMainItem: next } : i)));
+                }
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Ana kalem güncellenemedi');
+            } finally {
+                setTogglingMainId(null);
+            }
+        },
+        [listScope]
+    );
+
+    useEffect(() => {
+        if (highlightId == null || loading) return;
+        if (highlightOpenedRef.current === highlightId) return;
+        const found = items.some((i) => i.id === highlightId);
+        if (!found) {
+            if (listScope === 'main') {
+                setListScope('all');
+            }
+            return;
+        }
+        highlightOpenedRef.current = highlightId;
+        setDetailId(highlightId);
+        window.setTimeout(() => {
+            const el = document.getElementById(`stock-row-${highlightId}`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 80);
+    }, [highlightId, loading, items, listScope]);
 
     const itemsByGroup = useMemo(() => {
         const order = new Map(groups.map((g, i) => [g.id, i]));
@@ -198,6 +437,27 @@ export default function StokTakipPage() {
 
                     <div className="stock-toolbar">
                         <div className="stock-toolbar-grow">
+                            <div className="stock-scope-toggle" role="tablist" aria-label="Liste kapsamı">
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={listScope === 'main'}
+                                    className={`stock-scope-btn${listScope === 'main' ? ' is-active' : ''}`}
+                                    onClick={() => setListScope('main')}
+                                >
+                                    <Star size={15} aria-hidden />
+                                    Ana kalemler
+                                </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={listScope === 'all'}
+                                    className={`stock-scope-btn${listScope === 'all' ? ' is-active' : ''}`}
+                                    onClick={() => setListScope('all')}
+                                >
+                                    Tüm ürünler
+                                </button>
+                            </div>
                             <div className="stock-search-wrap">
                                 <Search size={18} aria-hidden />
                                 <input
@@ -233,11 +493,16 @@ export default function StokTakipPage() {
                                 Yenile
                             </button>
                         </div>
-                        {searchInput.length > 0 && searchInput.length < 2 ? (
+                        {listScope === 'main' && !loading && total === 0 && searchQ.length < 2 ? (
+                            <p className="stock-hint">
+                                Henüz ana kalem yok. <strong>Tüm ürünler</strong>e geçip satırdaki yıldıza basarak ekleyin.
+                            </p>
+                        ) : searchInput.length > 0 && searchInput.length < 2 ? (
                             <p className="stock-hint">Aramayı başlatmak için en az 2 karakter yazın.</p>
                         ) : searchQ.length >= 2 ? (
                             <p className="stock-hint">
-                                <strong>{searchQ}</strong> için sonuçlar gösteriliyor.
+                                <strong>{searchQ}</strong> için sonuçlar gösteriliyor
+                                {listScope === 'main' ? ' (ana kalemler içinde)' : ''}.
                             </p>
                         ) : null}
                     </div>
@@ -257,7 +522,13 @@ export default function StokTakipPage() {
                             </div>
                             <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>Kayıt bulunamadı</p>
                             <p style={{ fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto', lineHeight: 1.5 }}>
-                                Filtreleri veya aramayı değiştirin; yeni kalem eklemek için üstteki <strong>Yeni kalem</strong> düğmesini kullanın.
+                                {listScope === 'main'
+                                    ? 'Ana kalem listesi boş. Tüm ürünler görünümüne geçip satırdaki yıldıza basarak ana kaleme ekleyin.'
+                                    : (
+                                        <>
+                                            Filtreleri veya aramayı değiştirin; yeni kalem eklemek için üstteki <strong>Yeni kalem</strong> düğmesini kullanın.
+                                        </>
+                                    )}
                             </p>
                         </div>
                     ) : (
@@ -277,17 +548,23 @@ export default function StokTakipPage() {
                                     <div className="stock-table-wrap">
                                         <table className="stock-table">
                                             <colgroup>
+                                                <col className="stock-col-main" />
                                                 <col className="stock-col-code" />
                                                 <col className="stock-col-desc" />
                                                 <col className="stock-col-unit" />
                                                 <col className="stock-col-qty" />
                                                 <col className="stock-col-supp" />
                                                 <col className="stock-col-contact" />
+                                                <col className="stock-col-vade" />
+                                                <col className="stock-col-termin" />
                                                 <col className="stock-col-price" />
                                                 <col className="stock-col-delta" />
                                             </colgroup>
                                             <thead>
                                                 <tr>
+                                                    <th scope="col" className="stock-th-main" title="Ana kalem">
+                                                        <Star size={14} aria-hidden />
+                                                    </th>
                                                     <th scope="col">Kod</th>
                                                     <th scope="col">Malzeme</th>
                                                     <th scope="col">Birim</th>
@@ -296,6 +573,12 @@ export default function StokTakipPage() {
                                                     </th>
                                                     <th scope="col">Tedarikçi</th>
                                                     <th scope="col">İletişim</th>
+                                                    <th scope="col" className="stock-th-nowrap">
+                                                        Vade
+                                                    </th>
+                                                    <th scope="col" className="stock-th-nowrap">
+                                                        Termin
+                                                    </th>
                                                     <th scope="col" className="stock-th-num">
                                                         Birim fiyat
                                                     </th>
@@ -305,10 +588,24 @@ export default function StokTakipPage() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {rows.map((row) => (
+                                                {rows.map((row) => {
+                                                    const zone = stockLevelZone(row.quantity, row.criticalQuantity);
+                                                    const healthStyle = stockRowHealthStyle(row.quantity, row.criticalQuantity);
+                                                    const isHighlight = highlightId === row.id;
+                                                    const levelClass =
+                                                        zone === 'safe'
+                                                            ? ' stock-row--level stock-row--level-safe'
+                                                            : zone === 'warn'
+                                                              ? ' stock-row--level stock-row--level-warn'
+                                                              : zone === 'critical'
+                                                                ? ' stock-row--level stock-row--level-critical'
+                                                                : '';
+                                                    return (
                                                     <tr
                                                         key={row.id}
-                                                        className="stock-row-clickable"
+                                                        id={`stock-row-${row.id}`}
+                                                        className={`stock-row-clickable${levelClass}${isHighlight ? ' stock-row--highlight' : ''}`}
+                                                        style={healthStyle}
                                                         tabIndex={0}
                                                         role="button"
                                                         aria-label={`${row.description} detayını aç`}
@@ -320,6 +617,23 @@ export default function StokTakipPage() {
                                                             }
                                                         }}
                                                     >
+                                                        <td className="stock-td-main" onClick={(e) => e.stopPropagation()}>
+                                                            <button
+                                                                type="button"
+                                                                className={`stock-main-toggle${row.isMainItem ? ' is-on' : ''}`}
+                                                                disabled={togglingMainId === row.id}
+                                                                title={row.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
+                                                                aria-label={row.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
+                                                                aria-pressed={Boolean(row.isMainItem)}
+                                                                onClick={(e) => void toggleMainItem(row, e)}
+                                                            >
+                                                                {togglingMainId === row.id ? (
+                                                                    <Loader2 size={15} className="animate-spin" />
+                                                                ) : (
+                                                                    <Star size={15} fill={row.isMainItem ? 'currentColor' : 'none'} />
+                                                                )}
+                                                            </button>
+                                                        </td>
                                                         <td>
                                                             {row.purchaseCode ? (
                                                                 <span className="stock-code" title={row.purchaseCode}>
@@ -348,6 +662,14 @@ export default function StokTakipPage() {
                                                                         LIVE
                                                                     </span>
                                                                 ) : null}
+                                                                {zone ? (
+                                                                    <span
+                                                                        className={`stock-level-badge stock-level-badge--${zone}`}
+                                                                        title={`Kritik eşik: ${row.criticalQuantity}`}
+                                                                    >
+                                                                        {stockLevelLabel(zone)}
+                                                                    </span>
+                                                                ) : null}
                                                             </div>
                                                         </td>
                                                         <td>
@@ -360,8 +682,18 @@ export default function StokTakipPage() {
                                                                 {row.supplierContact ?? '—'}
                                                             </span>
                                                         </td>
+                                                        <td>
+                                                            <span className="stock-unit-pill" title={row.supplierPaymentTerm ?? undefined}>
+                                                                {row.supplierPaymentTerm ?? '—'}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <span className="stock-unit-pill" title={row.supplierLeadTime ?? undefined}>
+                                                                {row.supplierLeadTime ?? '—'}
+                                                            </span>
+                                                        </td>
                                                         <td className="stock-td-num">
-                                                            <span className="stock-price">{formatTry(row.latestUnitPrice)}</span>
+                                                            <span className="stock-price">{formatMoney(row.latestUnitPrice, row.latestCurrency)}</span>
                                                         </td>
                                                         <td className="stock-td-num stock-td-delta">
                                                             {row.priceChangePercent != null ? (
@@ -381,7 +713,8 @@ export default function StokTakipPage() {
                                                             )}
                                                         </td>
                                                     </tr>
-                                                ))}
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
@@ -417,34 +750,47 @@ export default function StokTakipPage() {
                         />
                     )}
 
+                    {detailId != null && (
+                        <StockDetailModal
+                            key={`${detailId}-${detailNonce}`}
+                            itemId={detailId}
+                            isAdmin={isAdmin}
+                            onClose={() => setDetailId(null)}
+                            onMutated={() => void load()}
+                            onEditItem={(row) => setItemModal(row)}
+                            onAddPrice={(row) => setPriceModal({ item: row })}
+                            onEditPrice={(row, hist) => setPriceModal({ item: row, edit: hist })}
+                        />
+                    )}
+
                     {priceModal && (
                         <PriceModal
-                            item={priceModal}
+                            key={priceModal.edit ? `edit-${priceModal.edit.id}` : `new-${priceModal.item.id}`}
+                            item={priceModal.item}
+                            edit={priceModal.edit}
                             saving={saving}
                             onClose={() => !saving && setPriceModal(null)}
-                            onSave={async (unitPrice, note) => {
+                            onSave={async (unitPrice, currency, note) => {
                                 try {
                                     setSaving(true);
-                                    await addStockItemPrice(priceModal.id, { unitPrice, note });
+                                    if (priceModal.edit) {
+                                        await updateStockPriceHistory(priceModal.item.id, priceModal.edit.id, {
+                                            unitPrice,
+                                            currency,
+                                            note
+                                        });
+                                    } else {
+                                        await addStockItemPrice(priceModal.item.id, { unitPrice, currency, note });
+                                    }
                                     setPriceModal(null);
                                     await load();
+                                    if (detailId != null) setDetailNonce((n) => n + 1);
                                 } catch (e) {
                                     alert(e instanceof Error ? e.message : 'Kaydedilemedi');
                                 } finally {
                                     setSaving(false);
                                 }
                             }}
-                        />
-                    )}
-
-                    {detailId != null && (
-                        <StockDetailModal
-                            itemId={detailId}
-                            isAdmin={isAdmin}
-                            onClose={() => setDetailId(null)}
-                            onMutated={() => void load()}
-                            onEditItem={(row) => setItemModal(row)}
-                            onAddPrice={(row) => setPriceModal(row)}
                         />
                     )}
                     </div>
@@ -475,8 +821,11 @@ function ItemEditModal({
     const [description, setDescription] = useState(initial?.description ?? '');
     const [unit, setUnit] = useState(initial?.unit ?? '');
     const [quantity, setQuantity] = useState(initial?.quantity ?? '');
+    const [criticalQuantity, setCriticalQuantity] = useState(initial?.criticalQuantity ?? '');
     const [supplierName, setSupplierName] = useState(initial?.supplierName ?? '');
     const [supplierContact, setSupplierContact] = useState(initial?.supplierContact ?? '');
+    const [supplierPaymentTerm, setSupplierPaymentTerm] = useState(initial?.supplierPaymentTerm ?? '');
+    const [supplierLeadTime, setSupplierLeadTime] = useState(initial?.supplierLeadTime ?? '');
 
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="stock-modal-title" onClick={onClose}>
@@ -579,13 +928,25 @@ function ItemEditModal({
                                     placeholder="0"
                                 />
                             </label>
+                            <label className="field">
+                                <span className="field-label">Kritik stok seviyesi</span>
+                                <input
+                                    className="form-input field-control"
+                                    value={criticalQuantity}
+                                    onChange={(e) => setCriticalQuantity(e.target.value)}
+                                    placeholder="Örn. 10"
+                                    title="Stok bu seviyenin altına inince bildirim oluşur"
+                                />
+                            </label>
                         </div>
                     </section>
 
                     <section className="stock-modal-card">
                         <header className="stock-modal-card-head">
                             <div className="stock-modal-section-title">Tedarikçi</div>
-                            <div className="stock-modal-card-hint">Tedarikçiyi ekleyin; sonradan “Tedarikçi değiştir” ile güncellenir.</div>
+                            <div className="stock-modal-card-hint">
+                                İsteğe bağlı. Boş bırakırsanız detaydan “İlk tedarikçiyi gir” ile ekleyebilirsiniz.
+                            </div>
                         </header>
                         <div className="stock-modal-grid">
                             <label className="field">
@@ -610,6 +971,36 @@ function ItemEditModal({
                                     placeholder="Tel / e-posta"
                                 />
                             </label>
+                            <label className="field">
+                                <span className="field-label">Vade</span>
+                                <select
+                                    className="form-input field-control"
+                                    value={supplierPaymentTerm}
+                                    onChange={(e) => setSupplierPaymentTerm(e.target.value)}
+                                >
+                                    <option value="">Seçin</option>
+                                    {withLegacyVadeOption(supplierPaymentTerm).map((opt) => (
+                                        <option key={opt} value={opt}>
+                                            {opt}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="field">
+                                <span className="field-label">Termin süresi</span>
+                                <select
+                                    className="form-input field-control"
+                                    value={supplierLeadTime}
+                                    onChange={(e) => setSupplierLeadTime(e.target.value)}
+                                >
+                                    <option value="">Seçin</option>
+                                    {withLegacyTerminOption(supplierLeadTime).map((opt) => (
+                                        <option key={opt} value={opt}>
+                                            {opt}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
                         </div>
                     </section>
                 </div>
@@ -627,8 +1018,11 @@ function ItemEditModal({
                                 description: description.trim(),
                                 unit: unit.trim() || null,
                                 quantity: String(quantity ?? '').trim() || null,
+                                criticalQuantity: String(criticalQuantity ?? '').trim() || null,
                                 supplierName: supplierName.trim() || null,
-                                supplierContact: supplierContact.trim() || null
+                                supplierContact: supplierContact.trim() || null,
+                                supplierPaymentTerm: supplierPaymentTerm.trim() || null,
+                                supplierLeadTime: supplierLeadTime.trim() || null
                             };
                             if (groupId !== '') {
                                 payload.groupId = groupId;
@@ -677,9 +1071,19 @@ function PriceSparkline({ points }: { points: StockPriceHistoryPoint[] }) {
     const PAD_X = 12;
     const PAD_Y_TOP = 16;
     const PAD_Y_BOT = 24;
-    const sorted = [...points].sort(
+    const sortedAll = [...points].sort(
         (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
     );
+    const chartCurrency = sortedAll[sortedAll.length - 1]?.currency || 'TRY';
+    const sorted = sortedAll.filter((p) => (p.currency || 'TRY') === chartCurrency);
+    if (sorted.length < 2) {
+        return (
+            <div className="stock-chart-empty">
+                <BarChart3 size={26} strokeWidth={1.6} />
+                <p>Aynı para biriminde en az 2 fiyat kaydı gerekli.</p>
+            </div>
+        );
+    }
     const ys = sorted.map((p) => p.unitPrice);
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
@@ -731,7 +1135,7 @@ function PriceSparkline({ points }: { points: StockPriceHistoryPoint[] }) {
                         stroke={isUp ? 'var(--danger)' : 'var(--success)'}
                         strokeWidth={2}
                     >
-                        <title>{`${formatDateTime(pt.p.recordedAt)} → ${formatTry(pt.p.unitPrice)}`}</title>
+                        <title>{`${formatDateTime(pt.p.recordedAt)} → ${formatMoney(pt.p.unitPrice, pt.p.currency)}`}</title>
                     </circle>
                 </g>
             ))}
@@ -776,7 +1180,8 @@ function StockDetailModal({
     onClose,
     onMutated,
     onEditItem,
-    onAddPrice
+    onAddPrice,
+    onEditPrice
 }: {
     itemId: number;
     isAdmin: boolean;
@@ -784,6 +1189,7 @@ function StockDetailModal({
     onMutated: () => void;
     onEditItem: (row: StockItemRow) => void;
     onAddPrice: (row: StockItemRow) => void;
+    onEditPrice: (row: StockItemRow, hist: StockPriceHistoryPoint) => void;
 }) {
     const [detail, setDetail] = useState<StockItemDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -791,6 +1197,11 @@ function StockDetailModal({
     const [supplierOpen, setSupplierOpen] = useState(false);
     const [movementType, setMovementType] = useState<'IN' | 'OUT' | null>(null);
     const [busy, setBusy] = useState(false);
+    const [docUploadOpen, setDocUploadOpen] = useState<{
+        hint?: string;
+        defaultKind?: StockDocumentKind;
+    } | null>(null);
+    const [resetStep, setResetStep] = useState<null | 'warn' | 'confirm'>(null);
 
     const refresh = useCallback(async () => {
         try {
@@ -822,15 +1233,52 @@ function StockDetailModal({
             description: detail.description,
             unit: detail.unit,
             quantity: detail.quantity != null ? String(detail.quantity) : null,
+            criticalQuantity: detail.criticalQuantity != null ? String(detail.criticalQuantity) : null,
+            isMainItem: Boolean(detail.isMainItem),
             supplierName: detail.supplierName,
             supplierContact: detail.supplierContact,
+            supplierPaymentTerm: detail.supplierPaymentTerm ?? null,
+            supplierLeadTime: detail.supplierLeadTime ?? null,
             createdAt: detail.createdAt,
             updatedAt: detail.updatedAt,
             latestUnitPrice: detail.latestUnitPrice,
             previousUnitPrice: detail.previousUnitPrice,
+            latestCurrency: detail.latestCurrency,
+            previousCurrency: detail.previousCurrency,
             priceChangePercent: detail.priceChangePercent
         };
     }, [detail]);
+
+    const toggleDetailMain = async () => {
+        if (!detail || busy) return;
+        const next = !detail.isMainItem;
+        setBusy(true);
+        try {
+            await updateStockItem(detail.id, { isMainItem: next });
+            setDetail({ ...detail, isMainItem: next });
+            onMutated();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Ana kalem güncellenemedi');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const runReset = async () => {
+        if (!detail || busy) return;
+        setBusy(true);
+        try {
+            await resetStockItem(detail.id);
+            setResetStep(null);
+            await refresh();
+            onMutated();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Sıfırlanamadı');
+            setResetStep(null);
+        } finally {
+            setBusy(false);
+        }
+    };
 
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="stock-detail-title" onClick={onClose}>
@@ -855,6 +1303,30 @@ function StockDetailModal({
                             </div>
                         )}
                     </div>
+                    {detail && (
+                        <button
+                            type="button"
+                            className="btn btn-secondary stock-detail-reset-btn"
+                            onClick={() => setResetStep('warn')}
+                            disabled={busy}
+                            title="Ürüne ait tüm bilgileri sıfırla"
+                        >
+                            <RotateCcw size={14} />
+                            Bilgileri sıfırla
+                        </button>
+                    )}
+                    {detail && (
+                        <button
+                            type="button"
+                            className={`btn btn-secondary stock-detail-main-btn${detail.isMainItem ? ' is-on' : ''}`}
+                            onClick={() => void toggleDetailMain()}
+                            disabled={busy}
+                            title={detail.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
+                        >
+                            <Star size={14} fill={detail.isMainItem ? 'currentColor' : 'none'} />
+                            {detail.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
+                        </button>
+                    )}
                     {detail && (
                         <button
                             type="button"
@@ -896,6 +1368,25 @@ function StockDetailModal({
                                         {detail.quantity != null ? detail.quantity : '—'}{' '}
                                         <span className="stock-detail-card-unit">{detail.unit ?? ''}</span>
                                     </div>
+                                    {detail.criticalQuantity != null ? (
+                                        (() => {
+                                            const zone = stockLevelZone(detail.quantity, detail.criticalQuantity);
+                                            return (
+                                        <div
+                                            className={`stock-detail-critical${
+                                                zone === 'critical' ? ' is-low' : zone === 'warn' ? ' is-warn' : zone === 'safe' ? ' is-safe' : ''
+                                            }`}
+                                        >
+                                            Kritik eşik: <strong>{detail.criticalQuantity}</strong>
+                                            {zone ? ` — ${stockLevelLabel(zone)}` : ''}
+                                        </div>
+                                            );
+                                        })()
+                                    ) : (
+                                        <div className="stock-detail-critical stock-detail-critical--empty">
+                                            Kritik stok seviyesi tanımlanmamış
+                                        </div>
+                                    )}
                                     <div className="stock-detail-card-actions">
                                         <button
                                             type="button"
@@ -921,11 +1412,11 @@ function StockDetailModal({
                                         <BarChart3 size={14} aria-hidden /> Güncel birim fiyat
                                     </div>
                                     <div className="stock-detail-card-value" style={{ fontSize: '1.4rem' }}>
-                                        {formatTry(detail.latestUnitPrice)}
+                                        {formatMoney(detail.latestUnitPrice, detail.latestCurrency)}
                                     </div>
                                     {detail.previousUnitPrice != null ? (
                                         <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                                            Önceki: {formatTry(detail.previousUnitPrice)}
+                                            Önceki: {formatMoney(detail.previousUnitPrice, detail.previousCurrency)}
                                         </div>
                                     ) : null}
                                     <div className="stock-detail-card-actions" style={{ marginTop: 'auto' }}>
@@ -977,11 +1468,15 @@ function StockDetailModal({
                                         }}
                                     >
                                         {priceChangePositive
-                                            ? `Birim fiyatta ${formatTry(detail.priceChangeAbs ?? 0)} artış var.`
+                                            ? `Birim fiyatta ${formatMoney(detail.priceChangeAbs ?? 0, detail.latestCurrency)} artış var.`
                                             : priceChangeNegative
-                                            ? `Birim fiyatta ${formatTry(Math.abs(detail.priceChangeAbs ?? 0))} azalış var.`
+                                            ? `Birim fiyatta ${formatMoney(Math.abs(detail.priceChangeAbs ?? 0), detail.latestCurrency)} azalış var.`
                                             : detail.priceChangePercent === 0
                                             ? 'Fiyatta değişiklik yok.'
+                                            : detail.latestCurrency &&
+                                                detail.previousCurrency &&
+                                                detail.latestCurrency !== detail.previousCurrency
+                                              ? 'Son iki fiyat farklı para biriminde; yüzde fark hesaplanmadı.'
                                             : 'Karşılaştırma için en az iki fiyat kaydı gerekli.'}
                                     </div>
                                 </div>
@@ -1003,8 +1498,10 @@ function StockDetailModal({
                                     <ul className="stock-detail-pricelist">
                                         {detail.priceHistory.slice(0, 6).map((p, i, arr) => {
                                             const next = arr[i + 1];
+                                            const sameCurrency =
+                                                next != null && (p.currency || 'TRY') === (next.currency || 'TRY');
                                             const diff =
-                                                next && next.unitPrice !== 0
+                                                sameCurrency && next && next.unitPrice !== 0
                                                     ? ((p.unitPrice - next.unitPrice) / next.unitPrice) * 100
                                                     : null;
                                             const up = diff != null && diff > 0;
@@ -1015,7 +1512,7 @@ function StockDetailModal({
                                                         {formatDateTime(p.recordedAt)}
                                                     </span>
                                                     <span className="stock-detail-pricelist-price">
-                                                        {formatTry(p.unitPrice)}
+                                                        {formatMoney(p.unitPrice, p.currency)}
                                                     </span>
                                                     {diff != null ? (
                                                         <span
@@ -1045,6 +1542,18 @@ function StockDetailModal({
                                                             {p.note}
                                                         </span>
                                                     ) : null}
+                                                    <button
+                                                        type="button"
+                                                        className="icon-btn"
+                                                        title="Fiyatı düzelt"
+                                                        disabled={busy}
+                                                        onClick={() => {
+                                                            const r = asRow();
+                                                            if (r) onEditPrice(r, p);
+                                                        }}
+                                                    >
+                                                        <Pencil size={15} />
+                                                    </button>
                                                     {isAdmin ? (
                                                         <button
                                                             type="button"
@@ -1086,7 +1595,15 @@ function StockDetailModal({
                                         style={{ padding: '6px 12px', fontSize: 12 }}
                                         onClick={() => setSupplierOpen(true)}
                                     >
-                                        <Repeat size={14} /> Tedarikçi değiştir
+                                        {hasStockSupplier(detail) ? (
+                                            <>
+                                                <Repeat size={14} /> Tedarikçiyi değiştir
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Plus size={14} /> İlk tedarikçiyi gir
+                                            </>
+                                        )}
                                     </button>
                                 </header>
                                 <div className="stock-detail-supplier">
@@ -1105,6 +1622,18 @@ function StockDetailModal({
                                             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                                         >
                                             {detail.supplierContact ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="stock-detail-label">Vade</div>
+                                        <div className="stock-detail-value">
+                                            {detail.supplierPaymentTerm ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="stock-detail-label">Termin</div>
+                                        <div className="stock-detail-value">
+                                            {detail.supplierLeadTime ?? <span style={{ color: 'var(--muted)' }}>—</span>}
                                         </div>
                                     </div>
                                 </div>
@@ -1145,7 +1674,7 @@ function StockDetailModal({
                                                             ) : null}
                                                             <span
                                                                 className="stock-hist-chip stock-hist-chip--to"
-                                                                title={[s.supplierName, s.supplierContact].filter(Boolean).join(' · ') || undefined}
+                                                                title={[s.supplierName, s.supplierContact, s.supplierPaymentTerm, s.supplierLeadTime].filter(Boolean).join(' · ') || undefined}
                                                             >
                                                                 <span className="stock-hist-tag stock-hist-tag--to">Yeni</span>
                                                                 <Building2 size={14} aria-hidden className="stock-hist-chip-ic" />
@@ -1155,6 +1684,12 @@ function StockDetailModal({
                                                                         <Phone size={13} aria-hidden className="stock-hist-chip-ic stock-hist-chip-ic--muted" />
                                                                         <span className="stock-hist-chip-meta">{s.supplierContact}</span>
                                                                     </>
+                                                                ) : null}
+                                                                {s.supplierPaymentTerm ? (
+                                                                    <span className="stock-hist-chip-meta">· Vade: {s.supplierPaymentTerm}</span>
+                                                                ) : null}
+                                                                {s.supplierLeadTime ? (
+                                                                    <span className="stock-hist-chip-meta">· Termin: {s.supplierLeadTime}</span>
                                                                 ) : null}
                                                             </span>
                                                         </span>
@@ -1198,6 +1733,117 @@ function StockDetailModal({
                                         </ul>
                                     </details>
                                 ) : null}
+                            </section>
+
+                            <section className="stock-detail-section">
+                                <header className="stock-detail-section-head">
+                                    <h3>
+                                        <FileImage size={16} aria-hidden /> Ürün / teknik resim
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        style={{ padding: '6px 12px', fontSize: 12 }}
+                                        onClick={() => setDocUploadOpen({})}
+                                    >
+                                        <Plus size={14} /> Dosya yükle
+                                    </button>
+                                </header>
+                                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 12px', lineHeight: 1.45 }}>
+                                    Tedarikçi değişince yeni resim/teknik çizim ekleyin; eskiler geçmiş olarak kalır.
+                                </p>
+                                {(detail.documents?.length ?? 0) === 0 ? (
+                                    <div className="stock-empty" style={{ padding: '24px 12px', margin: 0 }}>
+                                        <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+                                            Henüz ürün veya teknik resim yok.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <ul className="stock-doc-list">
+                                        {(detail.documents ?? []).map((doc, idx) => {
+                                            const url = getStockItemDocumentUrl(itemId, doc.id);
+                                            const kindLabel =
+                                                STOCK_DOC_KIND_LABELS[doc.kind as StockDocumentKind] || doc.kind;
+                                            const isLatest = idx === 0;
+                                            return (
+                                                <li key={doc.id} className={`stock-doc-card${isLatest ? ' is-latest' : ''}`}>
+                                                    <a
+                                                        className="stock-doc-thumb"
+                                                        href={url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        title="Aç"
+                                                    >
+                                                        {doc.isImage || String(doc.mimeType).startsWith('image/') ? (
+                                                            // eslint-disable-next-line @next/next/no-img-element
+                                                            <img src={url} alt={doc.originalFileName || kindLabel} />
+                                                        ) : (
+                                                            <span className="stock-doc-pdf">
+                                                                <FileText size={28} />
+                                                                <span>PDF</span>
+                                                            </span>
+                                                        )}
+                                                    </a>
+                                                    <div className="stock-doc-meta">
+                                                        <div className="stock-doc-title-row">
+                                                            <span className="stock-doc-kind">
+                                                                {doc.kind === 'TECH_DRAWING' ? (
+                                                                    <FileText size={13} />
+                                                                ) : (
+                                                                    <ImageIcon size={13} />
+                                                                )}
+                                                                {kindLabel}
+                                                            </span>
+                                                            {isLatest ? <span className="stock-doc-badge">Güncel</span> : null}
+                                                        </div>
+                                                        <div className="stock-doc-date">{formatDateTime(doc.createdAt)}</div>
+                                                        {doc.supplierName ? (
+                                                            <div className="stock-doc-supplier" title={doc.supplierName}>
+                                                                <Building2 size={12} /> {doc.supplierName}
+                                                            </div>
+                                                        ) : null}
+                                                        <div className="stock-doc-file">
+                                                            {doc.originalFileName || 'dosya'} · {formatBytes(doc.sizeBytes)}
+                                                        </div>
+                                                        {doc.note ? (
+                                                            <div className="stock-doc-note" title={doc.note}>
+                                                                {doc.note}
+                                                            </div>
+                                                        ) : null}
+                                                        <div className="stock-doc-actions">
+                                                            <a className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={url} target="_blank" rel="noreferrer">
+                                                                Aç
+                                                            </a>
+                                                            {isAdmin ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="icon-btn icon-btn--danger"
+                                                                    title="Sil"
+                                                                    disabled={busy}
+                                                                    onClick={async () => {
+                                                                        if (!confirm('Bu dosyayı silmek istiyor musunuz?')) return;
+                                                                        try {
+                                                                            setBusy(true);
+                                                                            await deleteStockItemDocument(itemId, doc.id);
+                                                                            await refresh();
+                                                                            onMutated();
+                                                                        } catch (e) {
+                                                                            alert(e instanceof Error ? e.message : 'Silinemedi');
+                                                                        } finally {
+                                                                            setBusy(false);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <Trash2 size={15} />
+                                                                </button>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
                             </section>
 
                             <section className="stock-detail-section">
@@ -1249,25 +1895,61 @@ function StockDetailModal({
 
             {supplierOpen && detail && (
                 <SupplierChangeModal
+                    mode={hasStockSupplier(detail) ? 'change' : 'first'}
                     current={{
                         supplierName: detail.supplierName,
-                        supplierContact: detail.supplierContact
+                        supplierContact: detail.supplierContact,
+                        supplierPaymentTerm: detail.supplierPaymentTerm ?? null,
+                        supplierLeadTime: detail.supplierLeadTime ?? null
                     }}
                     saving={busy}
                     onClose={() => !busy && setSupplierOpen(false)}
-                    onSave={async (name, contact, note) => {
+                    onSave={async (name, contact, paymentTerm, leadTime, note) => {
+                        const wasFirst = !hasStockSupplier(detail);
                         try {
                             setBusy(true);
                             await changeStockSupplier(itemId, {
                                 supplierName: name,
                                 supplierContact: contact,
+                                supplierPaymentTerm: paymentTerm,
+                                supplierLeadTime: leadTime,
                                 note
                             });
                             setSupplierOpen(false);
                             await refresh();
                             onMutated();
+                            setDocUploadOpen({
+                                hint: wasFirst
+                                    ? 'İlk tedarikçi kaydedildi. İsterseniz ürün veya teknik resim yükleyebilirsiniz.'
+                                    : 'Tedarikçi değişti. Yeni tedarikçiye ait ürün veya teknik resmi yükleyin; eski dosyalar geçmişte kalır.',
+                                defaultKind: 'TECH_DRAWING',
+                            });
                         } catch (e) {
                             alert(e instanceof Error ? e.message : 'Kaydedilemedi');
+                        } finally {
+                            setBusy(false);
+                        }
+                    }}
+                />
+            )}
+
+            {docUploadOpen && detail && (
+                <StockDocumentUploadModal
+                    itemDescription={detail.description}
+                    supplierName={detail.supplierName}
+                    hint={docUploadOpen.hint}
+                    defaultKind={docUploadOpen.defaultKind || 'PRODUCT_IMAGE'}
+                    saving={busy}
+                    onClose={() => !busy && setDocUploadOpen(null)}
+                    onSave={async (payload) => {
+                        try {
+                            setBusy(true);
+                            await addStockItemDocument(itemId, payload);
+                            setDocUploadOpen(null);
+                            await refresh();
+                            onMutated();
+                        } catch (e) {
+                            alert(e instanceof Error ? e.message : 'Yüklenemedi');
                         } finally {
                             setBusy(false);
                         }
@@ -1296,6 +1978,106 @@ function StockDetailModal({
                         }
                     }}
                 />
+            )}
+
+            {resetStep && detail && (
+                <div
+                    className="modal-overlay stock-reset-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="stock-reset-title"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (!busy) setResetStep(null);
+                    }}
+                >
+                    <div
+                        className="modal modal--premium stock-reset-modal"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ maxWidth: 480 }}
+                    >
+                        <div className="modal-header">
+                            <div>
+                                <h2 className="modal-title" id="stock-reset-title">
+                                    {resetStep === 'warn' ? 'Uyarı: Bilgiler silinecek' : 'Emin misiniz?'}
+                                </h2>
+                                <p className="modal-subtitle">
+                                    {detail.description}
+                                    {detail.purchaseCode ? ` (${detail.purchaseCode})` : ''}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                className="modal-close"
+                                onClick={() => !busy && setResetStep(null)}
+                                disabled={busy}
+                                aria-label="Kapat"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '20px 22px' }}>
+                            {resetStep === 'warn' ? (
+                                <div className="stock-reset-warn">
+                                    <p>
+                                        Bu işleme devam ederseniz ürüne ait <strong>bütün bilgiler kalıcı olarak
+                                        silinecek</strong>:
+                                    </p>
+                                    <ul>
+                                        <li>Güncel stok miktarı ve kritik stok seviyesi</li>
+                                        <li>Tedarikçi bilgileri (firma, iletişim, vade, termin)</li>
+                                        <li>Ana kalem işareti</li>
+                                        <li>Tüm birim fiyat geçmişi</li>
+                                        <li>Tüm stok giriş/çıkış hareketleri</li>
+                                        <li>Tedarikçi değişiklik geçmişi</li>
+                                        <li>Ürün ve teknik resimler</li>
+                                    </ul>
+                                    <p className="stock-reset-keep">
+                                        Yalnızca grup, satınalma kodu, malzeme tanımı ve birim kalır. Bu işlem geri
+                                        alınamaz.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="stock-reset-warn stock-reset-warn--final">
+                                    <p>
+                                        <strong>Son onay:</strong> Yukarıda listelenen tüm bilgiler silinecek. Emin
+                                        misiniz?
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => setResetStep(null)}
+                                disabled={busy}
+                            >
+                                Vazgeç
+                            </button>
+                            {resetStep === 'warn' ? (
+                                <button
+                                    type="button"
+                                    className="btn btn-danger"
+                                    onClick={() => setResetStep('confirm')}
+                                    disabled={busy}
+                                >
+                                    Anladım, devam et
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="btn btn-danger"
+                                    onClick={() => void runReset()}
+                                    disabled={busy}
+                                >
+                                    {busy ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
+                                    Evet, tüm bilgileri sil
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -1408,18 +2190,34 @@ function MovementModal({
 }
 
 function SupplierChangeModal({
+    mode = 'change',
     current,
     saving,
     onClose,
     onSave
 }: {
-    current: { supplierName: string | null; supplierContact: string | null };
+    mode?: 'first' | 'change';
+    current: {
+        supplierName: string | null;
+        supplierContact: string | null;
+        supplierPaymentTerm: string | null;
+        supplierLeadTime: string | null;
+    };
     saving: boolean;
     onClose: () => void;
-    onSave: (name: string | null, contact: string | null, note: string | null) => Promise<void>;
+    onSave: (
+        name: string | null,
+        contact: string | null,
+        paymentTerm: string | null,
+        leadTime: string | null,
+        note: string | null
+    ) => Promise<void>;
 }) {
-    const [name, setName] = useState(current.supplierName ?? '');
-    const [contact, setContact] = useState(current.supplierContact ?? '');
+    const isFirst = mode === 'first';
+    const [name, setName] = useState(isFirst ? '' : current.supplierName ?? '');
+    const [contact, setContact] = useState(isFirst ? '' : current.supplierContact ?? '');
+    const [paymentTerm, setPaymentTerm] = useState(isFirst ? '' : current.supplierPaymentTerm ?? '');
+    const [leadTime, setLeadTime] = useState(isFirst ? '' : current.supplierLeadTime ?? '');
     const [note, setNote] = useState('');
     return (
         <div
@@ -1432,9 +2230,11 @@ function SupplierChangeModal({
             <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
                 <div className="modal-header">
                     <div>
-                        <h2 className="modal-title">Tedarikçi değiştir</h2>
+                        <h2 className="modal-title">{isFirst ? 'İlk tedarikçiyi gir' : 'Tedarikçiyi değiştir'}</h2>
                         <p className="modal-subtitle">
-                            Yeni tedarikçiyi girin ve mümkünse değişiklik nedenini not edin.
+                            {isFirst
+                                ? 'Bu ürün için ilk tedarikçi bilgilerini girin. Kayıttan sonra ürün/teknik resim yükleyebilirsiniz.'
+                                : 'Firma, iletişim, vade ve termin bilgisini girin. Kayıttan sonra yeni ürün/teknik resmi yüklemeniz istenir.'}
                         </p>
                     </div>
                     <button type="button" className="modal-close" onClick={onClose} disabled={saving} aria-label="Kapat">
@@ -1444,7 +2244,7 @@ function SupplierChangeModal({
                 <div className="modal-body" style={{ padding: 24 }}>
                     <label>
                         <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
-                            Yeni firma adı
+                            {isFirst ? 'Firma adı' : 'Yeni firma adı'}
                         </span>
                         <input
                             className="form-input"
@@ -1456,7 +2256,7 @@ function SupplierChangeModal({
                     </label>
                     <label style={{ display: 'block', marginTop: 14 }}>
                         <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
-                            Yeni iletişim (tel / e-posta)
+                            {isFirst ? 'İletişim (tel / e-posta)' : 'Yeni iletişim (tel / e-posta)'}
                         </span>
                         <textarea
                             className="form-input"
@@ -1466,18 +2266,58 @@ function SupplierChangeModal({
                             onChange={(e) => setContact(e.target.value)}
                         />
                     </label>
-                    <label style={{ display: 'block', marginTop: 14 }}>
-                        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
-                            Değişiklik notu (isteğe bağlı)
-                        </span>
-                        <input
-                            className="form-input"
-                            style={{ borderRadius: 10 }}
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            placeholder="Neden değişti?"
-                        />
-                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+                        <label>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Vade (bu üründe)
+                            </span>
+                            <select
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                value={paymentTerm}
+                                onChange={(e) => setPaymentTerm(e.target.value)}
+                            >
+                                <option value="">Seçin</option>
+                                {withLegacyVadeOption(paymentTerm).map((opt) => (
+                                    <option key={opt} value={opt}>
+                                        {opt}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Termin süresi
+                            </span>
+                            <select
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                value={leadTime}
+                                onChange={(e) => setLeadTime(e.target.value)}
+                            >
+                                <option value="">Seçin</option>
+                                {withLegacyTerminOption(leadTime).map((opt) => (
+                                    <option key={opt} value={opt}>
+                                        {opt}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
+                    {!isFirst ? (
+                        <label style={{ display: 'block', marginTop: 14 }}>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Değişiklik notu (isteğe bağlı)
+                            </span>
+                            <input
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                placeholder="Neden değişti?"
+                            />
+                        </label>
+                    ) : null}
                 </div>
                 <div className="modal-footer">
                     <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
@@ -1486,13 +2326,25 @@ function SupplierChangeModal({
                     <button
                         type="button"
                         className="btn btn-primary"
-                        disabled={saving || (name.trim() === '' && contact.trim() === '')}
+                        disabled={
+                            saving ||
+                            (name.trim() === '' &&
+                                contact.trim() === '' &&
+                                paymentTerm.trim() === '' &&
+                                leadTime.trim() === '')
+                        }
                         onClick={() =>
-                            void onSave(name.trim() || null, contact.trim() || null, note.trim() || null)
+                            void onSave(
+                                name.trim() || null,
+                                contact.trim() || null,
+                                paymentTerm.trim() || null,
+                                leadTime.trim() || null,
+                                note.trim() || null
+                            )
                         }
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : null}
-                        Kaydet
+                        {isFirst ? 'İlk tedarikçiyi kaydet' : 'Kaydet'}
                     </button>
                 </div>
             </div>
@@ -1502,17 +2354,23 @@ function SupplierChangeModal({
 
 function PriceModal({
     item,
+    edit,
     saving,
     onClose,
     onSave
 }: {
     item: StockItemRow;
+    edit?: StockPriceHistoryPoint;
     saving: boolean;
     onClose: () => void;
-    onSave: (unitPrice: number, note: string | null) => Promise<void>;
+    onSave: (unitPrice: number, currency: StockPriceCurrency, note: string | null) => Promise<void>;
 }) {
-    const [price, setPrice] = useState('');
-    const [note, setNote] = useState('');
+    const isEdit = Boolean(edit);
+    const [price, setPrice] = useState(edit != null ? String(edit.unitPrice).replace('.', ',') : '');
+    const [currency, setCurrency] = useState<StockPriceCurrency>(
+        (edit?.currency as StockPriceCurrency) || item.latestCurrency || 'TRY'
+    );
+    const [note, setNote] = useState(edit?.note ?? '');
 
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="stock-price-modal-title" onClick={onClose}>
@@ -1520,10 +2378,12 @@ function PriceModal({
                 <div className="modal-header">
                     <div>
                         <h2 className="modal-title" id="stock-price-modal-title">
-                            Birim fiyat kaydı
+                            {isEdit ? 'Fiyatı düzelt' : 'Birim fiyat kaydı'}
                         </h2>
                         <p className="modal-subtitle">
-                            Fiyat geçmişi otomatik tutulur. Not alanına fatura/tedarikçi gibi referans ekleyebilirsiniz.
+                            {isEdit
+                                ? 'Yanlış girilen fiyatı, para birimini veya notu güncelleyin. Tarih aynı kalır.'
+                                : 'Fiyat geçmişi otomatik tutulur. Not alanına fatura/tedarikçi gibi referans ekleyebilirsiniz.'}
                         </p>
                     </div>
                     <button type="button" className="modal-close" onClick={onClose} disabled={saving} aria-label="Kapat">
@@ -1543,19 +2403,45 @@ function PriceModal({
                         }}
                     >
                         {item.description}
+                        {isEdit && edit ? (
+                            <>
+                                <br />
+                                <span style={{ fontSize: '0.8rem' }}>
+                                    Kayıt tarihi: {formatDateTime(edit.recordedAt)}
+                                </span>
+                            </>
+                        ) : null}
                     </p>
-                    <label>
-                        <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Birim fiyat (TRY) *</span>
-                        <input
-                            className="form-input"
-                            style={{ borderRadius: 10, fontSize: '1.05rem', fontWeight: 600 }}
-                            type="text"
-                            inputMode="decimal"
-                            value={price}
-                            onChange={(e) => setPrice(e.target.value)}
-                            placeholder="0,00"
-                        />
-                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12 }}>
+                        <label>
+                            <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Birim fiyat *</span>
+                            <input
+                                className="form-input"
+                                style={{ borderRadius: 10, fontSize: '1.05rem', fontWeight: 600 }}
+                                type="text"
+                                inputMode="decimal"
+                                value={price}
+                                onChange={(e) => setPrice(e.target.value)}
+                                placeholder="0,00"
+                                autoFocus
+                            />
+                        </label>
+                        <label>
+                            <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Para birimi *</span>
+                            <select
+                                className="form-input"
+                                style={{ borderRadius: 10, fontSize: '0.95rem', fontWeight: 600 }}
+                                value={currency}
+                                onChange={(e) => setCurrency(e.target.value as StockPriceCurrency)}
+                            >
+                                {STOCK_CURRENCY_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
                     <label style={{ display: 'block', marginTop: '16px' }}>
                         <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: 'var(--muted)' }}>Not (isteğe bağlı)</span>
                         <input
@@ -1567,7 +2453,9 @@ function PriceModal({
                         />
                     </label>
                     <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '14px', lineHeight: 1.45 }}>
-                        Her kayıt fiyat geçmişine eklenir; listede son iki fiyat üzerinden yüzde değişim gösterilir.
+                        {isEdit
+                            ? 'Düzeltme mevcut kaydı günceller; yeni satır eklenmez.'
+                            : 'Her kayıt fiyat geçmişine eklenir; aynı para birimindeki son iki fiyat üzerinden yüzde değişim gösterilir.'}
                     </p>
                 </div>
                 <div className="modal-footer">
@@ -1584,11 +2472,208 @@ function PriceModal({
                                 alert('Geçerli bir fiyat girin');
                                 return;
                             }
-                            void onSave(n, note.trim() || null);
+                            void onSave(n, currency, note.trim() || null);
                         }}
                     >
                         {saving ? <Loader2 size={18} className="animate-spin" /> : null}
-                        Kaydet
+                        {isEdit ? 'Düzeltmeyi kaydet' : 'Kaydet'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function StockDocumentUploadModal({
+    itemDescription,
+    supplierName,
+    hint,
+    defaultKind,
+    saving,
+    onClose,
+    onSave,
+}: {
+    itemDescription: string;
+    supplierName: string | null;
+    hint?: string;
+    defaultKind: StockDocumentKind;
+    saving: boolean;
+    onClose: () => void;
+    onSave: (payload: {
+        kind: StockDocumentKind;
+        mimeType: string;
+        dataBase64: string;
+        originalFileName?: string | null;
+        note?: string | null;
+        supplierName?: string | null;
+    }) => Promise<void>;
+}) {
+    const [kind, setKind] = useState<StockDocumentKind>(defaultKind);
+    const [docSupplierName, setDocSupplierName] = useState(supplierName ?? '');
+    const [note, setNote] = useState('');
+    const [fileName, setFileName] = useState<string | null>(null);
+    const [payload, setPayload] = useState<{ mimeType: string; dataBase64: string; fileName: string } | null>(null);
+    const [preparing, setPreparing] = useState(false);
+
+    return (
+        <div
+            className="modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            style={{ zIndex: 1200 }}
+            onClick={onClose}
+        >
+            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                <div className="modal-header">
+                    <div>
+                        <h2 className="modal-title">Ürün / teknik resim yükle</h2>
+                        <p className="modal-subtitle">
+                            JPEG, PNG, WebP veya PDF. Max 4MB. Eski dosyalar silinmez, geçmişte kalır.
+                        </p>
+                    </div>
+                    <button type="button" className="modal-close" onClick={onClose} disabled={saving || preparing} aria-label="Kapat">
+                        <X size={18} />
+                    </button>
+                </div>
+                <div className="modal-body" style={{ padding: 24 }}>
+                    {hint ? (
+                        <p
+                            style={{
+                                fontSize: '0.88rem',
+                                color: 'var(--foreground)',
+                                lineHeight: 1.5,
+                                padding: '12px 14px',
+                                background: 'color-mix(in srgb, var(--primary) 10%, var(--card))',
+                                borderRadius: 12,
+                                border: '1px solid color-mix(in srgb, var(--primary) 25%, var(--border))',
+                                marginBottom: 16,
+                            }}
+                        >
+                            {hint}
+                        </p>
+                    ) : null}
+                    <p
+                        style={{
+                            fontSize: '0.9rem',
+                            color: 'var(--muted)',
+                            lineHeight: 1.5,
+                            padding: '12px 14px',
+                            background: 'var(--secondary)',
+                            borderRadius: 12,
+                            border: '1px solid var(--border)',
+                            marginBottom: 16,
+                        }}
+                    >
+                        {itemDescription}
+                    </p>
+                    <label style={{ display: 'block', marginBottom: 14 }}>
+                        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                            <Building2 size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} aria-hidden />
+                            Tedarikçi adı *
+                        </span>
+                        <input
+                            className="form-input"
+                            style={{ borderRadius: 10 }}
+                            value={docSupplierName}
+                            onChange={(e) => setDocSupplierName(e.target.value)}
+                            placeholder="Bu resmin / çizimin ait olduğu tedarikçi"
+                            autoFocus={!supplierName}
+                        />
+                    </label>
+                    <label style={{ display: 'block', marginBottom: 14 }}>
+                        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                            Dosya tipi *
+                        </span>
+                        <select
+                            className="form-input"
+                            style={{ borderRadius: 10 }}
+                            value={kind}
+                            onChange={(e) => setKind(e.target.value as StockDocumentKind)}
+                        >
+                            <option value="PRODUCT_IMAGE">Ürün resmi</option>
+                            <option value="TECH_DRAWING">Teknik resim</option>
+                        </select>
+                    </label>
+                    <label style={{ display: 'block', marginBottom: 14 }}>
+                        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                            Dosya *
+                        </span>
+                        <input
+                            className="form-input"
+                            style={{ borderRadius: 10 }}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+                            disabled={saving || preparing}
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = '';
+                                if (!file) return;
+                                void (async () => {
+                                    try {
+                                        setPreparing(true);
+                                        const next = await fileToStockDocumentPayload(file);
+                                        setPayload(next);
+                                        setFileName(next.fileName);
+                                    } catch (err) {
+                                        setPayload(null);
+                                        setFileName(null);
+                                        alert(err instanceof Error ? err.message : 'Dosya hazırlanamadı');
+                                    } finally {
+                                        setPreparing(false);
+                                    }
+                                })();
+                            }}
+                        />
+                        {preparing ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>
+                                <Loader2 size={14} className="animate-spin" /> Hazırlanıyor…
+                            </span>
+                        ) : fileName ? (
+                            <span style={{ display: 'block', marginTop: 8, fontSize: 12, color: 'var(--foreground)' }}>
+                                Seçildi: {fileName}
+                            </span>
+                        ) : null}
+                    </label>
+                    <label style={{ display: 'block' }}>
+                        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                            Not (isteğe bağlı)
+                        </span>
+                        <input
+                            className="form-input"
+                            style={{ borderRadius: 10 }}
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            placeholder="Revizyon, parça kodu…"
+                        />
+                    </label>
+                </div>
+                <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving || preparing}>
+                        Vazgeç
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={saving || preparing || !payload || !docSupplierName.trim()}
+                        onClick={() => {
+                            if (!payload) return;
+                            const sn = docSupplierName.trim();
+                            if (!sn) {
+                                alert('Tedarikçi adı girin');
+                                return;
+                            }
+                            void onSave({
+                                kind,
+                                mimeType: payload.mimeType,
+                                dataBase64: payload.dataBase64,
+                                originalFileName: payload.fileName,
+                                note: note.trim() || null,
+                                supplierName: sn,
+                            });
+                        }}
+                    >
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : null}
+                        Yükle
                     </button>
                 </div>
             </div>

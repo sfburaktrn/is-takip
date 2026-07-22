@@ -60,6 +60,7 @@ const mem = {
     stockMovements: [],
     stockSupplierHistory: [],
     stockUnitPriceHistory: [],
+    stockItemDocuments: [],
     vehicleDeliveryEvents: [],
     auditLogs: [],
 };
@@ -228,13 +229,21 @@ const base = {
                 const supplierHistory = mem.stockSupplierHistory
                     .filter((s) => s.stockItemId === id)
                     .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
-                return {
+                const documents = (mem.stockItemDocuments || [])
+                    .filter((d) => d.stockItemId === id)
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                const out = {
                     ...row,
                     group,
                     priceHistory,
                     movements,
                     supplierHistory,
+                    documents,
                 };
+                if (include._count?.select?.documents) {
+                    out._count = { documents: documents.length };
+                }
+                return out;
             }
             return { ...row };
         },
@@ -250,6 +259,8 @@ const base = {
                 quantity: data.quantity ?? null,
                 supplierName: data.supplierName ?? null,
                 supplierContact: data.supplierContact ?? null,
+                supplierPaymentTerm: data.supplierPaymentTerm ?? null,
+                supplierLeadTime: data.supplierLeadTime ?? null,
                 createdAt: now,
                 updatedAt: now,
             };
@@ -295,8 +306,12 @@ const base = {
                 stockItemId: data.stockItemId,
                 prevSupplierName: data.prevSupplierName ?? null,
                 prevSupplierContact: data.prevSupplierContact ?? null,
+                prevSupplierPaymentTerm: data.prevSupplierPaymentTerm ?? null,
+                prevSupplierLeadTime: data.prevSupplierLeadTime ?? null,
                 supplierName: data.supplierName ?? null,
                 supplierContact: data.supplierContact ?? null,
+                supplierPaymentTerm: data.supplierPaymentTerm ?? null,
+                supplierLeadTime: data.supplierLeadTime ?? null,
                 note: data.note ?? null,
                 userId: data.userId ?? null,
                 recordedAt: now,
@@ -433,9 +448,11 @@ const base = {
                 stockItemId: data.stockItemId,
                 recordedAt: now,
                 unitPrice: asDecimalNumber(data.unitPrice),
+                currency: data.currency ?? 'TRY',
                 note: data.note ?? null,
                 supplierName: data.supplierName ?? null,
                 supplierContact: data.supplierContact ?? null,
+                supplierPaymentTerm: data.supplierPaymentTerm ?? null,
             };
             mem.stockUnitPriceHistory.push(row);
             return { ...row };
@@ -446,6 +463,44 @@ const base = {
             return { count: before - mem.stockUnitPriceHistory.length };
         },
         findMany: async () => [],
+    },
+    stockItemDocument: {
+        create: async ({ data, select } = {}) => {
+            const now = data.createdAt ? new Date(data.createdAt) : new Date();
+            const row = {
+                id: nextId(),
+                stockItemId: data.stockItemId,
+                kind: data.kind || 'PRODUCT_IMAGE',
+                mimeType: data.mimeType,
+                data: data.data,
+                sizeBytes: data.sizeBytes ?? 0,
+                originalFileName: data.originalFileName ?? null,
+                note: data.note ?? null,
+                supplierName: data.supplierName ?? null,
+                supplierContact: data.supplierContact ?? null,
+                uploadedByUsername: data.uploadedByUsername ?? null,
+                createdAt: now,
+            };
+            mem.stockItemDocuments.push(row);
+            if (select) {
+                const o = {};
+                for (const k of Object.keys(select)) o[k] = row[k];
+                return o;
+            }
+            return { ...row };
+        },
+        findUnique: async ({ where } = {}) => {
+            const id = where?.id;
+            if (id == null) return null;
+            return mem.stockItemDocuments.find((r) => r.id === id) || null;
+        },
+        deleteMany: async ({ where } = {}) => {
+            const before = mem.stockItemDocuments.length;
+            mem.stockItemDocuments = mem.stockItemDocuments.filter(
+                (r) => !(r.id === where?.id && r.stockItemId === where?.stockItemId)
+            );
+            return { count: before - mem.stockItemDocuments.length };
+        },
     },
 };
 

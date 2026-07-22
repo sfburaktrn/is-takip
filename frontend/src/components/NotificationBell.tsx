@@ -8,6 +8,7 @@ import {
     getNotifications,
     getUnreadNotificationCount,
     isProposalNotification,
+    isStockNotification,
     markAllNotificationsRead,
     markNotificationRead,
     notificationItemHref,
@@ -15,7 +16,7 @@ import {
 } from '@/lib/api';
 import { getNotificationSoundEnabled, setNotificationSoundEnabled } from '@/lib/notificationPrefs';
 import { playNotificationChime, unlockNotificationAudio } from '@/lib/notificationSound';
-import { Bell, Briefcase, ChevronRight, Factory, Loader2, Volume2, VolumeX, X } from 'lucide-react';
+import { Bell, Briefcase, ChevronRight, Factory, Loader2, Package, Volume2, VolumeX, X } from 'lucide-react';
 
 const POLL_MS = 20000;
 const PANEL_LIMIT = 24;
@@ -27,6 +28,7 @@ function productTypeLabel(t: string) {
     if (t === 'PROPOSAL') return 'Teklif';
     if (t === 'VEHICLE_DELIVERY') return 'Araç';
     if (t === 'MAINTENANCE') return 'Bakım';
+    if (t === 'STOCK') return 'Stok';
     return t;
 }
 
@@ -270,8 +272,9 @@ export default function NotificationBell() {
         setOpen(false);
     };
 
-    const productItems = items.filter((n) => !isProposalNotification(n));
+    const productItems = items.filter((n) => !isProposalNotification(n) && !isStockNotification(n));
     const proposalItems = items.filter((n) => isProposalNotification(n));
+    const stockItems = items.filter((n) => isStockNotification(n));
 
     const closeWelcome = () => setWelcomeOpen(false);
 
@@ -423,6 +426,14 @@ export default function NotificationBell() {
                                     icon={Briefcase}
                                     items={proposalItems}
                                     emptyHint="Okunmamış teklif bildirimi yok."
+                                    onNavigate={onItemNavigate}
+                                />
+                                <NotificationListBlock
+                                    title="Stok"
+                                    subtitle="Kritik stok seviyesi uyarıları"
+                                    icon={Package}
+                                    items={stockItems}
+                                    emptyHint="Okunmamış kritik stok uyarısı yok."
                                     onNavigate={onItemNavigate}
                                 />
                             </>

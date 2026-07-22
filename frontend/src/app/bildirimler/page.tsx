@@ -9,15 +9,16 @@ import {
     getNotifications,
     getUnreadNotificationBreakdown,
     isProposalNotification,
+    isStockNotification,
     markAllNotificationsRead,
     markNotificationRead,
     notificationItemHref,
     syncProposalNotifications,
     type NotificationItem
 } from '@/lib/api';
-import { Bell, Briefcase, CheckCheck, Factory, LayoutGrid, Loader2, RefreshCcw } from 'lucide-react';
+import { Bell, Briefcase, CheckCheck, Factory, LayoutGrid, Loader2, Package, RefreshCcw } from 'lucide-react';
 
-type Category = 'all' | 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF';
+type Category = 'all' | 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF' | 'STOCK_LOW';
 
 function dayKey(d: Date) {
     return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -37,6 +38,7 @@ function productTypeLabel(t: string) {
     if (t === 'SASI') return 'Şasi';
     if (t === 'PROPOSAL') return 'Teklif özeti';
     if (t === 'VEHICLE_DELIVERY') return 'Araç bilgileri';
+    if (t === 'STOCK') return 'Stok';
     return t;
 }
 
@@ -49,13 +51,13 @@ export default function BildirimlerPage() {
     const [unreadOnly, setUnreadOnly] = useState(false);
     const [markingAll, setMarkingAll] = useState(false);
     const [category, setCategory] = useState<Category>('all');
-    const [breakdown, setBreakdown] = useState({ product: 0, proposal: 0, total: 0 });
+    const [breakdown, setBreakdown] = useState({ product: 0, proposal: 0, maintenance: 0, stock: 0, total: 0 });
     const limit = 40;
 
     const refreshBreakdown = useCallback(() => {
         getUnreadNotificationBreakdown()
             .then(setBreakdown)
-            .catch(() => setBreakdown({ product: 0, proposal: 0, total: 0 }));
+            .catch(() => setBreakdown({ product: 0, proposal: 0, maintenance: 0, stock: 0, total: 0 }));
     }, []);
 
     const load = useCallback(async () => {
@@ -131,9 +133,10 @@ export default function BildirimlerPage() {
     };
 
     const categoryTabs: { id: Category; label: string; icon: typeof LayoutGrid; hint: string }[] = [
-        { id: 'all', label: 'Tümü', icon: LayoutGrid, hint: 'Üretim ve teklif' },
+        { id: 'all', label: 'Tümü', icon: LayoutGrid, hint: 'Üretim, teklif, stok' },
         { id: 'NEW_PRODUCT', label: 'Üretim', icon: Factory, hint: 'Damper · Dorse · Şasi' },
-        { id: 'PROPOSAL_TEKLIF', label: 'Mevcut işler', icon: Briefcase, hint: 'Teklif takip' }
+        { id: 'PROPOSAL_TEKLIF', label: 'Mevcut işler', icon: Briefcase, hint: 'Teklif takip' },
+        { id: 'STOCK_LOW', label: 'Stok', icon: Package, hint: 'Kritik seviye' }
     ];
 
     return (
@@ -214,6 +217,14 @@ export default function BildirimlerPage() {
                             <div className="notify-summary-value">{breakdown.proposal}</div>
                             <div className="notify-summary-hint">Teklif takip kuyruğu</div>
                         </div>
+                        <div className="notify-summary-card notify-summary-stock">
+                            <div className="notify-summary-label">
+                                <Package size={16} className="inline mr-1 align-text-bottom" aria-hidden />
+                                Stok
+                            </div>
+                            <div className="notify-summary-value">{breakdown.stock}</div>
+                            <div className="notify-summary-hint">Kritik stok uyarıları</div>
+                        </div>
                     </div>
 
                     <div className="notify-category-bar" role="tablist" aria-label="Bildirim kategorisi">
@@ -256,7 +267,9 @@ export default function BildirimlerPage() {
                                 ? 'Teklif Takip üzerinden yeni onaylı teklif geldiğinde burada listelenir.'
                                 : category === 'NEW_PRODUCT'
                                   ? 'Yeni ürün eklendiğinde bildirim oluşur.'
-                                  : 'Henüz bildirim yok veya filtre sonucu boş.'}
+                                  : category === 'STOCK_LOW'
+                                    ? 'Stok kritik eşiğe düşünce burada listelenir.'
+                                    : 'Henüz bildirim yok veya filtre sonucu boş.'}
                         </p>
                     </div>
                 ) : (
@@ -267,12 +280,13 @@ export default function BildirimlerPage() {
                                 <ul className="notify-day-list">
                                     {g.rows.map((n) => {
                                         const proposal = isProposalNotification(n);
+                                        const stock = isStockNotification(n);
                                         return (
                                             <li key={n.id}>
                                                 <Link
                                                     href={notificationItemHref(n)}
                                                     onClick={() => handleOpen(n)}
-                                                    className={`notify-item-card ${n.readAt ? 'is-read' : 'is-unread'} ${proposal ? 'is-proposal' : 'is-product'}`}
+                                                    className={`notify-item-card ${n.readAt ? 'is-read' : 'is-unread'} ${proposal ? 'is-proposal' : stock ? 'is-stock' : 'is-product'}`}
                                                 >
                                                     <div className="notify-item-accent" aria-hidden />
                                                     <div className="notify-item-body">

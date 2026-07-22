@@ -405,17 +405,48 @@ model StockItem {
   description     String
   unit            String?
   quantity        Decimal?                @db.Decimal(18, 4)
+  /// Kritik stok eşiği; miktar buna inince/altına düşünce bildirim üretilir
+  criticalQuantity Decimal?               @db.Decimal(18, 4)
   supplierName    String?
   supplierContact String?                 @db.Text
+  /// Bu ürün için mevcut tedarikçideki ödeme vadesi (örn. 30 gün)
+  supplierPaymentTerm String?
+  /// Bu ürün için mevcut tedarikçideki termin süresi (örn. 15 gün)
+  supplierLeadTime    String?
+  /// Ana kalem: sayfa açılışında öncelikli listelenir
+  isMainItem      Boolean                 @default(false)
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   priceHistory    StockUnitPriceHistory[]
   movements       StockMovement[]
   supplierHistory StockSupplierHistory[]
+  documents       StockItemDocument[]
 
   @@unique([groupId, purchaseCode])
   @@index([groupId])
   @@index([description])
+  @@index([isMainItem])
+}
+
+/// Ürün / teknik resim geçmişi (tedarikçi değişince yenisi eklenir, eskiler kalır).
+model StockItemDocument {
+  id                 Int       @id @default(autoincrement())
+  stockItemId        Int
+  stockItem          StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  /// PRODUCT_IMAGE | TECH_DRAWING
+  kind               String    @default("PRODUCT_IMAGE")
+  mimeType           String
+  data               Bytes
+  sizeBytes          Int
+  originalFileName   String?
+  note               String?
+  /// Yükleme anındaki tedarikçi anlık görüntüsü
+  supplierName       String?
+  supplierContact    String?   @db.Text
+  uploadedByUsername String?
+  createdAt          DateTime  @default(now())
+
+  @@index([stockItemId, createdAt])
 }
 
 /// Birim fiyat geçmişi (satın alma / güncelleme).
@@ -425,6 +456,8 @@ model StockUnitPriceHistory {
   stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
   recordedAt  DateTime  @default(now())
   unitPrice   Decimal   @db.Decimal(18, 4)
+  /// TRY | USD | EUR
+  currency    String    @default("TRY")
   note        String?
   /// Kayıt anındaki tedarikçi (kalem üzerindeki değerin kopyası).
   supplierName    String?
@@ -458,8 +491,12 @@ model StockSupplierHistory {
   stockItem       StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
   prevSupplierName    String?
   prevSupplierContact String?   @db.Text
+  prevSupplierPaymentTerm String?
+  prevSupplierLeadTime String?
   supplierName    String?
   supplierContact String?   @db.Text
+  supplierPaymentTerm String?
+  supplierLeadTime String?
   note            String?
   userId          Int?
   user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)

@@ -962,7 +962,7 @@ export async function getNotifications(params?: {
     limit?: number;
     skip?: number;
     unreadOnly?: boolean;
-    kind?: 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF' | 'MAINTENANCE_DUE';
+    kind?: 'NEW_PRODUCT' | 'PROPOSAL_TEKLIF' | 'MAINTENANCE_DUE' | 'STOCK_LOW';
 }): Promise<NotificationsResponse> {
     const q = new URLSearchParams();
     if (params?.limit != null) q.set('limit', String(params.limit));
@@ -993,6 +993,7 @@ export async function getUnreadNotificationBreakdown(): Promise<{
     product: number;
     proposal: number;
     maintenance: number;
+    stock: number;
     total: number;
 }> {
     const res = await apiFetch(`${API_URL}/notifications/unread-breakdown`, {
@@ -1035,6 +1036,10 @@ export function isProposalNotification(n: Pick<NotificationItem, 'kind' | 'produ
     return n.kind === 'PROPOSAL_TEKLIF' || n.productType === 'PROPOSAL';
 }
 
+export function isStockNotification(n: Pick<NotificationItem, 'kind' | 'productType'>): boolean {
+    return n.kind === 'STOCK_LOW' || n.productType === 'STOCK';
+}
+
 export function notificationItemHref(n: NotificationItem): string {
     if (isProposalNotification(n)) {
         return `/mevcut-isler?highlight=${n.productId}`;
@@ -1044,6 +1049,9 @@ export function notificationItemHref(n: NotificationItem): string {
     }
     if (n.productType === 'MAINTENANCE') {
         return `/bakim-takip?highlight=${n.productId}`;
+    }
+    if (isStockNotification(n)) {
+        return `/stok-takip?highlight=${n.productId}`;
     }
     return `/urun-listesi?type=${encodeURIComponent(n.productType)}&expand=${n.productId}`;
 }
@@ -1269,6 +1277,8 @@ export interface StockGroupRow {
     itemCount: number;
 }
 
+export type StockPriceCurrency = 'TRY' | 'USD' | 'EUR';
+
 export interface StockItemRow {
     id: number;
     groupId: number;
@@ -1277,12 +1287,18 @@ export interface StockItemRow {
     description: string;
     unit: string | null;
     quantity: string | null;
+    criticalQuantity?: string | null;
+    isMainItem?: boolean;
     supplierName: string | null;
     supplierContact: string | null;
+    supplierPaymentTerm?: string | null;
+    supplierLeadTime?: string | null;
     createdAt: string;
     updatedAt: string;
     latestUnitPrice: number | null;
     previousUnitPrice: number | null;
+    latestCurrency?: StockPriceCurrency | null;
+    previousCurrency?: StockPriceCurrency | null;
     priceChangePercent: number | null;
 }
 
@@ -1307,8 +1323,12 @@ export interface StockSupplierHistoryRow {
     id: number;
     prevSupplierName: string | null;
     prevSupplierContact: string | null;
+    prevSupplierPaymentTerm?: string | null;
+    prevSupplierLeadTime?: string | null;
     supplierName: string | null;
     supplierContact: string | null;
+    supplierPaymentTerm?: string | null;
+    supplierLeadTime?: string | null;
     note: string | null;
     recordedAt: string;
     user: { username: string; fullName: string } | null;
@@ -1318,6 +1338,7 @@ export interface StockPriceHistoryPoint {
     id: number;
     recordedAt: string;
     unitPrice: number;
+    currency?: StockPriceCurrency | null;
     note: string | null;
     supplierName: string | null;
     supplierContact: string | null;
@@ -1331,17 +1352,41 @@ export interface StockItemDetail {
     description: string;
     unit: string | null;
     quantity: number | null;
+    criticalQuantity?: number | null;
+    isMainItem?: boolean;
     supplierName: string | null;
     supplierContact: string | null;
+    supplierPaymentTerm?: string | null;
+    supplierLeadTime?: string | null;
     createdAt: string;
     updatedAt: string;
     latestUnitPrice: number | null;
     previousUnitPrice: number | null;
+    latestCurrency?: StockPriceCurrency | null;
+    previousCurrency?: StockPriceCurrency | null;
     priceChangePercent: number | null;
     priceChangeAbs: number | null;
     priceHistory: StockPriceHistoryPoint[];
     movements: StockMovementRow[];
     supplierHistory: StockSupplierHistoryRow[];
+    documents?: StockItemDocument[];
+}
+
+export type StockDocumentKind = 'PRODUCT_IMAGE' | 'TECH_DRAWING';
+
+export interface StockItemDocument {
+    id: number;
+    kind: StockDocumentKind | string;
+    mimeType: string;
+    sizeBytes: number;
+    originalFileName: string | null;
+    note: string | null;
+    supplierName: string | null;
+    supplierContact: string | null;
+    uploadedByUsername: string | null;
+    createdAt: string;
+    isImage?: boolean;
+    isPdf?: boolean;
 }
 
 export async function getStockGroups(): Promise<StockGroupRow[]> {
@@ -1354,12 +1399,14 @@ export async function getStockItems(params?: {
     q?: string;
     limit?: number;
     skip?: number;
+    mainOnly?: boolean;
 }): Promise<StockItemsResponse> {
     const q = new URLSearchParams();
     if (params?.groupId != null) q.set('groupId', String(params.groupId));
     if (params?.q != null && params.q.trim().length >= 2) q.set('q', params.q.trim());
     if (params?.limit != null) q.set('limit', String(params.limit));
     if (params?.skip != null) q.set('skip', String(params.skip));
+    if (params?.mainOnly) q.set('mainOnly', '1');
     const qs = q.toString();
     const res = await apiFetch(`${API_URL}/stock/items${qs ? `?${qs}` : ''}`, {
         credentials: 'include',
@@ -1375,8 +1422,11 @@ export async function createStockItem(body: {
     description: string;
     unit?: string | null;
     quantity?: string | number | null;
+    criticalQuantity?: string | number | null;
     supplierName?: string | null;
     supplierContact?: string | null;
+    supplierPaymentTerm?: string | null;
+    supplierLeadTime?: string | null;
 }): Promise<Record<string, unknown>> {
     const res = await apiFetch(`${API_URL}/stock/items`, {
         method: 'POST',
@@ -1395,8 +1445,12 @@ export async function updateStockItem(
         description: string;
         unit: string | null;
         quantity: string | number | null;
+        criticalQuantity: string | number | null;
+        isMainItem: boolean;
         supplierName: string | null;
         supplierContact: string | null;
+        supplierPaymentTerm: string | null;
+        supplierLeadTime: string | null;
     }>
 ): Promise<Record<string, unknown>> {
     const res = await apiFetch(`${API_URL}/stock/items/${id}`, {
@@ -1408,10 +1462,25 @@ export async function updateStockItem(
     return handleResponse<Record<string, unknown>>(res);
 }
 
+export async function resetStockItem(id: number): Promise<{ ok: true; id: number }> {
+    const res = await apiFetch(`${API_URL}/stock/items/${id}/reset`, {
+        method: 'POST',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: true; id: number }>(res);
+}
+
 export async function addStockItemPrice(
     id: number,
-    body: { unitPrice: number; note?: string | null }
-): Promise<{ id: number; stockItemId: number; recordedAt: string; unitPrice: unknown; note: string | null }> {
+    body: { unitPrice: number; currency?: StockPriceCurrency; note?: string | null }
+): Promise<{
+    id: number;
+    stockItemId: number;
+    recordedAt: string;
+    unitPrice: unknown;
+    currency?: StockPriceCurrency;
+    note: string | null;
+}> {
     const res = await apiFetch(`${API_URL}/stock/items/${id}/price`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1444,7 +1513,13 @@ export async function addStockMovement(
 
 export async function changeStockSupplier(
     id: number,
-    body: { supplierName?: string | null; supplierContact?: string | null; note?: string | null }
+    body: {
+        supplierName?: string | null;
+        supplierContact?: string | null;
+        supplierPaymentTerm?: string | null;
+        supplierLeadTime?: string | null;
+        note?: string | null;
+    }
 ): Promise<StockSupplierHistoryRow> {
     const res = await apiFetch(`${API_URL}/stock/items/${id}/supplier`, {
         method: 'POST',
@@ -1463,8 +1538,61 @@ export async function deleteStockSupplierHistory(itemId: number, histId: number)
     return handleResponse<{ ok: true }>(res);
 }
 
+export async function updateStockPriceHistory(
+    itemId: number,
+    histId: number,
+    body: { unitPrice?: number; currency?: StockPriceCurrency; note?: string | null }
+): Promise<{
+    id: number;
+    stockItemId: number;
+    recordedAt: string;
+    unitPrice: number;
+    currency: StockPriceCurrency;
+    note: string | null;
+}> {
+    const res = await apiFetch(`${API_URL}/stock/items/${itemId}/price-history/${histId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+}
+
 export async function deleteStockPriceHistory(itemId: number, histId: number): Promise<{ ok: true }> {
     const res = await apiFetch(`${API_URL}/stock/items/${itemId}/price-history/${histId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: true }>(res);
+}
+
+export function getStockItemDocumentUrl(itemId: number, docId: number): string {
+    return `${API_URL}/stock/items/${itemId}/documents/${docId}`;
+}
+
+export async function addStockItemDocument(
+    id: number,
+    body: {
+        kind: StockDocumentKind;
+        mimeType: string;
+        dataBase64: string;
+        originalFileName?: string | null;
+        note?: string | null;
+        supplierName?: string | null;
+    }
+): Promise<StockItemDocument> {
+    const res = await apiFetch(`${API_URL}/stock/items/${id}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<StockItemDocument>(res);
+}
+
+export async function deleteStockItemDocument(itemId: number, docId: number): Promise<{ ok: true }> {
+    const res = await apiFetch(`${API_URL}/stock/items/${itemId}/documents/${docId}`, {
         method: 'DELETE',
         credentials: 'include',
     });

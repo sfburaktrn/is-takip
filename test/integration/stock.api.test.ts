@@ -94,7 +94,7 @@ describe('Stock API (mock Prisma, supertest)', () => {
 
     const price = await agent
       .post(`/api/stock/items/${itemId}/price`)
-      .send({ unitPrice: 123.45, note: 'fatura' })
+      .send({ unitPrice: 123.45, currency: 'TRY', note: 'fatura' })
       .expect(200);
     expect(price.body.stockItemId).toBe(itemId);
     expect(price.body.unitPrice).toBeTruthy();
@@ -121,7 +121,7 @@ describe('Stock API (mock Prisma, supertest)', () => {
 
     const price = await agent
       .post(`/api/stock/items/${itemId}/price`)
-      .send({ unitPrice: 10, note: 'N' })
+      .send({ unitPrice: 10, currency: 'USD', note: 'N' })
       .expect(200);
 
     await agent

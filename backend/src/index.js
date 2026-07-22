@@ -3805,6 +3805,103 @@ function stockMigrateHint(err) {
         : '';
 }
 
+const STOCK_CURRENCIES = new Set(['TRY', 'USD', 'EUR']);
+
+function normalizeStockCurrency(raw) {
+    const c = String(raw || 'TRY')
+        .trim()
+        .toUpperCase();
+    if (!STOCK_CURRENCIES.has(c)) return null;
+    return c;
+}
+
+const STOCK_DOC_KINDS = new Set(['PRODUCT_IMAGE', 'TECH_DRAWING']);
+const STOCK_DOC_ALLOWED_MIME = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+]);
+const STOCK_DOC_MAX_BYTES = 4 * 1024 * 1024;
+const STOCK_DOC_MAX_PER_ITEM = 40;
+
+function normalizeStockDocKind(raw) {
+    const k = String(raw || 'PRODUCT_IMAGE')
+        .trim()
+        .toUpperCase();
+    if (k === 'TECH_DRAWING' || k === 'TEKNIK' || k === 'DRAWING') return 'TECH_DRAWING';
+    if (STOCK_DOC_KINDS.has(k)) return k;
+    return null;
+}
+
+function mapStockDocumentMeta(doc) {
+    return {
+        id: doc.id,
+        kind: doc.kind,
+        mimeType: doc.mimeType,
+        sizeBytes: doc.sizeBytes,
+        originalFileName: doc.originalFileName,
+        note: doc.note,
+        supplierName: doc.supplierName,
+        supplierContact: doc.supplierContact,
+        uploadedByUsername: doc.uploadedByUsername,
+        createdAt: doc.createdAt,
+        isImage: String(doc.mimeType || '').startsWith('image/'),
+        isPdf: String(doc.mimeType || '') === 'application/pdf',
+    };
+}
+
+function isStockBelowCritical(qty, critical) {
+    if (critical == null || !Number.isFinite(critical) || critical <= 0) return false;
+    if (qty == null || !Number.isFinite(qty)) return false;
+    return qty <= critical;
+}
+
+async function createStockLowNotification({ itemId, description, purchaseCode, quantity, criticalQuantity, actorUserId }) {
+    try {
+        const code = purchaseCode ? ` (${purchaseCode})` : '';
+        const title = `Kritik stok: ${description}${code}`;
+        const body = `Stok ${quantity} ${criticalQuantity != null ? `(kritik eşik: ${criticalQuantity})` : ''} — tedarik kontrolü gerekebilir.`;
+        await prisma.notification.create({
+            data: {
+                kind: 'STOCK_LOW',
+                productType: 'STOCK',
+                productId: itemId,
+                title,
+                body: body.replace(/\s+/g, ' ').trim(),
+                actorUserId: actorUserId ?? null,
+            },
+        });
+    } catch (e) {
+        console.error('Kritik stok bildirimi oluşturulamadı:', e);
+    }
+}
+
+async function maybeNotifyStockCriticalCross({
+    itemId,
+    description,
+    purchaseCode,
+    prevQty,
+    nextQty,
+    prevCritical,
+    nextCritical,
+    actorUserId,
+}) {
+    const wasLow = isStockBelowCritical(prevQty, prevCritical);
+    const nowLow = isStockBelowCritical(nextQty, nextCritical);
+    if (!wasLow && nowLow) {
+        await createStockLowNotification({
+            itemId,
+            description,
+            purchaseCode,
+            quantity: nextQty,
+            criticalQuantity: nextCritical,
+            actorUserId,
+        });
+    }
+}
+
 app.get('/api/stock/groups', requireAuth, async (req, res) => {
     try {
         const groups = await prisma.stockGroup.findMany({
@@ -3834,10 +3931,17 @@ app.get('/api/stock/items', requireAuth, async (req, res) => {
         if (!Number.isFinite(skip) || skip < 0) skip = 0;
         const groupId = parseInt(String(req.query.groupId || ''), 10);
         const q = String(req.query.q || '').trim();
+        const mainOnly =
+            req.query.mainOnly === '1' ||
+            req.query.mainOnly === 'true' ||
+            String(req.query.mainOnly || '').toLowerCase() === 'yes';
 
         const where = {};
         if (Number.isFinite(groupId) && groupId > 0) {
             where.groupId = groupId;
+        }
+        if (mainOnly) {
+            where.isMainItem = true;
         }
         if (q.length >= 2) {
             where.OR = [
@@ -3850,7 +3954,7 @@ app.get('/api/stock/items', requireAuth, async (req, res) => {
         const [rows, total] = await Promise.all([
             prisma.stockItem.findMany({
                 where,
-                orderBy: [{ groupId: 'asc' }, { id: 'asc' }],
+                orderBy: [{ isMainItem: 'desc' }, { groupId: 'asc' }, { id: 'asc' }],
                 take: limit,
                 skip,
                 include: {
@@ -3866,8 +3970,17 @@ app.get('/api/stock/items', requireAuth, async (req, res) => {
             const prev = row.priceHistory[1];
             const cur = latest != null ? Number(latest.unitPrice) : null;
             const prevN = prev != null ? Number(prev.unitPrice) : null;
+            const latestCurrency = latest != null ? normalizeStockCurrency(latest.currency) || 'TRY' : null;
+            const previousCurrency = prev != null ? normalizeStockCurrency(prev.currency) || 'TRY' : null;
             let pct = null;
-            if (cur != null && prevN != null && prevN !== 0) {
+            if (
+                cur != null &&
+                prevN != null &&
+                prevN !== 0 &&
+                latestCurrency &&
+                previousCurrency &&
+                latestCurrency === previousCurrency
+            ) {
                 pct = Math.round(((cur - prevN) / prevN) * 10000) / 100;
             }
             return {
@@ -3878,12 +3991,18 @@ app.get('/api/stock/items', requireAuth, async (req, res) => {
                 description: row.description,
                 unit: row.unit,
                 quantity: row.quantity != null ? row.quantity.toString() : null,
+                criticalQuantity: row.criticalQuantity != null ? row.criticalQuantity.toString() : null,
+                isMainItem: Boolean(row.isMainItem),
                 supplierName: row.supplierName,
                 supplierContact: row.supplierContact,
+                supplierPaymentTerm: row.supplierPaymentTerm ?? null,
+                supplierLeadTime: row.supplierLeadTime ?? null,
                 createdAt: row.createdAt,
                 updatedAt: row.updatedAt,
                 latestUnitPrice: cur,
                 previousUnitPrice: prevN,
+                latestCurrency,
+                previousCurrency,
                 priceChangePercent: pct
             };
         });
@@ -3914,6 +4033,22 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
                     orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
                     take: 30,
                     include: { user: { select: { username: true, fullName: true } } }
+                },
+                documents: {
+                    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+                    take: STOCK_DOC_MAX_PER_ITEM,
+                    select: {
+                        id: true,
+                        kind: true,
+                        mimeType: true,
+                        sizeBytes: true,
+                        originalFileName: true,
+                        note: true,
+                        supplierName: true,
+                        supplierContact: true,
+                        uploadedByUsername: true,
+                        createdAt: true
+                    }
                 }
             }
         });
@@ -3925,6 +4060,7 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
             id: h.id,
             recordedAt: h.recordedAt,
             unitPrice: Number(h.unitPrice),
+            currency: normalizeStockCurrency(h.currency) || 'TRY',
             note: h.note,
             supplierName: h.supplierName,
             supplierContact: h.supplierContact
@@ -3933,7 +4069,7 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
         const prev = priceHistory[1] ?? null;
         let priceChangePercent = null;
         let priceChangeAbs = null;
-        if (latest && prev && prev.unitPrice !== 0) {
+        if (latest && prev && prev.unitPrice !== 0 && latest.currency === prev.currency) {
             priceChangeAbs = Math.round((latest.unitPrice - prev.unitPrice) * 100) / 100;
             priceChangePercent =
                 Math.round(((latest.unitPrice - prev.unitPrice) / prev.unitPrice) * 10000) / 100;
@@ -3953,12 +4089,18 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
             id: s.id,
             prevSupplierName: s.prevSupplierName,
             prevSupplierContact: s.prevSupplierContact,
+            prevSupplierPaymentTerm: s.prevSupplierPaymentTerm ?? null,
+            prevSupplierLeadTime: s.prevSupplierLeadTime ?? null,
             supplierName: s.supplierName,
             supplierContact: s.supplierContact,
+            supplierPaymentTerm: s.supplierPaymentTerm ?? null,
+            supplierLeadTime: s.supplierLeadTime ?? null,
             note: s.note,
             recordedAt: s.recordedAt,
             user: s.user ? { username: s.user.username, fullName: s.user.fullName } : null
         }));
+
+        const documents = (row.documents || []).map(mapStockDocumentMeta);
 
         res.json({
             id: row.id,
@@ -3968,17 +4110,24 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
             description: row.description,
             unit: row.unit,
             quantity: row.quantity != null ? Number(row.quantity) : null,
+            criticalQuantity: row.criticalQuantity != null ? Number(row.criticalQuantity) : null,
+            isMainItem: Boolean(row.isMainItem),
             supplierName: row.supplierName,
             supplierContact: row.supplierContact,
+            supplierPaymentTerm: row.supplierPaymentTerm ?? null,
+            supplierLeadTime: row.supplierLeadTime ?? null,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
             latestUnitPrice: latest ? latest.unitPrice : null,
             previousUnitPrice: prev ? prev.unitPrice : null,
+            latestCurrency: latest ? latest.currency : null,
+            previousCurrency: prev ? prev.currency : null,
             priceChangePercent,
             priceChangeAbs,
             priceHistory,
             movements,
-            supplierHistory
+            supplierHistory,
+            documents
         });
     } catch (error) {
         console.error('stock item get:', error);
@@ -4040,6 +4189,18 @@ app.post('/api/stock/items/:id/movement', requireAuth, async (req, res) => {
             })
         ]);
 
+        const critical = item.criticalQuantity != null ? Number(item.criticalQuantity) : null;
+        await maybeNotifyStockCriticalCross({
+            itemId: id,
+            description: item.description,
+            purchaseCode: item.purchaseCode,
+            prevQty: current,
+            nextQty: next,
+            prevCritical: critical,
+            nextCritical: critical,
+            actorUserId: uid,
+        });
+
         res.json({
             id: movement.id,
             type: movement.type,
@@ -4071,9 +4232,16 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
         };
         const supplierName = normalizeSupplierField(b.supplierName);
         const supplierContact = normalizeSupplierField(b.supplierContact);
+        const supplierPaymentTerm = normalizeSupplierField(b.supplierPaymentTerm);
+        const supplierLeadTime = normalizeSupplierField(b.supplierLeadTime);
         const note = b.note != null ? String(b.note).slice(0, 500) : null;
 
-        if (supplierName == null && supplierContact == null) {
+        if (
+            supplierName == null &&
+            supplierContact == null &&
+            supplierPaymentTerm == null &&
+            supplierLeadTime == null
+        ) {
             return res.status(400).json({ error: 'En az bir alan doldurulmalı' });
         }
 
@@ -4086,19 +4254,25 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
 
         const oldName = normalizeSupplierField(item.supplierName);
         const oldContact = normalizeSupplierField(item.supplierContact);
+        const oldPaymentTerm = normalizeSupplierField(item.supplierPaymentTerm);
+        const oldLeadTime = normalizeSupplierField(item.supplierLeadTime);
 
         const [, hist] = await prisma.$transaction([
             prisma.stockItem.update({
                 where: { id },
-                data: { supplierName, supplierContact }
+                data: { supplierName, supplierContact, supplierPaymentTerm, supplierLeadTime }
             }),
             prisma.stockSupplierHistory.create({
                 data: {
                     stockItemId: id,
                     prevSupplierName: oldName,
                     prevSupplierContact: oldContact,
+                    prevSupplierPaymentTerm: oldPaymentTerm,
+                    prevSupplierLeadTime: oldLeadTime,
                     supplierName,
                     supplierContact,
+                    supplierPaymentTerm,
+                    supplierLeadTime,
                     note,
                     userId: uid
                 },
@@ -4110,8 +4284,12 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
             id: hist.id,
             prevSupplierName: hist.prevSupplierName,
             prevSupplierContact: hist.prevSupplierContact,
+            prevSupplierPaymentTerm: hist.prevSupplierPaymentTerm ?? null,
+            prevSupplierLeadTime: hist.prevSupplierLeadTime ?? null,
             supplierName: hist.supplierName,
             supplierContact: hist.supplierContact,
+            supplierPaymentTerm: hist.supplierPaymentTerm ?? null,
+            supplierLeadTime: hist.supplierLeadTime ?? null,
             note: hist.note,
             recordedAt: hist.recordedAt,
             user: hist.user ? { username: hist.user.username, fullName: hist.user.fullName } : null
@@ -4157,6 +4335,7 @@ app.post('/api/stock/items', requireAuth, async (req, res) => {
         const purchaseCode = normalizeStockPurchaseCode(b.purchaseCode);
         const unit = b.unit != null && String(b.unit).trim() !== '' ? String(b.unit).trim() : null;
         const quantity = parseOptionalDecimal(b.quantity);
+        const criticalQuantity = parseOptionalDecimal(b.criticalQuantity);
         const supplierName =
             b.supplierName != null && String(b.supplierName).trim() !== ''
                 ? String(b.supplierName).trim()
@@ -4164,6 +4343,14 @@ app.post('/api/stock/items', requireAuth, async (req, res) => {
         const supplierContact =
             b.supplierContact != null && String(b.supplierContact).trim() !== ''
                 ? String(b.supplierContact).trim()
+                : null;
+        const supplierPaymentTerm =
+            b.supplierPaymentTerm != null && String(b.supplierPaymentTerm).trim() !== ''
+                ? String(b.supplierPaymentTerm).trim().slice(0, 80)
+                : null;
+        const supplierLeadTime =
+            b.supplierLeadTime != null && String(b.supplierLeadTime).trim() !== ''
+                ? String(b.supplierLeadTime).trim().slice(0, 80)
                 : null;
 
         const created = await prisma.stockItem.create({
@@ -4173,11 +4360,26 @@ app.post('/api/stock/items', requireAuth, async (req, res) => {
                 description,
                 unit,
                 quantity,
+                criticalQuantity,
                 supplierName,
-                supplierContact
+                supplierContact,
+                supplierPaymentTerm,
+                supplierLeadTime
             },
             include: { group: { select: { id: true, name: true } } }
         });
+        const qtyNum = quantity != null ? Number(quantity) : null;
+        const critNum = criticalQuantity != null ? Number(criticalQuantity) : null;
+        if (isStockBelowCritical(qtyNum, critNum)) {
+            await createStockLowNotification({
+                itemId: created.id,
+                description: created.description,
+                purchaseCode: created.purchaseCode,
+                quantity: qtyNum,
+                criticalQuantity: critNum,
+                actorUserId: req.session?.userId ?? null,
+            });
+        }
         res.json(created);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -4224,6 +4426,12 @@ app.put('/api/stock/items/:id', requireAuth, async (req, res) => {
         if (b.quantity !== undefined) {
             data.quantity = parseOptionalDecimal(b.quantity);
         }
+        if (b.criticalQuantity !== undefined) {
+            data.criticalQuantity = parseOptionalDecimal(b.criticalQuantity);
+        }
+        if (b.isMainItem !== undefined) {
+            data.isMainItem = Boolean(b.isMainItem);
+        }
         if (b.supplierName !== undefined) {
             data.supplierName = String(b.supplierName || '').trim() === '' ? null : String(b.supplierName).trim();
         }
@@ -4231,9 +4439,26 @@ app.put('/api/stock/items/:id', requireAuth, async (req, res) => {
             data.supplierContact =
                 String(b.supplierContact || '').trim() === '' ? null : String(b.supplierContact).trim();
         }
+        if (b.supplierPaymentTerm !== undefined) {
+            data.supplierPaymentTerm =
+                String(b.supplierPaymentTerm || '').trim() === ''
+                    ? null
+                    : String(b.supplierPaymentTerm).trim().slice(0, 80);
+        }
+        if (b.supplierLeadTime !== undefined) {
+            data.supplierLeadTime =
+                String(b.supplierLeadTime || '').trim() === ''
+                    ? null
+                    : String(b.supplierLeadTime).trim().slice(0, 80);
+        }
 
         if (Object.keys(data).length === 0) {
             return res.status(400).json({ error: 'Güncellenecek alan yok' });
+        }
+
+        const existing = await prisma.stockItem.findUnique({ where: { id } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
         }
 
         const updated = await prisma.stockItem.update({
@@ -4241,6 +4466,22 @@ app.put('/api/stock/items/:id', requireAuth, async (req, res) => {
             data,
             include: { group: { select: { id: true, name: true } } }
         });
+
+        const prevQty = existing.quantity != null ? Number(existing.quantity) : null;
+        const nextQty = updated.quantity != null ? Number(updated.quantity) : null;
+        const prevCrit = existing.criticalQuantity != null ? Number(existing.criticalQuantity) : null;
+        const nextCrit = updated.criticalQuantity != null ? Number(updated.criticalQuantity) : null;
+        await maybeNotifyStockCriticalCross({
+            itemId: id,
+            description: updated.description,
+            purchaseCode: updated.purchaseCode,
+            prevQty,
+            nextQty,
+            prevCritical: prevCrit,
+            nextCritical: nextCrit,
+            actorUserId: req.session?.userId ?? null,
+        });
+
         res.json(updated);
     } catch (error) {
         if (error.code === 'P2025') {
@@ -4265,6 +4506,10 @@ app.post('/api/stock/items/:id/price', requireAuth, async (req, res) => {
         if (unitPrice == null) {
             return res.status(400).json({ error: 'unitPrice gerekli (sayı)' });
         }
+        const currency = normalizeStockCurrency(b.currency ?? 'TRY');
+        if (!currency) {
+            return res.status(400).json({ error: 'currency TRY, USD veya EUR olmalı' });
+        }
         const note = b.note != null ? String(b.note).slice(0, 500) : null;
 
         const item = await prisma.stockItem.findUnique({ where: { id } });
@@ -4276,6 +4521,7 @@ app.post('/api/stock/items/:id/price', requireAuth, async (req, res) => {
             data: {
                 stockItemId: id,
                 unitPrice,
+                currency,
                 note,
                 supplierName: item.supplierName,
                 supplierContact: item.supplierContact
@@ -4285,6 +4531,104 @@ app.post('/api/stock/items/:id/price', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('stock price:', error);
         res.status(500).json({ error: `Fiyat kaydedilemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+/**
+ * Ürüne ait tüm operasyonel bilgileri sıfırla (kimlik alanları kalır: grup, kod, tanım, birim).
+ * Silinenler: stok miktarı, kritik seviye, tedarikçi alanları, ana kalem bayrağı,
+ * fiyat geçmişi, stok hareketleri, tedarikçi geçmişi, ürün/teknik resimler.
+ */
+app.post('/api/stock/items/:id/reset', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const existing = await prisma.stockItem.findUnique({ where: { id }, select: { id: true } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        await prisma.$transaction([
+            prisma.stockUnitPriceHistory.deleteMany({ where: { stockItemId: id } }),
+            prisma.stockMovement.deleteMany({ where: { stockItemId: id } }),
+            prisma.stockSupplierHistory.deleteMany({ where: { stockItemId: id } }),
+            prisma.stockItemDocument.deleteMany({ where: { stockItemId: id } }),
+            prisma.stockItem.update({
+                where: { id },
+                data: {
+                    quantity: null,
+                    criticalQuantity: null,
+                    supplierName: null,
+                    supplierContact: null,
+                    supplierPaymentTerm: null,
+                    supplierLeadTime: null,
+                    isMainItem: false
+                }
+            })
+        ]);
+
+        res.json({ ok: true, id });
+    } catch (error) {
+        console.error('stock item reset:', error);
+        res.status(500).json({ error: `Bilgiler sıfırlanamadı.${stockMigrateHint(error)}` });
+    }
+});
+
+/** Birim fiyat geçmiş satırını düzelt (fiyat / para birimi / not). */
+app.put('/api/stock/items/:itemId/price-history/:histId', requireAuth, async (req, res) => {
+    try {
+        const itemId = parseInt(String(req.params.itemId), 10);
+        const histId = parseInt(String(req.params.histId), 10);
+        if (!Number.isFinite(itemId) || itemId < 1 || !Number.isFinite(histId) || histId < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const existing = await prisma.stockUnitPriceHistory.findFirst({
+            where: { id: histId, stockItemId: itemId }
+        });
+        if (!existing) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        const b = req.body || {};
+        const data = {};
+        if (b.unitPrice !== undefined) {
+            const unitPrice = parseOptionalDecimal(b.unitPrice);
+            if (unitPrice == null) {
+                return res.status(400).json({ error: 'unitPrice gerekli (sayı)' });
+            }
+            data.unitPrice = unitPrice;
+        }
+        if (b.currency !== undefined) {
+            const currency = normalizeStockCurrency(b.currency);
+            if (!currency) {
+                return res.status(400).json({ error: 'currency TRY, USD veya EUR olmalı' });
+            }
+            data.currency = currency;
+        }
+        if (b.note !== undefined) {
+            data.note = b.note == null || String(b.note).trim() === '' ? null : String(b.note).slice(0, 500);
+        }
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ error: 'Güncellenecek alan yok' });
+        }
+
+        const updated = await prisma.stockUnitPriceHistory.update({
+            where: { id: histId },
+            data
+        });
+        res.json({
+            id: updated.id,
+            stockItemId: updated.stockItemId,
+            recordedAt: updated.recordedAt,
+            unitPrice: Number(updated.unitPrice),
+            currency: normalizeStockCurrency(updated.currency) || 'TRY',
+            note: updated.note
+        });
+    } catch (error) {
+        console.error('stock price history update:', error);
+        res.status(500).json({ error: `Fiyat güncellenemedi.${stockMigrateHint(error)}` });
     }
 });
 
@@ -4309,6 +4653,125 @@ app.delete('/api/stock/items/:itemId/price-history/:histId', requireAdmin, async
     }
 });
 
+/** Ürün / teknik resim yükle (geçmiş korunur). */
+app.post('/api/stock/items/:id/documents', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const kind = normalizeStockDocKind(req.body?.kind);
+        if (!kind) {
+            return res.status(400).json({ error: 'kind PRODUCT_IMAGE veya TECH_DRAWING olmalı' });
+        }
+        const mimeType = String(req.body?.mimeType || '').trim().toLowerCase();
+        const dataBase64 = String(req.body?.dataBase64 || '').trim();
+        const originalFileName =
+            req.body?.originalFileName != null ? String(req.body.originalFileName).slice(0, 255) : null;
+        const note = req.body?.note != null ? String(req.body.note).slice(0, 500) : null;
+        const bodySupplierName =
+            req.body?.supplierName != null && String(req.body.supplierName).trim() !== ''
+                ? String(req.body.supplierName).trim().slice(0, 200)
+                : null;
+
+        if (!STOCK_DOC_ALLOWED_MIME.has(mimeType)) {
+            return res.status(400).json({ error: 'Desteklenen dosyalar: JPEG, PNG, WebP, PDF' });
+        }
+        if (!dataBase64) return res.status(400).json({ error: 'Dosya verisi eksik' });
+        const dataBuffer = Buffer.from(dataBase64, 'base64');
+        if (!dataBuffer.length) return res.status(400).json({ error: 'Dosya çözümlenemedi' });
+        if (dataBuffer.length > STOCK_DOC_MAX_BYTES) {
+            return res.status(400).json({ error: 'Dosya boyutu limiti aşıyor (max 4MB)' });
+        }
+
+        const item = await prisma.stockItem.findUnique({
+            where: { id },
+            include: { _count: { select: { documents: true } } },
+        });
+        if (!item) return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        if (item._count.documents >= STOCK_DOC_MAX_PER_ITEM) {
+            return res.status(400).json({ error: `En fazla ${STOCK_DOC_MAX_PER_ITEM} dosya eklenebilir` });
+        }
+
+        const snapSupplierName = bodySupplierName || item.supplierName || null;
+
+        const created = await prisma.stockItemDocument.create({
+            data: {
+                stockItemId: id,
+                kind,
+                mimeType: mimeType === 'image/jpg' ? 'image/jpeg' : mimeType,
+                data: dataBuffer,
+                sizeBytes: dataBuffer.length,
+                originalFileName,
+                note,
+                supplierName: snapSupplierName,
+                supplierContact: item.supplierContact,
+                uploadedByUsername: req.session?.username ?? null,
+            },
+            select: {
+                id: true,
+                kind: true,
+                mimeType: true,
+                sizeBytes: true,
+                originalFileName: true,
+                note: true,
+                supplierName: true,
+                supplierContact: true,
+                uploadedByUsername: true,
+                createdAt: true,
+            },
+        });
+        res.status(201).json(mapStockDocumentMeta(created));
+    } catch (error) {
+        console.error('stock document upload:', error);
+        res.status(500).json({ error: `Dosya yüklenemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.get('/api/stock/items/:id/documents/:docId', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        const docId = parseInt(String(req.params.docId), 10);
+        if (!Number.isFinite(id) || id < 1 || !Number.isFinite(docId) || docId < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const doc = await prisma.stockItemDocument.findUnique({ where: { id: docId } });
+        if (!doc || doc.stockItemId !== id) {
+            return res.status(404).json({ error: 'Dosya bulunamadı' });
+        }
+        res.setHeader('Content-Type', doc.mimeType);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        if (doc.originalFileName) {
+            const safe = String(doc.originalFileName).replace(/[^\w.\- ()[\]]+/g, '_');
+            res.setHeader('Content-Disposition', `inline; filename="${safe}"`);
+        }
+        res.send(Buffer.from(doc.data));
+    } catch (error) {
+        console.error('stock document get:', error);
+        res.status(500).json({ error: `Dosya getirilemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.delete('/api/stock/items/:itemId/documents/:docId', requireAdmin, async (req, res) => {
+    try {
+        const itemId = parseInt(String(req.params.itemId), 10);
+        const docId = parseInt(String(req.params.docId), 10);
+        if (!Number.isFinite(itemId) || itemId < 1 || !Number.isFinite(docId) || docId < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const deleted = await prisma.stockItemDocument.deleteMany({
+            where: { id: docId, stockItemId: itemId },
+        });
+        if (deleted.count === 0) {
+            return res.status(404).json({ error: 'Dosya bulunamadı' });
+        }
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('stock document delete:', error);
+        res.status(500).json({ error: `Silinemedi.${stockMigrateHint(error)}` });
+    }
+});
+
 app.get('/api/notifications', requireAuth, async (req, res) => {
     try {
         const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '40'), 10) || 40));
@@ -4324,7 +4787,7 @@ app.get('/api/notifications', requireAuth, async (req, res) => {
             where.reads = { none: { userId } };
         }
         const kindQ = req.query.kind;
-        if (kindQ === 'NEW_PRODUCT' || kindQ === 'PROPOSAL_TEKLIF') {
+        if (kindQ === 'NEW_PRODUCT' || kindQ === 'PROPOSAL_TEKLIF' || kindQ === 'MAINTENANCE_DUE' || kindQ === 'STOCK_LOW') {
             where.kind = kindQ;
         }
         Object.assign(where, notificationRecentCreatedAtWhere());
@@ -4395,13 +4858,14 @@ app.get('/api/notifications/unread-breakdown', requireAuth, async (req, res) => 
         const userId = req.session.userId;
         const recent = notificationRecentCreatedAtWhere();
         const base = { reads: { none: { userId } }, ...recent };
-        const [product, proposal, maintenance, total] = await Promise.all([
+        const [product, proposal, maintenance, stock, total] = await Promise.all([
             prisma.notification.count({ where: { ...base, kind: 'NEW_PRODUCT' } }),
             prisma.notification.count({ where: { ...base, kind: 'PROPOSAL_TEKLIF' } }),
             prisma.notification.count({ where: { ...base, kind: 'MAINTENANCE_DUE' } }),
+            prisma.notification.count({ where: { ...base, kind: 'STOCK_LOW' } }),
             prisma.notification.count({ where: base })
         ]);
-        res.json({ product, proposal, maintenance, total });
+        res.json({ product, proposal, maintenance, stock, total });
     } catch (error) {
         console.error('Error unread breakdown:', error);
         res.status(500).json({ error: 'Okunmamış özet alınamadı' });

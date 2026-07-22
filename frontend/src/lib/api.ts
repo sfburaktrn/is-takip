@@ -1000,7 +1000,7 @@ export async function getUnreadNotificationBreakdown(): Promise<{
         credentials: 'include',
         cache: 'no-store',
     });
-    return handleResponse<{ product: number; proposal: number; maintenance: number; total: number }>(res);
+    return handleResponse<{ product: number; proposal: number; maintenance: number; stock: number; total: number }>(res);
 }
 
 export async function markNotificationRead(id: number): Promise<{ ok: boolean }> {

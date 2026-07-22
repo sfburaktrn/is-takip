@@ -165,21 +165,6 @@ function hasStockSupplier(s: {
 const STOCK_VADE_OPTIONS = ['Peşin', '7 gün', '15 gün', '30 gün', '45 gün', '60 gün', '90 gün', '120 gün'] as const;
 const STOCK_TERMIN_OPTIONS = ['Stoktan', '3 gün', '7 gün', '10 gün', '15 gün', '21 gün', '30 gün', '45 gün', '60 gün'] as const;
 
-function withLegacySelectOption(options: readonly string[], current?: string | null) {
-    const cur = (current ?? '').trim();
-    if (!cur) return [...options];
-    if (options.includes(cur)) return [...options];
-    return [cur, ...options];
-}
-
-function withLegacyVadeOption(current?: string | null) {
-    return withLegacySelectOption(STOCK_VADE_OPTIONS, current);
-}
-
-function withLegacyTerminOption(current?: string | null) {
-    return withLegacySelectOption(STOCK_TERMIN_OPTIONS, current);
-}
-
 function formatMoney(n: number | null | undefined, currency: StockPriceCurrency | string | null | undefined = 'TRY') {
     if (n == null || Number.isNaN(n)) return '—';
     const code = currency === 'USD' || currency === 'EUR' ? currency : 'TRY';
@@ -973,33 +958,35 @@ function ItemEditModal({
                             </label>
                             <label className="field">
                                 <span className="field-label">Vade</span>
-                                <select
+                                <input
                                     className="form-input field-control"
+                                    list="stock-vade-options"
                                     value={supplierPaymentTerm}
                                     onChange={(e) => setSupplierPaymentTerm(e.target.value)}
-                                >
-                                    <option value="">Seçin</option>
-                                    {withLegacyVadeOption(supplierPaymentTerm).map((opt) => (
-                                        <option key={opt} value={opt}>
-                                            {opt}
-                                        </option>
+                                    placeholder="Seçin veya yazın — örn. 40 gün"
+                                    maxLength={80}
+                                />
+                                <datalist id="stock-vade-options">
+                                    {STOCK_VADE_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt} />
                                     ))}
-                                </select>
+                                </datalist>
                             </label>
                             <label className="field">
                                 <span className="field-label">Termin süresi</span>
-                                <select
+                                <input
                                     className="form-input field-control"
+                                    list="stock-termin-options"
                                     value={supplierLeadTime}
                                     onChange={(e) => setSupplierLeadTime(e.target.value)}
-                                >
-                                    <option value="">Seçin</option>
-                                    {withLegacyTerminOption(supplierLeadTime).map((opt) => (
-                                        <option key={opt} value={opt}>
-                                            {opt}
-                                        </option>
+                                    placeholder="Seçin veya yazın — örn. 12 gün"
+                                    maxLength={80}
+                                />
+                                <datalist id="stock-termin-options">
+                                    {STOCK_TERMIN_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt} />
                                     ))}
-                                </select>
+                                </datalist>
                             </label>
                         </div>
                     </section>
@@ -2271,37 +2258,39 @@ function SupplierChangeModal({
                             <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
                                 Vade (bu üründe)
                             </span>
-                            <select
+                            <input
                                 className="form-input"
                                 style={{ borderRadius: 10 }}
+                                list="stock-supplier-vade-options"
                                 value={paymentTerm}
                                 onChange={(e) => setPaymentTerm(e.target.value)}
-                            >
-                                <option value="">Seçin</option>
-                                {withLegacyVadeOption(paymentTerm).map((opt) => (
-                                    <option key={opt} value={opt}>
-                                        {opt}
-                                    </option>
+                                placeholder="Seçin veya yazın — örn. 40 gün"
+                                maxLength={80}
+                            />
+                            <datalist id="stock-supplier-vade-options">
+                                {STOCK_VADE_OPTIONS.map((opt) => (
+                                    <option key={opt} value={opt} />
                                 ))}
-                            </select>
+                            </datalist>
                         </label>
                         <label>
                             <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
                                 Termin süresi
                             </span>
-                            <select
+                            <input
                                 className="form-input"
                                 style={{ borderRadius: 10 }}
+                                list="stock-supplier-termin-options"
                                 value={leadTime}
                                 onChange={(e) => setLeadTime(e.target.value)}
-                            >
-                                <option value="">Seçin</option>
-                                {withLegacyTerminOption(leadTime).map((opt) => (
-                                    <option key={opt} value={opt}>
-                                        {opt}
-                                    </option>
+                                placeholder="Seçin veya yazın — örn. 12 gün"
+                                maxLength={80}
+                            />
+                            <datalist id="stock-supplier-termin-options">
+                                {STOCK_TERMIN_OPTIONS.map((opt) => (
+                                    <option key={opt} value={opt} />
                                 ))}
-                            </select>
+                            </datalist>
                         </label>
                     </div>
                     {!isFirst ? (

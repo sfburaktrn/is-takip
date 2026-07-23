@@ -13,17 +13,38 @@ import {
     Plus,
     Crown,
     User as UserIcon,
+    Package,
     Edit2,
     Trash2,
     X,
 } from 'lucide-react';
+
+type UserRole = 'user' | 'admin' | 'warehouse';
 
 interface User {
     id: number;
     username: string;
     fullName: string;
     isAdmin: boolean;
+    isWarehouse?: boolean;
     createdAt: string;
+}
+
+function roleFromUser(u: Pick<User, 'isAdmin' | 'isWarehouse'>): UserRole {
+    if (u.isWarehouse) return 'warehouse';
+    if (u.isAdmin) return 'admin';
+    return 'user';
+}
+
+function rolePayload(role: UserRole) {
+    return {
+        isAdmin: role === 'admin',
+        isWarehouse: role === 'warehouse',
+    };
+}
+
+function emptyForm() {
+    return { username: '', password: '', fullName: '', role: 'user' as UserRole };
 }
 
 export default function AyarlarPage() {
@@ -32,7 +53,7 @@ export default function AyarlarPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    const [formData, setFormData] = useState({ username: '', password: '', fullName: '', isAdmin: false });
+    const [formData, setFormData] = useState(emptyForm());
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -62,13 +83,18 @@ export default function AyarlarPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify(formData)
+                body: JSON.stringify({
+                    username: formData.username,
+                    password: formData.password,
+                    fullName: formData.fullName,
+                    ...rolePayload(formData.role),
+                })
             });
             const data = await res.json();
             if (res.ok) {
                 setUsers([data, ...users]);
                 setShowAddModal(false);
-                setFormData({ username: '', password: '', fullName: '', isAdmin: false });
+                setFormData(emptyForm());
                 setSuccess('Kullanıcı başarıyla eklendi');
                 setTimeout(() => setSuccess(''), 3000);
             } else {
@@ -84,10 +110,11 @@ export default function AyarlarPage() {
         if (!selectedUser) return;
         setError('');
         try {
-            const updateData: Record<string, unknown> = {};
+            const updateData: Record<string, unknown> = {
+                ...rolePayload(formData.role),
+            };
             if (formData.fullName) updateData.fullName = formData.fullName;
             if (formData.password) updateData.password = formData.password;
-            updateData.isAdmin = formData.isAdmin;
 
             const res = await apiFetch(`${API_URL}/users/${selectedUser.id}`, {
                 method: 'PUT',
@@ -100,7 +127,7 @@ export default function AyarlarPage() {
                 setUsers(users.map(u => u.id === selectedUser.id ? data : u));
                 setShowEditModal(false);
                 setSelectedUser(null);
-                setFormData({ username: '', password: '', fullName: '', isAdmin: false });
+                setFormData(emptyForm());
                 setSuccess('Kullanıcı güncellendi');
                 setTimeout(() => setSuccess(''), 3000);
             } else {
@@ -133,9 +160,64 @@ export default function AyarlarPage() {
 
     const openEditModal = (user: User) => {
         setSelectedUser(user);
-        setFormData({ username: user.username, password: '', fullName: user.fullName, isAdmin: user.isAdmin });
+        setFormData({
+            username: user.username,
+            password: '',
+            fullName: user.fullName,
+            role: roleFromUser(user),
+        });
         setShowEditModal(true);
     };
+
+    const roleField = (
+        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+            <span className="form-label">Rol</span>
+            <div className="apple-role-options" role="radiogroup" aria-label="Kullanıcı rolü">
+                <label className={`apple-role-option${formData.role === 'user' ? ' is-selected' : ''}`}>
+                    <input
+                        type="radio"
+                        name="user-role"
+                        checked={formData.role === 'user'}
+                        onChange={() => setFormData({ ...formData, role: 'user' })}
+                    />
+                    <span className="apple-role-option__body">
+                        <span className="apple-role-option__label">
+                            <UserIcon size={14} /> Kullanıcı
+                        </span>
+                        <span className="apple-role-option__hint">Standart imalat ekranları</span>
+                    </span>
+                </label>
+                <label className={`apple-role-option${formData.role === 'admin' ? ' is-selected' : ''}`}>
+                    <input
+                        type="radio"
+                        name="user-role"
+                        checked={formData.role === 'admin'}
+                        onChange={() => setFormData({ ...formData, role: 'admin' })}
+                    />
+                    <span className="apple-role-option__body">
+                        <span className="apple-role-option__label">
+                            <Crown size={14} /> Yönetici
+                        </span>
+                        <span className="apple-role-option__hint">Tüm yönetim ekranları</span>
+                    </span>
+                </label>
+                <label className={`apple-role-option${formData.role === 'warehouse' ? ' is-selected' : ''}`}>
+                    <input
+                        type="radio"
+                        name="user-role"
+                        checked={formData.role === 'warehouse'}
+                        onChange={() => setFormData({ ...formData, role: 'warehouse' })}
+                    />
+                    <span className="apple-role-option__body">
+                        <span className="apple-role-option__label">
+                            <Package size={14} /> Depo
+                        </span>
+                        <span className="apple-role-option__hint">Yalnızca stok giriş / çıkış</span>
+                    </span>
+                </label>
+            </div>
+        </div>
+    );
 
     return (
         <AuthGuard requireAdmin>
@@ -161,14 +243,13 @@ export default function AyarlarPage() {
                         </div>
                     )}
 
-                    {/* Users Section */}
                     <div className="card card--p-lg">
                         <div className="apple-settings-toolbar">
                             <h2 className="apple-settings-section-title">
                                 <Users size={20} /> Kullanıcılar
                             </h2>
                             <button
-                                onClick={() => { setShowAddModal(true); setFormData({ username: '', password: '', fullName: '', isAdmin: false }); setError(''); }}
+                                onClick={() => { setShowAddModal(true); setFormData(emptyForm()); setError(''); }}
                                 className="btn btn-premium"
                             >
                                 <Plus size={18} /> Yeni Kullanıcı
@@ -189,13 +270,29 @@ export default function AyarlarPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {users.map(user => (
+                                        {users.map(user => {
+                                            const role = roleFromUser(user);
+                                            return (
                                             <tr key={user.id} className="apple-data-tr">
                                                 <td className="apple-data-td apple-data-td--strong">{user.username}</td>
                                                 <td className="apple-data-td">{user.fullName}</td>
                                                 <td className="apple-data-td apple-data-td--center">
-                                                    <span className={`apple-role-pill ${user.isAdmin ? 'apple-role-pill--admin' : 'apple-role-pill--user'}`}>
-                                                        {user.isAdmin ? <Crown size={14} /> : <UserIcon size={14} />} {user.isAdmin ? 'Admin' : 'Kullanıcı'}
+                                                    <span
+                                                        className={`apple-role-pill ${
+                                                            role === 'admin'
+                                                                ? 'apple-role-pill--admin'
+                                                                : role === 'warehouse'
+                                                                  ? 'apple-role-pill--warehouse'
+                                                                  : 'apple-role-pill--user'
+                                                        }`}
+                                                    >
+                                                        {role === 'admin' ? (
+                                                            <><Crown size={14} /> Admin</>
+                                                        ) : role === 'warehouse' ? (
+                                                            <><Package size={14} /> Depo</>
+                                                        ) : (
+                                                            <><UserIcon size={14} /> Kullanıcı</>
+                                                        )}
                                                     </span>
                                                 </td>
                                                 <td className="apple-data-td apple-data-td--right">
@@ -205,14 +302,14 @@ export default function AyarlarPage() {
                                                     </div>
                                                 </td>
                                             </tr>
-                                        ))}
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
                         )}
                     </div>
 
-                    {/* Add User Modal */}
                     {showAddModal && (
                         <div className="modal-overlay apple-product-form-overlay" onClick={() => setShowAddModal(false)}>
                             <div
@@ -283,25 +380,7 @@ export default function AyarlarPage() {
                                                     placeholder="••••••••"
                                                 />
                                             </div>
-                                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                                <span className="form-label">Yetki</span>
-                                                <label className="apple-checkbox-field">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.isAdmin}
-                                                        onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })}
-                                                    />
-                                                    <span className="apple-checkbox-field__text">
-                                                        <span className="apple-checkbox-field__label">
-                                                            Yönetici
-                                                            {formData.isAdmin ? <Crown size={14} className="inline ml-1 align-text-bottom text-amber-600" /> : null}
-                                                        </span>
-                                                        <span className="apple-checkbox-field__hint">
-                                                            İşaretliyse tüm yönetim ekranlarına erişir.
-                                                        </span>
-                                                    </span>
-                                                </label>
-                                            </div>
+                                            {roleField}
                                         </div>
                                         {error ? (
                                             <div className="apple-banner apple-banner--danger" style={{ marginTop: 16, marginBottom: 0 }}>
@@ -323,7 +402,6 @@ export default function AyarlarPage() {
                         </div>
                     )}
 
-                    {/* Edit User Modal */}
                     {showEditModal && selectedUser && (
                         <div
                             className="modal-overlay apple-product-form-overlay"
@@ -399,25 +477,7 @@ export default function AyarlarPage() {
                                                     placeholder="Değiştirmek için yazın"
                                                 />
                                             </div>
-                                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                                <span className="form-label">Yetki</span>
-                                                <label className="apple-checkbox-field">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.isAdmin}
-                                                        onChange={e => setFormData({ ...formData, isAdmin: e.target.checked })}
-                                                    />
-                                                    <span className="apple-checkbox-field__text">
-                                                        <span className="apple-checkbox-field__label">
-                                                            Yönetici
-                                                            {formData.isAdmin ? <Crown size={14} className="inline ml-1 align-text-bottom text-amber-600" /> : null}
-                                                        </span>
-                                                        <span className="apple-checkbox-field__hint">
-                                                            İşaretliyse tüm yönetim ekranlarına erişir.
-                                                        </span>
-                                                    </span>
-                                                </label>
-                                            </div>
+                                            {roleField}
                                         </div>
                                         {error ? (
                                             <div className="apple-banner apple-banner--danger" style={{ marginTop: 16, marginBottom: 0 }}>

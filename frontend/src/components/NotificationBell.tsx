@@ -95,7 +95,7 @@ function NotificationListBlock({
 }
 
 export default function NotificationBell() {
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, isWarehouse } = useAuth();
     const pathname = usePathname();
     const [open, setOpen] = useState(false);
     const [unread, setUnread] = useState(0);
@@ -111,7 +111,7 @@ export default function NotificationBell() {
     const [welcomeSound, setWelcomeSound] = useState(false);
     const [soundOn, setSoundOn] = useState(false);
 
-    const hidden = isLoading || !user || pathname === '/login';
+    const hidden = isLoading || !user || isWarehouse || pathname === '/login';
 
     useEffect(() => {
         setSoundOn(getNotificationSoundEnabled());

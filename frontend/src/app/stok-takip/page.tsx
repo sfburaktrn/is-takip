@@ -23,6 +23,7 @@ import {
     updateStockItem,
     updateStockPriceHistory,
     type StockDocumentKind,
+    type StockDocumentDeletion,
     type StockGroupRow,
     type StockItemDetail,
     type StockItemRow,
@@ -43,6 +44,7 @@ import {
     Image as ImageIcon,
     Layers,
     Loader2,
+    Mail,
     Minus,
     Package,
     Pencil,
@@ -69,6 +71,11 @@ type StockItemPayload = {
     criticalQuantity: string | null;
     supplierName: string | null;
     supplierContact: string | null;
+    supplierPhone: string | null;
+    supplierEmail: string | null;
+    supplierContactName: string | null;
+    supplierContactPhone: string | null;
+    supplierContactEmail: string | null;
     supplierPaymentTerm: string | null;
     supplierLeadTime: string | null;
 };
@@ -151,15 +158,44 @@ function stockRowHealthStyle(qty: string | number | null | undefined, critical: 
 function hasStockSupplier(s: {
     supplierName?: string | null;
     supplierContact?: string | null;
+    supplierPhone?: string | null;
+    supplierEmail?: string | null;
+    supplierContactName?: string | null;
+    supplierContactPhone?: string | null;
+    supplierContactEmail?: string | null;
     supplierPaymentTerm?: string | null;
     supplierLeadTime?: string | null;
 }): boolean {
     return Boolean(
         (s.supplierName && s.supplierName.trim()) ||
             (s.supplierContact && s.supplierContact.trim()) ||
+            (s.supplierPhone && s.supplierPhone.trim()) ||
+            (s.supplierEmail && s.supplierEmail.trim()) ||
+            (s.supplierContactName && s.supplierContactName.trim()) ||
+            (s.supplierContactPhone && s.supplierContactPhone.trim()) ||
+            (s.supplierContactEmail && s.supplierContactEmail.trim()) ||
             (s.supplierPaymentTerm && s.supplierPaymentTerm.trim()) ||
             (s.supplierLeadTime && s.supplierLeadTime.trim())
     );
+}
+
+function formatSupplierSummary(s: {
+    supplierPhone?: string | null;
+    supplierEmail?: string | null;
+    supplierContact?: string | null;
+    supplierContactName?: string | null;
+    supplierContactPhone?: string | null;
+    supplierContactEmail?: string | null;
+}): string {
+    const parts = [
+        s.supplierPhone,
+        s.supplierEmail,
+        s.supplierContactName,
+        s.supplierContactPhone,
+        s.supplierContactEmail,
+        s.supplierContact,
+    ].filter((x): x is string => Boolean(x && String(x).trim()));
+    return parts.join(' · ');
 }
 
 const STOCK_VADE_OPTIONS = ['Peşin', '7 gün', '15 gün', '30 gün', '45 gün', '60 gün', '90 gün', '120 gün'] as const;
@@ -235,7 +271,7 @@ export default function StokTakipPage() {
 }
 
 function StokTakipInner() {
-    const { isAdmin } = useAuth();
+    const { isAdmin, isWarehouse } = useAuth();
     const searchParams = useSearchParams();
     const highlightId = useMemo(() => {
         const raw = searchParams?.get('highlight');
@@ -378,15 +414,18 @@ function StokTakipInner() {
                                 <div>
                                     <h1 id="stock-page-title">Stok takip</h1>
                                     <p>
-                                        Satınalma kodları, tedarikçi bilgileri ve birim fiyat geçmişi tek ekranda. Fiyat
-                                        kayıtlarıyla dönemsel artış ve azalışları izleyin.
+                                        {isWarehouse
+                                            ? 'Ürünlerin stok giriş ve çıkış hareketlerini kaydedin. Ana kalemler veya tüm ürünler listesinden seçim yapın.'
+                                            : 'Satınalma kodları, tedarikçi bilgileri ve birim fiyat geçmişi tek ekranda. Fiyat kayıtlarıyla dönemsel artış ve azalışları izleyin.'}
                                     </p>
                                 </div>
                             </div>
-                            <button type="button" className="btn btn-primary btn-stock-hero-add" onClick={() => setItemModal('new')}>
-                                <Plus size={18} />
-                                Yeni kalem
-                            </button>
+                            {!isWarehouse ? (
+                                <button type="button" className="btn btn-primary btn-stock-hero-add" onClick={() => setItemModal('new')}>
+                                    <Plus size={18} />
+                                    Yeni kalem
+                                </button>
+                            ) : null}
                         </div>
                     </section>
 
@@ -409,15 +448,17 @@ function StokTakipInner() {
                                 <div className="stock-stat-label">Görünen grup</div>
                             </div>
                         </div>
-                        <div className="stock-stat-card">
-                            <div className="stock-stat-icon stock-stat-icon--success" aria-hidden>
-                                <TrendingUp size={22} />
+                        {!isWarehouse ? (
+                            <div className="stock-stat-card">
+                                <div className="stock-stat-icon stock-stat-icon--success" aria-hidden>
+                                    <TrendingUp size={22} />
+                                </div>
+                                <div>
+                                    <div className="stock-stat-value">{loading ? '…' : pricedCount}</div>
+                                    <div className="stock-stat-label">Birim fiyatı tanımlı</div>
+                                </div>
                             </div>
-                            <div>
-                                <div className="stock-stat-value">{loading ? '…' : pricedCount}</div>
-                                <div className="stock-stat-label">Birim fiyatı tanımlı</div>
-                            </div>
-                        </div>
+                        ) : null}
                     </div>
 
                     <div className="stock-toolbar">
@@ -448,7 +489,7 @@ function StokTakipInner() {
                                 <input
                                     type="search"
                                     className="form-input"
-                                    placeholder="Malzeme, kod veya tedarikçi ara…"
+                                    placeholder={isWarehouse ? 'Malzeme veya kod ara…' : 'Malzeme, kod veya tedarikçi ara…'}
                                     value={searchInput}
                                     onChange={(e) => setSearchInput(e.target.value)}
                                     aria-label="Stok araması"
@@ -480,7 +521,13 @@ function StokTakipInner() {
                         </div>
                         {listScope === 'main' && !loading && total === 0 && searchQ.length < 2 ? (
                             <p className="stock-hint">
-                                Henüz ana kalem yok. <strong>Tüm ürünler</strong>e geçip satırdaki yıldıza basarak ekleyin.
+                                {isWarehouse
+                                    ? 'Henüz ana kalem yok. Tüm ürünler görünümüne geçerek ürün seçebilirsiniz.'
+                                    : (
+                                        <>
+                                            Henüz ana kalem yok. <strong>Tüm ürünler</strong>e geçip satırdaki yıldıza basarak ekleyin.
+                                        </>
+                                    )}
                             </p>
                         ) : searchInput.length > 0 && searchInput.length < 2 ? (
                             <p className="stock-hint">Aramayı başlatmak için en az 2 karakter yazın.</p>
@@ -508,8 +555,12 @@ function StokTakipInner() {
                             <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>Kayıt bulunamadı</p>
                             <p style={{ fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto', lineHeight: 1.5 }}>
                                 {listScope === 'main'
-                                    ? 'Ana kalem listesi boş. Tüm ürünler görünümüne geçip satırdaki yıldıza basarak ana kaleme ekleyin.'
-                                    : (
+                                    ? isWarehouse
+                                        ? 'Ana kalem listesi boş. Tüm ürünler görünümüne geçerek ürün seçin.'
+                                        : 'Ana kalem listesi boş. Tüm ürünler görünümüne geçip satırdaki yıldıza basarak ana kaleme ekleyin.'
+                                    : isWarehouse
+                                      ? 'Filtreleri veya aramayı değiştirin.'
+                                      : (
                                         <>
                                             Filtreleri veya aramayı değiştirin; yeni kalem eklemek için üstteki <strong>Yeni kalem</strong> düğmesini kullanın.
                                         </>
@@ -533,43 +584,53 @@ function StokTakipInner() {
                                     <div className="stock-table-wrap">
                                         <table className="stock-table">
                                             <colgroup>
-                                                <col className="stock-col-main" />
+                                                {!isWarehouse ? <col className="stock-col-main" /> : null}
                                                 <col className="stock-col-code" />
                                                 <col className="stock-col-desc" />
                                                 <col className="stock-col-unit" />
                                                 <col className="stock-col-qty" />
-                                                <col className="stock-col-supp" />
-                                                <col className="stock-col-contact" />
-                                                <col className="stock-col-vade" />
-                                                <col className="stock-col-termin" />
-                                                <col className="stock-col-price" />
-                                                <col className="stock-col-delta" />
+                                                {!isWarehouse ? (
+                                                    <>
+                                                        <col className="stock-col-supp" />
+                                                        <col className="stock-col-contact" />
+                                                        <col className="stock-col-vade" />
+                                                        <col className="stock-col-termin" />
+                                                        <col className="stock-col-price" />
+                                                        <col className="stock-col-delta" />
+                                                    </>
+                                                ) : null}
                                             </colgroup>
                                             <thead>
                                                 <tr>
-                                                    <th scope="col" className="stock-th-main" title="Ana kalem">
-                                                        <Star size={14} aria-hidden />
-                                                    </th>
+                                                    {!isWarehouse ? (
+                                                        <th scope="col" className="stock-th-main" title="Ana kalem">
+                                                            <Star size={14} aria-hidden />
+                                                        </th>
+                                                    ) : null}
                                                     <th scope="col">Kod</th>
                                                     <th scope="col">Malzeme</th>
                                                     <th scope="col">Birim</th>
                                                     <th scope="col" className="stock-th-num">
                                                         Stok
                                                     </th>
-                                                    <th scope="col">Tedarikçi</th>
-                                                    <th scope="col">İletişim</th>
-                                                    <th scope="col" className="stock-th-nowrap">
-                                                        Vade
-                                                    </th>
-                                                    <th scope="col" className="stock-th-nowrap">
-                                                        Termin
-                                                    </th>
-                                                    <th scope="col" className="stock-th-num">
-                                                        Birim fiyat
-                                                    </th>
-                                                    <th scope="col" className="stock-th-num stock-th-nowrap" title="Önceki birim fiyata göre değişim">
-                                                        Fark %
-                                                    </th>
+                                                    {!isWarehouse ? (
+                                                        <>
+                                                            <th scope="col">Tedarikçi</th>
+                                                            <th scope="col">İletişim</th>
+                                                            <th scope="col" className="stock-th-nowrap">
+                                                                Vade
+                                                            </th>
+                                                            <th scope="col" className="stock-th-nowrap">
+                                                                Termin
+                                                            </th>
+                                                            <th scope="col" className="stock-th-num">
+                                                                Birim fiyat
+                                                            </th>
+                                                            <th scope="col" className="stock-th-num stock-th-nowrap" title="Önceki birim fiyata göre değişim">
+                                                                Fark %
+                                                            </th>
+                                                        </>
+                                                    ) : null}
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -602,23 +663,25 @@ function StokTakipInner() {
                                                             }
                                                         }}
                                                     >
-                                                        <td className="stock-td-main" onClick={(e) => e.stopPropagation()}>
-                                                            <button
-                                                                type="button"
-                                                                className={`stock-main-toggle${row.isMainItem ? ' is-on' : ''}`}
-                                                                disabled={togglingMainId === row.id}
-                                                                title={row.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
-                                                                aria-label={row.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
-                                                                aria-pressed={Boolean(row.isMainItem)}
-                                                                onClick={(e) => void toggleMainItem(row, e)}
-                                                            >
-                                                                {togglingMainId === row.id ? (
-                                                                    <Loader2 size={15} className="animate-spin" />
-                                                                ) : (
-                                                                    <Star size={15} fill={row.isMainItem ? 'currentColor' : 'none'} />
-                                                                )}
-                                                            </button>
-                                                        </td>
+                                                        {!isWarehouse ? (
+                                                            <td className="stock-td-main" onClick={(e) => e.stopPropagation()}>
+                                                                <button
+                                                                    type="button"
+                                                                    className={`stock-main-toggle${row.isMainItem ? ' is-on' : ''}`}
+                                                                    disabled={togglingMainId === row.id}
+                                                                    title={row.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
+                                                                    aria-label={row.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
+                                                                    aria-pressed={Boolean(row.isMainItem)}
+                                                                    onClick={(e) => void toggleMainItem(row, e)}
+                                                                >
+                                                                    {togglingMainId === row.id ? (
+                                                                        <Loader2 size={15} className="animate-spin" />
+                                                                    ) : (
+                                                                        <Star size={15} fill={row.isMainItem ? 'currentColor' : 'none'} />
+                                                                    )}
+                                                                </button>
+                                                            </td>
+                                                        ) : null}
                                                         <td>
                                                             {row.purchaseCode ? (
                                                                 <span className="stock-code" title={row.purchaseCode}>
@@ -657,46 +720,53 @@ function StokTakipInner() {
                                                                 ) : null}
                                                             </div>
                                                         </td>
-                                                        <td>
-                                                            <span className="stock-supplier" title={row.supplierName ?? undefined}>
-                                                                {row.supplierName ?? '—'}
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <span className="stock-contact" title={row.supplierContact ?? undefined}>
-                                                                {row.supplierContact ?? '—'}
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <span className="stock-unit-pill" title={row.supplierPaymentTerm ?? undefined}>
-                                                                {row.supplierPaymentTerm ?? '—'}
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <span className="stock-unit-pill" title={row.supplierLeadTime ?? undefined}>
-                                                                {row.supplierLeadTime ?? '—'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="stock-td-num">
-                                                            <span className="stock-price">{formatMoney(row.latestUnitPrice, row.latestCurrency)}</span>
-                                                        </td>
-                                                        <td className="stock-td-num stock-td-delta">
-                                                            {row.priceChangePercent != null ? (
-                                                                <span
-                                                                    className={`stock-delta ${row.priceChangePercent > 0 ? 'stock-delta--up' : row.priceChangePercent < 0 ? 'stock-delta--down' : ''}`}
-                                                                    title={`Önceki fiyata göre: ${formatPct(row.priceChangePercent)}`}
-                                                                >
-                                                                    {row.priceChangePercent > 0 ? (
-                                                                        <TrendingUp size={12} />
-                                                                    ) : row.priceChangePercent < 0 ? (
-                                                                        <TrendingDown size={12} />
-                                                                    ) : null}
-                                                                    {formatPct(row.priceChangePercent)}
-                                                                </span>
-                                                            ) : (
-                                                                <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>
-                                                            )}
-                                                        </td>
+                                                        {!isWarehouse ? (
+                                                            <>
+                                                                <td>
+                                                                    <span className="stock-supplier" title={row.supplierName ?? undefined}>
+                                                                        {row.supplierName ?? '—'}
+                                                                    </span>
+                                                                </td>
+                                                                <td>
+                                                                    <span
+                                                                        className="stock-contact"
+                                                                        title={formatSupplierSummary(row) || undefined}
+                                                                    >
+                                                                        {formatSupplierSummary(row) || '—'}
+                                                                    </span>
+                                                                </td>
+                                                                <td>
+                                                                    <span className="stock-unit-pill" title={row.supplierPaymentTerm ?? undefined}>
+                                                                        {row.supplierPaymentTerm ?? '—'}
+                                                                    </span>
+                                                                </td>
+                                                                <td>
+                                                                    <span className="stock-unit-pill" title={row.supplierLeadTime ?? undefined}>
+                                                                        {row.supplierLeadTime ?? '—'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="stock-td-num">
+                                                                    <span className="stock-price">{formatMoney(row.latestUnitPrice, row.latestCurrency)}</span>
+                                                                </td>
+                                                                <td className="stock-td-num stock-td-delta">
+                                                                    {row.priceChangePercent != null ? (
+                                                                        <span
+                                                                            className={`stock-delta ${row.priceChangePercent > 0 ? 'stock-delta--up' : row.priceChangePercent < 0 ? 'stock-delta--down' : ''}`}
+                                                                            title={`Önceki fiyata göre: ${formatPct(row.priceChangePercent)}`}
+                                                                        >
+                                                                            {row.priceChangePercent > 0 ? (
+                                                                                <TrendingUp size={12} />
+                                                                            ) : row.priceChangePercent < 0 ? (
+                                                                                <TrendingDown size={12} />
+                                                                            ) : null}
+                                                                            {formatPct(row.priceChangePercent)}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>
+                                                                    )}
+                                                                </td>
+                                                            </>
+                                                        ) : null}
                                                     </tr>
                                                     );
                                                 })}
@@ -708,7 +778,7 @@ function StokTakipInner() {
                         })
                     )}
 
-                    {itemModal && (
+                    {itemModal && !isWarehouse && (
                         <ItemEditModal
                             key={itemModal === 'new' ? 'new' : itemModal.id}
                             mode={itemModal === 'new' ? 'new' : 'edit'}
@@ -740,6 +810,7 @@ function StokTakipInner() {
                             key={`${detailId}-${detailNonce}`}
                             itemId={detailId}
                             isAdmin={isAdmin}
+                            warehouseMode={isWarehouse}
                             onClose={() => setDetailId(null)}
                             onMutated={() => void load()}
                             onEditItem={(row) => setItemModal(row)}
@@ -748,7 +819,7 @@ function StokTakipInner() {
                         />
                     )}
 
-                    {priceModal && (
+                    {priceModal && !isWarehouse && (
                         <PriceModal
                             key={priceModal.edit ? `edit-${priceModal.edit.id}` : `new-${priceModal.item.id}`}
                             item={priceModal.item}
@@ -809,12 +880,17 @@ function ItemEditModal({
     const [criticalQuantity, setCriticalQuantity] = useState(initial?.criticalQuantity ?? '');
     const [supplierName, setSupplierName] = useState(initial?.supplierName ?? '');
     const [supplierContact, setSupplierContact] = useState(initial?.supplierContact ?? '');
+    const [supplierPhone, setSupplierPhone] = useState(initial?.supplierPhone ?? '');
+    const [supplierEmail, setSupplierEmail] = useState(initial?.supplierEmail ?? '');
+    const [supplierContactName, setSupplierContactName] = useState(initial?.supplierContactName ?? '');
+    const [supplierContactPhone, setSupplierContactPhone] = useState(initial?.supplierContactPhone ?? '');
+    const [supplierContactEmail, setSupplierContactEmail] = useState(initial?.supplierContactEmail ?? '');
     const [supplierPaymentTerm, setSupplierPaymentTerm] = useState(initial?.supplierPaymentTerm ?? '');
     const [supplierLeadTime, setSupplierLeadTime] = useState(initial?.supplierLeadTime ?? '');
 
     return (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="stock-modal-title" onClick={onClose}>
-            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
                 <div className="modal-header">
                     <div>
                         <h2 className="modal-title" id="stock-modal-title">
@@ -942,18 +1018,71 @@ function ItemEditModal({
                                     className="form-input field-control"
                                     value={supplierName}
                                     onChange={(e) => setSupplierName(e.target.value)}
-                                    placeholder="Örn. Hüseyin Koç"
+                                    placeholder="Örn. ABC Sanayi A.Ş."
                                 />
                             </label>
                             <label className="field">
                                 <span className="field-label">
-                                    <Phone size={14} aria-hidden /> İletişim
+                                    <Phone size={14} aria-hidden /> Firma telefon
                                 </span>
+                                <input
+                                    className="form-input field-control"
+                                    value={supplierPhone}
+                                    onChange={(e) => setSupplierPhone(e.target.value)}
+                                    placeholder="Örn. 0212…"
+                                />
+                            </label>
+                            <label className="field">
+                                <span className="field-label">
+                                    <Mail size={14} aria-hidden /> Firma e-posta
+                                </span>
+                                <input
+                                    className="form-input field-control"
+                                    type="email"
+                                    value={supplierEmail}
+                                    onChange={(e) => setSupplierEmail(e.target.value)}
+                                    placeholder="firma@ornek.com"
+                                />
+                            </label>
+                            <label className="field">
+                                <span className="field-label">Yetkili adı soyadı</span>
+                                <input
+                                    className="form-input field-control"
+                                    value={supplierContactName}
+                                    onChange={(e) => setSupplierContactName(e.target.value)}
+                                    placeholder="Ad Soyad"
+                                />
+                            </label>
+                            <label className="field">
+                                <span className="field-label">
+                                    <Phone size={14} aria-hidden /> Yetkili telefon
+                                </span>
+                                <input
+                                    className="form-input field-control"
+                                    value={supplierContactPhone}
+                                    onChange={(e) => setSupplierContactPhone(e.target.value)}
+                                    placeholder="Cep / hat"
+                                />
+                            </label>
+                            <label className="field">
+                                <span className="field-label">
+                                    <Mail size={14} aria-hidden /> Yetkili e-posta
+                                </span>
+                                <input
+                                    className="form-input field-control"
+                                    type="email"
+                                    value={supplierContactEmail}
+                                    onChange={(e) => setSupplierContactEmail(e.target.value)}
+                                    placeholder="yetkili@ornek.com"
+                                />
+                            </label>
+                            <label className="field field--span-2">
+                                <span className="field-label">Diğer not (isteğe bağlı)</span>
                                 <input
                                     className="form-input field-control"
                                     value={supplierContact}
                                     onChange={(e) => setSupplierContact(e.target.value)}
-                                    placeholder="Tel / e-posta"
+                                    placeholder="Ek iletişim / not"
                                 />
                             </label>
                             <label className="field">
@@ -1008,6 +1137,11 @@ function ItemEditModal({
                                 criticalQuantity: String(criticalQuantity ?? '').trim() || null,
                                 supplierName: supplierName.trim() || null,
                                 supplierContact: supplierContact.trim() || null,
+                                supplierPhone: supplierPhone.trim() || null,
+                                supplierEmail: supplierEmail.trim() || null,
+                                supplierContactName: supplierContactName.trim() || null,
+                                supplierContactPhone: supplierContactPhone.trim() || null,
+                                supplierContactEmail: supplierContactEmail.trim() || null,
                                 supplierPaymentTerm: supplierPaymentTerm.trim() || null,
                                 supplierLeadTime: supplierLeadTime.trim() || null
                             };
@@ -1164,6 +1298,7 @@ function PriceSparkline({ points }: { points: StockPriceHistoryPoint[] }) {
 function StockDetailModal({
     itemId,
     isAdmin,
+    warehouseMode = false,
     onClose,
     onMutated,
     onEditItem,
@@ -1172,6 +1307,7 @@ function StockDetailModal({
 }: {
     itemId: number;
     isAdmin: boolean;
+    warehouseMode?: boolean;
     onClose: () => void;
     onMutated: () => void;
     onEditItem: (row: StockItemRow) => void;
@@ -1224,6 +1360,11 @@ function StockDetailModal({
             isMainItem: Boolean(detail.isMainItem),
             supplierName: detail.supplierName,
             supplierContact: detail.supplierContact,
+            supplierPhone: detail.supplierPhone ?? null,
+            supplierEmail: detail.supplierEmail ?? null,
+            supplierContactName: detail.supplierContactName ?? null,
+            supplierContactPhone: detail.supplierContactPhone ?? null,
+            supplierContactEmail: detail.supplierContactEmail ?? null,
             supplierPaymentTerm: detail.supplierPaymentTerm ?? null,
             supplierLeadTime: detail.supplierLeadTime ?? null,
             createdAt: detail.createdAt,
@@ -1290,7 +1431,7 @@ function StockDetailModal({
                             </div>
                         )}
                     </div>
-                    {detail && (
+                    {detail && !warehouseMode && (
                         <button
                             type="button"
                             className="btn btn-secondary stock-detail-reset-btn"
@@ -1302,7 +1443,7 @@ function StockDetailModal({
                             Bilgileri sıfırla
                         </button>
                     )}
-                    {detail && (
+                    {detail && !warehouseMode && (
                         <button
                             type="button"
                             className={`btn btn-secondary stock-detail-main-btn${detail.isMainItem ? ' is-on' : ''}`}
@@ -1314,7 +1455,7 @@ function StockDetailModal({
                             {detail.isMainItem ? 'Ana kalemden çıkar' : 'Ana kaleme ekle'}
                         </button>
                     )}
-                    {detail && (
+                    {detail && !warehouseMode && (
                         <button
                             type="button"
                             className="btn btn-secondary stock-detail-edit-btn"
@@ -1394,6 +1535,8 @@ function StockDetailModal({
                                     </div>
                                 </div>
 
+                                {!warehouseMode ? (
+                                <>
                                 <div className="stock-detail-card">
                                     <div className="stock-detail-card-label">
                                         <BarChart3 size={14} aria-hidden /> Güncel birim fiyat
@@ -1467,8 +1610,12 @@ function StockDetailModal({
                                             : 'Karşılaştırma için en az iki fiyat kaydı gerekli.'}
                                     </div>
                                 </div>
+                                </>
+                                ) : null}
                             </div>
 
+                            {!warehouseMode ? (
+                            <>
                             <section className="stock-detail-section">
                                 <header className="stock-detail-section-head">
                                     <h3>
@@ -1602,15 +1749,53 @@ function StockDetailModal({
                                     </div>
                                     <div>
                                         <div className="stock-detail-label">
-                                            <Phone size={12} aria-hidden /> İletişim
+                                            <Phone size={12} aria-hidden /> Firma telefon
                                         </div>
-                                        <div
-                                            className="stock-detail-value"
-                                            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                                        >
-                                            {detail.supplierContact ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+                                        <div className="stock-detail-value">
+                                            {detail.supplierPhone ?? <span style={{ color: 'var(--muted)' }}>—</span>}
                                         </div>
                                     </div>
+                                    <div>
+                                        <div className="stock-detail-label">
+                                            <Mail size={12} aria-hidden /> Firma e-posta
+                                        </div>
+                                        <div className="stock-detail-value" style={{ wordBreak: 'break-word' }}>
+                                            {detail.supplierEmail ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="stock-detail-label">Yetkili</div>
+                                        <div className="stock-detail-value">
+                                            {detail.supplierContactName ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="stock-detail-label">
+                                            <Phone size={12} aria-hidden /> Yetkili telefon
+                                        </div>
+                                        <div className="stock-detail-value">
+                                            {detail.supplierContactPhone ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="stock-detail-label">
+                                            <Mail size={12} aria-hidden /> Yetkili e-posta
+                                        </div>
+                                        <div className="stock-detail-value" style={{ wordBreak: 'break-word' }}>
+                                            {detail.supplierContactEmail ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+                                        </div>
+                                    </div>
+                                    {detail.supplierContact ? (
+                                        <div>
+                                            <div className="stock-detail-label">Diğer not</div>
+                                            <div
+                                                className="stock-detail-value"
+                                                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                                            >
+                                                {detail.supplierContact}
+                                            </div>
+                                        </div>
+                                    ) : null}
                                     <div>
                                         <div className="stock-detail-label">Vade</div>
                                         <div className="stock-detail-value">
@@ -1638,16 +1823,32 @@ function StockDetailModal({
                                                     </span>
                                                     <span className="stock-detail-hist-body">
                                                         <span className="stock-hist-flow">
-                                                            {s.prevSupplierName || s.prevSupplierContact ? (
+                                                            {s.prevSupplierName ||
+                                                            s.prevSupplierContact ||
+                                                            s.prevSupplierPhone ||
+                                                            s.prevSupplierContactName ? (
                                                                 <>
                                                                     <span
                                                                         className="stock-hist-chip stock-hist-chip--from"
-                                                                        title={[s.prevSupplierName, s.prevSupplierContact].filter(Boolean).join(' · ') || undefined}
+                                                                        title={formatSupplierSummary({
+                                                                            supplierPhone: s.prevSupplierPhone,
+                                                                            supplierEmail: s.prevSupplierEmail,
+                                                                            supplierContact: s.prevSupplierContact,
+                                                                            supplierContactName: s.prevSupplierContactName,
+                                                                            supplierContactPhone: s.prevSupplierContactPhone,
+                                                                            supplierContactEmail: s.prevSupplierContactEmail,
+                                                                        }) || undefined}
                                                                     >
                                                                         <span className="stock-hist-tag stock-hist-tag--from">Eski</span>
                                                                         <Building2 size={14} aria-hidden className="stock-hist-chip-ic" />
                                                                         <span className="stock-hist-chip-name">{s.prevSupplierName ?? '—'}</span>
-                                                                        {s.prevSupplierContact ? (
+                                                                        {s.prevSupplierContactName || s.prevSupplierPhone ? (
+                                                                            <span className="stock-hist-chip-meta">
+                                                                                {[s.prevSupplierContactName, s.prevSupplierPhone]
+                                                                                    .filter(Boolean)
+                                                                                    .join(' · ')}
+                                                                            </span>
+                                                                        ) : s.prevSupplierContact ? (
                                                                             <>
                                                                                 <Phone size={13} aria-hidden className="stock-hist-chip-ic stock-hist-chip-ic--muted" />
                                                                                 <span className="stock-hist-chip-meta">{s.prevSupplierContact}</span>
@@ -1661,12 +1862,23 @@ function StockDetailModal({
                                                             ) : null}
                                                             <span
                                                                 className="stock-hist-chip stock-hist-chip--to"
-                                                                title={[s.supplierName, s.supplierContact, s.supplierPaymentTerm, s.supplierLeadTime].filter(Boolean).join(' · ') || undefined}
+                                                                title={[
+                                                                    s.supplierName,
+                                                                    formatSupplierSummary(s),
+                                                                    s.supplierPaymentTerm,
+                                                                    s.supplierLeadTime,
+                                                                ]
+                                                                    .filter(Boolean)
+                                                                    .join(' · ') || undefined}
                                                             >
                                                                 <span className="stock-hist-tag stock-hist-tag--to">Yeni</span>
                                                                 <Building2 size={14} aria-hidden className="stock-hist-chip-ic" />
                                                                 <span className="stock-hist-chip-name">{s.supplierName ?? '—'}</span>
-                                                                {s.supplierContact ? (
+                                                                {s.supplierContactName || s.supplierPhone ? (
+                                                                    <span className="stock-hist-chip-meta">
+                                                                        {[s.supplierContactName, s.supplierPhone].filter(Boolean).join(' · ')}
+                                                                    </span>
+                                                                ) : s.supplierContact ? (
                                                                     <>
                                                                         <Phone size={13} aria-hidden className="stock-hist-chip-ic stock-hist-chip-ic--muted" />
                                                                         <span className="stock-hist-chip-meta">{s.supplierContact}</span>
@@ -1801,29 +2013,27 @@ function StockDetailModal({
                                                             <a className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={url} target="_blank" rel="noreferrer">
                                                                 Aç
                                                             </a>
-                                                            {isAdmin ? (
-                                                                <button
-                                                                    type="button"
-                                                                    className="icon-btn icon-btn--danger"
-                                                                    title="Sil"
-                                                                    disabled={busy}
-                                                                    onClick={async () => {
-                                                                        if (!confirm('Bu dosyayı silmek istiyor musunuz?')) return;
-                                                                        try {
-                                                                            setBusy(true);
-                                                                            await deleteStockItemDocument(itemId, doc.id);
-                                                                            await refresh();
-                                                                            onMutated();
-                                                                        } catch (e) {
-                                                                            alert(e instanceof Error ? e.message : 'Silinemedi');
-                                                                        } finally {
-                                                                            setBusy(false);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <Trash2 size={15} />
-                                                                </button>
-                                                            ) : null}
+                                                            <button
+                                                                type="button"
+                                                                className="icon-btn icon-btn--danger"
+                                                                title="Sil"
+                                                                disabled={busy}
+                                                                onClick={async () => {
+                                                                    if (!confirm('Bu dosyayı silmek istiyor musunuz? Silme işlemi loglanır.')) return;
+                                                                    try {
+                                                                        setBusy(true);
+                                                                        await deleteStockItemDocument(itemId, doc.id);
+                                                                        await refresh();
+                                                                        onMutated();
+                                                                    } catch (e) {
+                                                                        alert(e instanceof Error ? e.message : 'Silinemedi');
+                                                                    } finally {
+                                                                        setBusy(false);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Trash2 size={15} />
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </li>
@@ -1831,7 +2041,66 @@ function StockDetailModal({
                                         })}
                                     </ul>
                                 )}
+                                {(detail.documentDeletions?.length ?? 0) > 0 ? (
+                                    <details className="stock-detail-hist" style={{ marginTop: 14 }}>
+                                        <summary>
+                                            <History size={13} aria-hidden />
+                                            Silinen dosya geçmişi ({detail.documentDeletions!.length})
+                                        </summary>
+                                        <ul className="stock-doc-deletion-list">
+                                            {detail.documentDeletions!.map((del: StockDocumentDeletion) => {
+                                                const kindLabel =
+                                                    STOCK_DOC_KIND_LABELS[del.kind as StockDocumentKind] ||
+                                                    del.kind ||
+                                                    'Dosya';
+                                                return (
+                                                    <li key={del.id} className="stock-doc-deletion-item">
+                                                        <div className="stock-hist-flow">
+                                                            <span
+                                                                className="stock-hist-chip stock-hist-chip--from"
+                                                                title={[del.originalFileName, del.supplierName, del.uploadedByUsername]
+                                                                    .filter(Boolean)
+                                                                    .join(' · ') || undefined}
+                                                            >
+                                                                <span className="stock-hist-tag stock-hist-tag--from">Dosya</span>
+                                                                {del.kind === 'TECH_DRAWING' ? (
+                                                                    <FileText size={14} aria-hidden className="stock-hist-chip-ic" />
+                                                                ) : (
+                                                                    <ImageIcon size={14} aria-hidden className="stock-hist-chip-ic" />
+                                                                )}
+                                                                <span className="stock-hist-chip-name">{kindLabel}</span>
+                                                                <span className="stock-hist-chip-meta">
+                                                                    {del.originalFileName || 'dosya'}
+                                                                    {del.supplierName ? ` · ${del.supplierName}` : ''}
+                                                                </span>
+                                                            </span>
+                                                            <ArrowRight size={14} className="stock-hist-arrow" aria-hidden />
+                                                            <span className="stock-hist-chip stock-hist-chip--to stock-hist-chip--deleted">
+                                                                <span className="stock-hist-tag stock-hist-tag--deleted">Silindi</span>
+                                                                <Trash2 size={14} aria-hidden className="stock-hist-chip-ic" />
+                                                                <span className="stock-hist-chip-name">
+                                                                    {del.deletedByUsername || 'kullanıcı'}
+                                                                </span>
+                                                            </span>
+                                                        </div>
+                                                        <div className="stock-doc-deletion-meta">
+                                                            <span>{formatDateTime(del.deletedAt)}</span>
+                                                            {del.uploadedByUsername || del.uploadedAt ? (
+                                                                <span>
+                                                                    Yükleyen: {del.uploadedByUsername || '—'}
+                                                                    {del.uploadedAt ? ` · ${formatDateTime(del.uploadedAt)}` : ''}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </details>
+                                ) : null}
                             </section>
+                            </>
+                            ) : null}
 
                             <section className="stock-detail-section">
                                 <header className="stock-detail-section-head">
@@ -1880,28 +2149,27 @@ function StockDetailModal({
                 </div>
             </div>
 
-            {supplierOpen && detail && (
+            {supplierOpen && detail && !warehouseMode && (
                 <SupplierChangeModal
                     mode={hasStockSupplier(detail) ? 'change' : 'first'}
                     current={{
                         supplierName: detail.supplierName,
                         supplierContact: detail.supplierContact,
+                        supplierPhone: detail.supplierPhone ?? null,
+                        supplierEmail: detail.supplierEmail ?? null,
+                        supplierContactName: detail.supplierContactName ?? null,
+                        supplierContactPhone: detail.supplierContactPhone ?? null,
+                        supplierContactEmail: detail.supplierContactEmail ?? null,
                         supplierPaymentTerm: detail.supplierPaymentTerm ?? null,
                         supplierLeadTime: detail.supplierLeadTime ?? null
                     }}
                     saving={busy}
                     onClose={() => !busy && setSupplierOpen(false)}
-                    onSave={async (name, contact, paymentTerm, leadTime, note) => {
+                    onSave={async (payload) => {
                         const wasFirst = !hasStockSupplier(detail);
                         try {
                             setBusy(true);
-                            await changeStockSupplier(itemId, {
-                                supplierName: name,
-                                supplierContact: contact,
-                                supplierPaymentTerm: paymentTerm,
-                                supplierLeadTime: leadTime,
-                                note
-                            });
+                            await changeStockSupplier(itemId, { ...payload });
                             setSupplierOpen(false);
                             await refresh();
                             onMutated();
@@ -1920,7 +2188,7 @@ function StockDetailModal({
                 />
             )}
 
-            {docUploadOpen && detail && (
+            {docUploadOpen && detail && !warehouseMode && (
                 <StockDocumentUploadModal
                     itemDescription={detail.description}
                     supplierName={detail.supplierName}
@@ -1967,7 +2235,7 @@ function StockDetailModal({
                 />
             )}
 
-            {resetStep && detail && (
+            {resetStep && detail && !warehouseMode && (
                 <div
                     className="modal-overlay stock-reset-overlay"
                     role="dialog"
@@ -2012,7 +2280,7 @@ function StockDetailModal({
                                     </p>
                                     <ul>
                                         <li>Güncel stok miktarı ve kritik stok seviyesi</li>
-                                        <li>Tedarikçi bilgileri (firma, iletişim, vade, termin)</li>
+                                        <li>Tedarikçi bilgileri (firma, telefon, mail, yetkili, vade, termin)</li>
                                         <li>Ana kalem işareti</li>
                                         <li>Tüm birim fiyat geçmişi</li>
                                         <li>Tüm stok giriş/çıkış hareketleri</li>
@@ -2187,25 +2455,53 @@ function SupplierChangeModal({
     current: {
         supplierName: string | null;
         supplierContact: string | null;
+        supplierPhone: string | null;
+        supplierEmail: string | null;
+        supplierContactName: string | null;
+        supplierContactPhone: string | null;
+        supplierContactEmail: string | null;
         supplierPaymentTerm: string | null;
         supplierLeadTime: string | null;
     };
     saving: boolean;
     onClose: () => void;
-    onSave: (
-        name: string | null,
-        contact: string | null,
-        paymentTerm: string | null,
-        leadTime: string | null,
-        note: string | null
-    ) => Promise<void>;
+    onSave: (payload: {
+        supplierName: string | null;
+        supplierContact: string | null;
+        supplierPhone: string | null;
+        supplierEmail: string | null;
+        supplierContactName: string | null;
+        supplierContactPhone: string | null;
+        supplierContactEmail: string | null;
+        supplierPaymentTerm: string | null;
+        supplierLeadTime: string | null;
+        note: string | null;
+    }) => Promise<void>;
 }) {
     const isFirst = mode === 'first';
-    const [name, setName] = useState(isFirst ? '' : current.supplierName ?? '');
-    const [contact, setContact] = useState(isFirst ? '' : current.supplierContact ?? '');
-    const [paymentTerm, setPaymentTerm] = useState(isFirst ? '' : current.supplierPaymentTerm ?? '');
-    const [leadTime, setLeadTime] = useState(isFirst ? '' : current.supplierLeadTime ?? '');
+    const blank = (v: string | null | undefined) => (isFirst ? '' : v ?? '');
+    const [name, setName] = useState(blank(current.supplierName));
+    const [phone, setPhone] = useState(blank(current.supplierPhone));
+    const [email, setEmail] = useState(blank(current.supplierEmail));
+    const [contactName, setContactName] = useState(blank(current.supplierContactName));
+    const [contactPhone, setContactPhone] = useState(blank(current.supplierContactPhone));
+    const [contactEmail, setContactEmail] = useState(blank(current.supplierContactEmail));
+    const [contact, setContact] = useState(blank(current.supplierContact));
+    const [paymentTerm, setPaymentTerm] = useState(blank(current.supplierPaymentTerm));
+    const [leadTime, setLeadTime] = useState(blank(current.supplierLeadTime));
     const [note, setNote] = useState('');
+
+    const empty =
+        !name.trim() &&
+        !phone.trim() &&
+        !email.trim() &&
+        !contactName.trim() &&
+        !contactPhone.trim() &&
+        !contactEmail.trim() &&
+        !contact.trim() &&
+        !paymentTerm.trim() &&
+        !leadTime.trim();
+
     return (
         <div
             className="modal-overlay"
@@ -2214,14 +2510,14 @@ function SupplierChangeModal({
             style={{ zIndex: 1100 }}
             onClick={onClose}
         >
-            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div className="modal modal--premium" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
                 <div className="modal-header">
                     <div>
                         <h2 className="modal-title">{isFirst ? 'İlk tedarikçiyi gir' : 'Tedarikçiyi değiştir'}</h2>
                         <p className="modal-subtitle">
                             {isFirst
-                                ? 'Bu ürün için ilk tedarikçi bilgilerini girin. Kayıttan sonra ürün/teknik resim yükleyebilirsiniz.'
-                                : 'Firma, iletişim, vade ve termin bilgisini girin. Kayıttan sonra yeni ürün/teknik resmi yüklemeniz istenir.'}
+                                ? 'Firma ve yetkili iletişim bilgilerini girin. Kayıttan sonra ürün/teknik resim yükleyebilirsiniz.'
+                                : 'Firma, yetkili, vade ve termin bilgilerini güncelleyin. Kayıttan sonra yeni ürün/teknik resmi yüklemeniz istenir.'}
                         </p>
                     </div>
                     <button type="button" className="modal-close" onClick={onClose} disabled={saving} aria-label="Kapat">
@@ -2229,34 +2525,85 @@ function SupplierChangeModal({
                     </button>
                 </div>
                 <div className="modal-body" style={{ padding: 24 }}>
-                    <label>
-                        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
-                            {isFirst ? 'Firma adı' : 'Yeni firma adı'}
-                        </span>
-                        <input
-                            className="form-input"
-                            style={{ borderRadius: 10 }}
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            autoFocus
-                        />
-                    </label>
-                    <label style={{ display: 'block', marginTop: 14 }}>
-                        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
-                            {isFirst ? 'İletişim (tel / e-posta)' : 'Yeni iletişim (tel / e-posta)'}
-                        </span>
-                        <textarea
-                            className="form-input"
-                            style={{ borderRadius: 10 }}
-                            rows={2}
-                            value={contact}
-                            onChange={(e) => setContact(e.target.value)}
-                        />
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <label style={{ gridColumn: '1 / -1' }}>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Firma adı
+                            </span>
+                            <input
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                autoFocus
+                                placeholder="Örn. ABC Sanayi A.Ş."
+                            />
+                        </label>
                         <label>
                             <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
-                                Vade (bu üründe)
+                                Firma telefon
+                            </span>
+                            <input
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                placeholder="0212…"
+                            />
+                        </label>
+                        <label>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Firma e-posta
+                            </span>
+                            <input
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="firma@ornek.com"
+                            />
+                        </label>
+                        <label style={{ gridColumn: '1 / -1' }}>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Yetkili adı soyadı
+                            </span>
+                            <input
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                value={contactName}
+                                onChange={(e) => setContactName(e.target.value)}
+                                placeholder="Ad Soyad"
+                            />
+                        </label>
+                        <label>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Yetkili telefon
+                            </span>
+                            <input
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                value={contactPhone}
+                                onChange={(e) => setContactPhone(e.target.value)}
+                                placeholder="Cep / hat"
+                            />
+                        </label>
+                        <label>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Yetkili e-posta
+                            </span>
+                            <input
+                                className="form-input"
+                                style={{ borderRadius: 10 }}
+                                type="email"
+                                value={contactEmail}
+                                onChange={(e) => setContactEmail(e.target.value)}
+                                placeholder="yetkili@ornek.com"
+                            />
+                        </label>
+                        <label>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                Vade
                             </span>
                             <input
                                 className="form-input"
@@ -2264,7 +2611,7 @@ function SupplierChangeModal({
                                 list="stock-supplier-vade-options"
                                 value={paymentTerm}
                                 onChange={(e) => setPaymentTerm(e.target.value)}
-                                placeholder="Seçin veya yazın — örn. 40 gün"
+                                placeholder="Seçin veya yazın"
                                 maxLength={80}
                             />
                             <datalist id="stock-supplier-vade-options">
@@ -2283,7 +2630,7 @@ function SupplierChangeModal({
                                 list="stock-supplier-termin-options"
                                 value={leadTime}
                                 onChange={(e) => setLeadTime(e.target.value)}
-                                placeholder="Seçin veya yazın — örn. 12 gün"
+                                placeholder="Seçin veya yazın"
                                 maxLength={80}
                             />
                             <datalist id="stock-supplier-termin-options">
@@ -2292,21 +2639,33 @@ function SupplierChangeModal({
                                 ))}
                             </datalist>
                         </label>
-                    </div>
-                    {!isFirst ? (
-                        <label style={{ display: 'block', marginTop: 14 }}>
+                        <label style={{ gridColumn: '1 / -1' }}>
                             <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
-                                Değişiklik notu (isteğe bağlı)
+                                Diğer not (isteğe bağlı)
                             </span>
                             <input
                                 className="form-input"
                                 style={{ borderRadius: 10 }}
-                                value={note}
-                                onChange={(e) => setNote(e.target.value)}
-                                placeholder="Neden değişti?"
+                                value={contact}
+                                onChange={(e) => setContact(e.target.value)}
+                                placeholder="Ek iletişim / not"
                             />
                         </label>
-                    ) : null}
+                        {!isFirst ? (
+                            <label style={{ gridColumn: '1 / -1' }}>
+                                <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--muted)' }}>
+                                    Değişiklik notu (isteğe bağlı)
+                                </span>
+                                <input
+                                    className="form-input"
+                                    style={{ borderRadius: 10 }}
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    placeholder="Neden değişti?"
+                                />
+                            </label>
+                        ) : null}
+                    </div>
                 </div>
                 <div className="modal-footer">
                     <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
@@ -2315,21 +2674,20 @@ function SupplierChangeModal({
                     <button
                         type="button"
                         className="btn btn-primary"
-                        disabled={
-                            saving ||
-                            (name.trim() === '' &&
-                                contact.trim() === '' &&
-                                paymentTerm.trim() === '' &&
-                                leadTime.trim() === '')
-                        }
+                        disabled={saving || empty}
                         onClick={() =>
-                            void onSave(
-                                name.trim() || null,
-                                contact.trim() || null,
-                                paymentTerm.trim() || null,
-                                leadTime.trim() || null,
-                                note.trim() || null
-                            )
+                            void onSave({
+                                supplierName: name.trim() || null,
+                                supplierContact: contact.trim() || null,
+                                supplierPhone: phone.trim() || null,
+                                supplierEmail: email.trim() || null,
+                                supplierContactName: contactName.trim() || null,
+                                supplierContactPhone: contactPhone.trim() || null,
+                                supplierContactEmail: contactEmail.trim() || null,
+                                supplierPaymentTerm: paymentTerm.trim() || null,
+                                supplierLeadTime: leadTime.trim() || null,
+                                note: note.trim() || null,
+                            })
                         }
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : null}

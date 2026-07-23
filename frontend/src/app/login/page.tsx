@@ -10,14 +10,14 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { login, user } = useAuth();
+    const { login, user, isWarehouse } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
         if (user) {
-            router.push('/urun-listesi');
+            router.push(isWarehouse ? '/stok-takip' : '/urun-listesi');
         }
-    }, [user, router]);
+    }, [user, isWarehouse, router]);
 
     if (user) return null;
 
@@ -29,7 +29,7 @@ export default function LoginPage() {
         const result = await login(username, password);
 
         if (result.success) {
-            router.push('/urun-listesi');
+            // yönlendirme user state / isWarehouse ile useEffect'te yapılır
         } else {
             setError(result.error || 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
         }

@@ -54,7 +54,7 @@ export default function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
-    const { user, isAdmin, logout } = useAuth();
+    const { user, isAdmin, isWarehouse, logout } = useAuth();
     const [searchQ, setSearchQ] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
     const [searchRes, setSearchRes] = useState<SearchResponse | null>(null);
@@ -101,20 +101,22 @@ export default function Sidebar() {
         };
     }, [canSearch, trimmedSearchQ, user]);
 
-    const menuItems: SidebarNavItem[] = [
-        { href: '/urun-listesi', label: 'Ürün Listesi', icon: Truck },
-        { href: '/ozet', label: 'Özet Görünüm', icon: ClipboardList },
-        { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
-        { href: '/bakim-takip', label: 'Bakım Takip', icon: Wrench },
-        { href: '/analiz', label: 'Analiz', icon: LineChart },
-        { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
-        { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
-        { key: 'mevcutIsler', href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
-        { key: 'aracBilgileri', href: '/arac-bilgileri', label: 'Araç bilgileri', icon: CarFront },
-        { href: '/arac-hasar-kaydi', label: 'Araç hasar kaydı', icon: ShieldAlert },
-        { href: '/ssh-takip', label: 'SSH Takip', icon: Headphones },
-        { href: '/stok-takip', label: 'Stok takip', icon: Package },
-    ];
+    const menuItems: SidebarNavItem[] = isWarehouse
+        ? [{ href: '/stok-takip', label: 'Stok takip', icon: Package }]
+        : [
+              { href: '/urun-listesi', label: 'Ürün Listesi', icon: Truck },
+              { href: '/ozet', label: 'Özet Görünüm', icon: ClipboardList },
+              { href: '/firma-ozeti', label: 'Firma Özeti', icon: Building2 },
+              { href: '/bakim-takip', label: 'Bakım Takip', icon: Wrench },
+              { href: '/analiz', label: 'Analiz', icon: LineChart },
+              { href: '/verimlilik', label: 'Verimlilik', icon: Gauge },
+              { href: '/kapasite', label: 'Bölüm kapasitesi', icon: Users },
+              { key: 'mevcutIsler', href: '/mevcut-isler', label: 'Mevcut işler', icon: Briefcase },
+              { key: 'aracBilgileri', href: '/arac-bilgileri', label: 'Araç bilgileri', icon: CarFront },
+              { href: '/arac-hasar-kaydi', label: 'Araç hasar kaydı', icon: ShieldAlert },
+              { href: '/ssh-takip', label: 'SSH Takip', icon: Headphones },
+              { href: '/stok-takip', label: 'Stok takip', icon: Package },
+          ];
 
     const adminOnlyMenuItems = [
         { href: '/islem-kayitlari', label: 'İşlem kayıtları', icon: History },
@@ -158,7 +160,7 @@ export default function Sidebar() {
                     <div className="sidebar-brand__tagline">İmalat Takip Sistemi</div>
                 </div>
 
-                {user && (
+                {user && !isWarehouse && (
                     <div className="sidebar-search-block">
                         <div className="sidebar-search-inner">
                             <Search className="sidebar-search-icon" size={16} aria-hidden />
@@ -267,14 +269,20 @@ export default function Sidebar() {
                                 <div
                                     className={cn(
                                         'sidebar-user-avatar',
-                                        isAdmin ? 'sidebar-user-avatar--admin' : 'sidebar-user-avatar--user',
+                                        isAdmin
+                                            ? 'sidebar-user-avatar--admin'
+                                            : isWarehouse
+                                              ? 'sidebar-user-avatar--warehouse'
+                                              : 'sidebar-user-avatar--user',
                                     )}
                                 >
-                                    {isAdmin ? <Crown size={17} /> : <User size={17} />}
+                                    {isAdmin ? <Crown size={17} /> : isWarehouse ? <Package size={17} /> : <User size={17} />}
                                 </div>
                                 <div className="sidebar-user-meta">
                                     <div className="sidebar-user-name">{user.fullName || 'Kullanıcı'}</div>
-                                    <div className="sidebar-user-role">{isAdmin ? 'Yönetici' : 'Kullanıcı'}</div>
+                                    <div className="sidebar-user-role">
+                                        {isAdmin ? 'Yönetici' : isWarehouse ? 'Depo' : 'Kullanıcı'}
+                                    </div>
                                 </div>
                             </div>
                             <button type="button" className="sidebar-logout-btn" onClick={handleLogout}>

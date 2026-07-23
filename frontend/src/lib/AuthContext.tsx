@@ -7,12 +7,14 @@ interface User {
     username: string;
     fullName: string;
     isAdmin: boolean;
+    isWarehouse?: boolean;
 }
 
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     isAdmin: boolean;
+    isWarehouse: boolean;
     login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
 }
@@ -94,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user,
             isLoading,
             isAdmin: user?.isAdmin || false,
+            isWarehouse: Boolean(user?.isWarehouse),
             login,
             logout
         }}>

@@ -148,6 +148,8 @@ model User {
   password  String
   fullName  String
   isAdmin   Boolean  @default(false)
+  /// Depo: yalnızca stok giriş/çıkış
+  isWarehouse Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   loginLogs LoginLog[]
@@ -409,6 +411,16 @@ model StockItem {
   criticalQuantity Decimal?               @db.Decimal(18, 4)
   supplierName    String?
   supplierContact String?                 @db.Text
+  /// Firma telefon
+  supplierPhone   String?
+  /// Firma e-posta
+  supplierEmail   String?
+  /// Firma yetkilisi ad soyad
+  supplierContactName  String?
+  /// Yetkili telefon
+  supplierContactPhone String?
+  /// Yetkili e-posta
+  supplierContactEmail String?
   /// Bu ürün için mevcut tedarikçideki ödeme vadesi (örn. 30 gün)
   supplierPaymentTerm String?
   /// Bu ürün için mevcut tedarikçideki termin süresi (örn. 15 gün)
@@ -491,10 +503,20 @@ model StockSupplierHistory {
   stockItem       StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
   prevSupplierName    String?
   prevSupplierContact String?   @db.Text
+  prevSupplierPhone   String?
+  prevSupplierEmail   String?
+  prevSupplierContactName  String?
+  prevSupplierContactPhone String?
+  prevSupplierContactEmail String?
   prevSupplierPaymentTerm String?
   prevSupplierLeadTime String?
   supplierName    String?
   supplierContact String?   @db.Text
+  supplierPhone   String?
+  supplierEmail   String?
+  supplierContactName  String?
+  supplierContactPhone String?
+  supplierContactEmail String?
   supplierPaymentTerm String?
   supplierLeadTime String?
   note            String?

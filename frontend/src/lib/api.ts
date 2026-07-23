@@ -1291,6 +1291,11 @@ export interface StockItemRow {
     isMainItem?: boolean;
     supplierName: string | null;
     supplierContact: string | null;
+    supplierPhone?: string | null;
+    supplierEmail?: string | null;
+    supplierContactName?: string | null;
+    supplierContactPhone?: string | null;
+    supplierContactEmail?: string | null;
     supplierPaymentTerm?: string | null;
     supplierLeadTime?: string | null;
     createdAt: string;
@@ -1323,10 +1328,20 @@ export interface StockSupplierHistoryRow {
     id: number;
     prevSupplierName: string | null;
     prevSupplierContact: string | null;
+    prevSupplierPhone?: string | null;
+    prevSupplierEmail?: string | null;
+    prevSupplierContactName?: string | null;
+    prevSupplierContactPhone?: string | null;
+    prevSupplierContactEmail?: string | null;
     prevSupplierPaymentTerm?: string | null;
     prevSupplierLeadTime?: string | null;
     supplierName: string | null;
     supplierContact: string | null;
+    supplierPhone?: string | null;
+    supplierEmail?: string | null;
+    supplierContactName?: string | null;
+    supplierContactPhone?: string | null;
+    supplierContactEmail?: string | null;
     supplierPaymentTerm?: string | null;
     supplierLeadTime?: string | null;
     note: string | null;
@@ -1356,6 +1371,11 @@ export interface StockItemDetail {
     isMainItem?: boolean;
     supplierName: string | null;
     supplierContact: string | null;
+    supplierPhone?: string | null;
+    supplierEmail?: string | null;
+    supplierContactName?: string | null;
+    supplierContactPhone?: string | null;
+    supplierContactEmail?: string | null;
     supplierPaymentTerm?: string | null;
     supplierLeadTime?: string | null;
     createdAt: string;
@@ -1370,6 +1390,7 @@ export interface StockItemDetail {
     movements: StockMovementRow[];
     supplierHistory: StockSupplierHistoryRow[];
     documents?: StockItemDocument[];
+    documentDeletions?: StockDocumentDeletion[];
 }
 
 export type StockDocumentKind = 'PRODUCT_IMAGE' | 'TECH_DRAWING';
@@ -1387,6 +1408,22 @@ export interface StockItemDocument {
     createdAt: string;
     isImage?: boolean;
     isPdf?: boolean;
+}
+
+export interface StockDocumentDeletion {
+    id: number;
+    deletedAt: string;
+    deletedByUsername: string | null;
+    summary: string | null;
+    kind: string | null;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    originalFileName: string | null;
+    note: string | null;
+    supplierName: string | null;
+    uploadedByUsername: string | null;
+    uploadedAt: string | null;
+    docId: number | null;
 }
 
 export async function getStockGroups(): Promise<StockGroupRow[]> {
@@ -1425,6 +1462,11 @@ export async function createStockItem(body: {
     criticalQuantity?: string | number | null;
     supplierName?: string | null;
     supplierContact?: string | null;
+    supplierPhone?: string | null;
+    supplierEmail?: string | null;
+    supplierContactName?: string | null;
+    supplierContactPhone?: string | null;
+    supplierContactEmail?: string | null;
     supplierPaymentTerm?: string | null;
     supplierLeadTime?: string | null;
 }): Promise<Record<string, unknown>> {
@@ -1449,6 +1491,11 @@ export async function updateStockItem(
         isMainItem: boolean;
         supplierName: string | null;
         supplierContact: string | null;
+        supplierPhone: string | null;
+        supplierEmail: string | null;
+        supplierContactName: string | null;
+        supplierContactPhone: string | null;
+        supplierContactEmail: string | null;
         supplierPaymentTerm: string | null;
         supplierLeadTime: string | null;
     }>
@@ -1516,6 +1563,11 @@ export async function changeStockSupplier(
     body: {
         supplierName?: string | null;
         supplierContact?: string | null;
+        supplierPhone?: string | null;
+        supplierEmail?: string | null;
+        supplierContactName?: string | null;
+        supplierContactPhone?: string | null;
+        supplierContactEmail?: string | null;
         supplierPaymentTerm?: string | null;
         supplierLeadTime?: string | null;
         note?: string | null;

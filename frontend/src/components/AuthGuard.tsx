@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import OzunluLoading from '@/components/OzunluLoading';
 
@@ -11,24 +11,31 @@ interface AuthGuardProps {
 }
 
 export default function AuthGuard({ children, requireAdmin = false }: AuthGuardProps) {
-    const { user, isLoading, isAdmin } = useAuth();
+    const { user, isLoading, isAdmin, isWarehouse } = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         if (!isLoading) {
             if (!user) {
                 router.push('/login');
+            } else if (isWarehouse && !pathname.startsWith('/stok-takip')) {
+                router.push('/stok-takip');
             } else if (requireAdmin && !isAdmin) {
-                router.push('/urun-listesi');
+                router.push(isWarehouse ? '/stok-takip' : '/urun-listesi');
             }
         }
-    }, [user, isLoading, isAdmin, requireAdmin, router]);
+    }, [user, isLoading, isAdmin, isWarehouse, requireAdmin, router, pathname]);
 
     if (isLoading) {
         return <OzunluLoading variant="fullscreen" />;
     }
 
     if (!user) {
+        return null;
+    }
+
+    if (isWarehouse && !pathname.startsWith('/stok-takip')) {
         return null;
     }
 

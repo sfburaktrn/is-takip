@@ -4446,12 +4446,18 @@ textarea.form-input:focus {
 /* TedarikÃ§i bloÄŸu */
 .stock-detail-supplier {
   display: grid;
-  grid-template-columns: 1fr 1.2fr 0.7fr 0.7fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px 16px;
+}
+
+@media (max-width: 900px) {
+  .stock-detail-supplier {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -4493,6 +4499,42 @@ textarea.form-input:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
+}
+
+.stock-doc-deletion-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stock-doc-deletion-item {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, #ef4444 4%, var(--card));
+}
+
+.stock-doc-deletion-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.stock-hist-chip--deleted {
+  border-color: rgba(185, 28, 28, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.stock-hist-tag--deleted {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(185, 28, 28, 0.28);
+  color: #b91c1c;
 }
 
 .stock-doc-card {
@@ -5116,6 +5158,11 @@ textarea.form-input:focus {
   color: var(--primary);
 }
 
+.sidebar-user-avatar--warehouse {
+  background: color-mix(in srgb, #0d9488 16%, var(--card));
+  color: #0f766e;
+}
+
 .sidebar-user-meta {
   flex: 1;
   min-width: 0;
@@ -5679,6 +5726,63 @@ textarea.form-input:focus {
 .apple-role-pill--user {
   background: color-mix(in srgb, var(--primary) 14%, var(--card));
   color: var(--primary);
+}
+
+.apple-role-pill--warehouse {
+  background: color-mix(in srgb, #0d9488 16%, var(--card));
+  color: #0f766e;
+}
+
+.apple-role-options {
+  display: grid;
+  gap: 8px;
+}
+
+.apple-role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: var(--card);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.apple-role-option:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.apple-role-option.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+}
+
+.apple-role-option input {
+  margin-top: 3px;
+}
+
+.apple-role-option__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.apple-role-option__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.apple-role-option__hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .apple-icon-btn {

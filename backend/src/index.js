@@ -228,6 +228,66 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
+/** Depo hesabı yalnızca stok listeleme + giriş/çıkış hareketi yapabilir. */
+function warehouseApiGuard(req, res, next) {
+    if (!req.session?.isWarehouse) return next();
+    if (req.method === 'OPTIONS') return next();
+    const method = req.method;
+    const full = String(req.originalUrl || req.url || '').split('?')[0];
+    const path = full.replace(/^\/api/, '') || '/';
+
+    const allowed =
+        path.startsWith('/auth/') ||
+        path === '/stock/groups' ||
+        (path === '/stock/items' && method === 'GET') ||
+        (/^\/stock\/items\/\d+$/.test(path) && method === 'GET') ||
+        (/^\/stock\/items\/\d+\/movement$/.test(path) && method === 'POST');
+
+    if (!allowed) {
+        return res.status(403).json({ error: 'Depo hesabı yalnızca stok giriş/çıkış yapabilir' });
+    }
+    next();
+}
+
+/** Admin ve Depo birbirini dışlar; Depo seçilirse isAdmin false. */
+function resolveUserRoleFlags(body = {}) {
+    const isWarehouse = Boolean(body.isWarehouse);
+    const isAdmin = isWarehouse ? false : Boolean(body.isAdmin);
+    return { isAdmin, isWarehouse };
+}
+
+function stripStockItemForWarehouse(item) {
+    return {
+        id: item.id,
+        groupId: item.groupId,
+        group: item.group,
+        purchaseCode: item.purchaseCode,
+        description: item.description,
+        unit: item.unit,
+        quantity: item.quantity,
+        criticalQuantity: item.criticalQuantity,
+        isMainItem: Boolean(item.isMainItem),
+        supplierName: null,
+        supplierContact: null,
+        supplierPhone: null,
+        supplierEmail: null,
+        supplierContactName: null,
+        supplierContactPhone: null,
+        supplierContactEmail: null,
+        supplierPaymentTerm: null,
+        supplierLeadTime: null,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        latestUnitPrice: null,
+        previousUnitPrice: null,
+        latestCurrency: null,
+        previousCurrency: null,
+        priceChangePercent: null
+    };
+}
+
+app.use('/api', warehouseApiGuard);
+
 const DAMAGE_ALLOWED_MIME = new Set(['image/webp', 'image/jpeg', 'image/png']);
 const DAMAGE_MAX_PHOTOS = 3;
 const DAMAGE_MAX_BYTES = 3 * 1024 * 1024;
@@ -1173,7 +1233,8 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         // Session'a kullanıcı bilgilerini kaydet
         req.session.userId = user.id;
         req.session.username = user.username;
-        req.session.isAdmin = user.isAdmin;
+        req.session.isAdmin = Boolean(user.isAdmin) && !Boolean(user.isWarehouse);
+        req.session.isWarehouse = Boolean(user.isWarehouse);
 
         // Giriş logunu kaydet
         await prisma.loginLog.create({
@@ -1187,7 +1248,8 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             id: user.id,
             username: user.username,
             fullName: user.fullName,
-            isAdmin: user.isAdmin
+            isAdmin: Boolean(user.isAdmin) && !Boolean(user.isWarehouse),
+            isWarehouse: Boolean(user.isWarehouse)
         });
     } catch (error) {
         console.error('Login error:', error);
@@ -1224,7 +1286,8 @@ app.get('/api/auth/me', async (req, res) => {
             id: user.id,
             username: user.username,
             fullName: user.fullName,
-            isAdmin: user.isAdmin
+            isAdmin: Boolean(user.isAdmin) && !Boolean(user.isWarehouse),
+            isWarehouse: Boolean(user.isWarehouse)
         });
     } catch (error) {
         console.error('Get current user error:', error);
@@ -1243,6 +1306,7 @@ app.get('/api/users', requireAdmin, async (req, res) => {
                 username: true,
                 fullName: true,
                 isAdmin: true,
+                isWarehouse: true,
                 createdAt: true
             },
             orderBy: { createdAt: 'desc' }
@@ -1257,7 +1321,8 @@ app.get('/api/users', requireAdmin, async (req, res) => {
 // Create new user
 app.post('/api/users', requireAdmin, async (req, res) => {
     try {
-        const { username, password, fullName, isAdmin } = req.body;
+        const { username, password, fullName } = req.body;
+        const { isAdmin, isWarehouse } = resolveUserRoleFlags(req.body);
 
         if (!username || !password || !fullName) {
             return res.status(400).json({ error: 'Kullanıcı adı, şifre ve isim gerekli' });
@@ -1279,13 +1344,15 @@ app.post('/api/users', requireAdmin, async (req, res) => {
                 username,
                 password: hashedPassword,
                 fullName,
-                isAdmin: isAdmin || false
+                isAdmin,
+                isWarehouse
             },
             select: {
                 id: true,
                 username: true,
                 fullName: true,
                 isAdmin: true,
+                isWarehouse: true,
                 createdAt: true
             }
         });
@@ -1297,15 +1364,26 @@ app.post('/api/users', requireAdmin, async (req, res) => {
     }
 });
 
-// Update user (change password, fullName, isAdmin)
+// Update user (change password, fullName, isAdmin, isWarehouse)
 app.put('/api/users/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { password, fullName, isAdmin } = req.body;
+        const { password, fullName, isAdmin, isWarehouse } = req.body;
 
         const updateData = {};
         if (fullName) updateData.fullName = fullName;
-        if (isAdmin !== undefined) updateData.isAdmin = isAdmin;
+        if (isAdmin !== undefined || isWarehouse !== undefined) {
+            const existing = await prisma.user.findUnique({ where: { id: parseInt(id) } });
+            if (!existing) {
+                return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+            }
+            const merged = resolveUserRoleFlags({
+                isAdmin: isAdmin !== undefined ? isAdmin : existing.isAdmin,
+                isWarehouse: isWarehouse !== undefined ? isWarehouse : existing.isWarehouse
+            });
+            updateData.isAdmin = merged.isAdmin;
+            updateData.isWarehouse = merged.isWarehouse;
+        }
         if (password) updateData.password = await bcrypt.hash(password, 10);
 
         const user = await prisma.user.update({
@@ -1316,6 +1394,7 @@ app.put('/api/users/:id', requireAdmin, async (req, res) => {
                 username: true,
                 fullName: true,
                 isAdmin: true,
+                isWarehouse: true,
                 createdAt: true
             }
         });
@@ -3852,6 +3931,25 @@ function mapStockDocumentMeta(doc) {
     };
 }
 
+function mapStockDocumentDeletion(row) {
+    const d = row.details && typeof row.details === 'object' ? row.details : {};
+    return {
+        id: row.id,
+        deletedAt: row.createdAt,
+        deletedByUsername: row.username ?? null,
+        summary: row.summary,
+        kind: d.kind ?? null,
+        mimeType: d.mimeType ?? null,
+        sizeBytes: d.sizeBytes ?? null,
+        originalFileName: d.originalFileName ?? null,
+        note: d.note ?? null,
+        supplierName: d.supplierName ?? null,
+        uploadedByUsername: d.uploadedByUsername ?? null,
+        uploadedAt: d.uploadedAt ?? null,
+        docId: d.docId ?? null,
+    };
+}
+
 function isStockBelowCritical(qty, critical) {
     if (critical == null || !Number.isFinite(critical) || critical <= 0) return false;
     if (qty == null || !Number.isFinite(qty)) return false;
@@ -3944,11 +4042,14 @@ app.get('/api/stock/items', requireAuth, async (req, res) => {
             where.isMainItem = true;
         }
         if (q.length >= 2) {
-            where.OR = [
+            const textOr = [
                 { description: { contains: q, mode: 'insensitive' } },
-                { purchaseCode: { contains: q, mode: 'insensitive' } },
-                { supplierName: { contains: q, mode: 'insensitive' } }
+                { purchaseCode: { contains: q, mode: 'insensitive' } }
             ];
+            if (!req.session.isWarehouse) {
+                textOr.push({ supplierName: { contains: q, mode: 'insensitive' } });
+            }
+            where.OR = textOr;
         }
 
         const [rows, total] = await Promise.all([
@@ -3957,15 +4058,32 @@ app.get('/api/stock/items', requireAuth, async (req, res) => {
                 orderBy: [{ isMainItem: 'desc' }, { groupId: 'asc' }, { id: 'asc' }],
                 take: limit,
                 skip,
-                include: {
-                    group: { select: { id: true, name: true } },
-                    priceHistory: { orderBy: { recordedAt: 'desc' }, take: 2 }
-                }
+                include: req.session.isWarehouse
+                    ? { group: { select: { id: true, name: true } } }
+                    : {
+                          group: { select: { id: true, name: true } },
+                          priceHistory: { orderBy: { recordedAt: 'desc' }, take: 2 }
+                      }
             }),
             prisma.stockItem.count({ where })
         ]);
 
         const items = rows.map((row) => {
+            if (req.session.isWarehouse) {
+                return stripStockItemForWarehouse({
+                    id: row.id,
+                    groupId: row.groupId,
+                    group: row.group,
+                    purchaseCode: row.purchaseCode,
+                    description: row.description,
+                    unit: row.unit,
+                    quantity: row.quantity != null ? row.quantity.toString() : null,
+                    criticalQuantity: row.criticalQuantity != null ? row.criticalQuantity.toString() : null,
+                    isMainItem: Boolean(row.isMainItem),
+                    createdAt: row.createdAt,
+                    updatedAt: row.updatedAt
+                });
+            }
             const latest = row.priceHistory[0];
             const prev = row.priceHistory[1];
             const cur = latest != null ? Number(latest.unitPrice) : null;
@@ -3995,6 +4113,11 @@ app.get('/api/stock/items', requireAuth, async (req, res) => {
                 isMainItem: Boolean(row.isMainItem),
                 supplierName: row.supplierName,
                 supplierContact: row.supplierContact,
+                supplierPhone: row.supplierPhone ?? null,
+                supplierEmail: row.supplierEmail ?? null,
+                supplierContactName: row.supplierContactName ?? null,
+                supplierContactPhone: row.supplierContactPhone ?? null,
+                supplierContactEmail: row.supplierContactEmail ?? null,
                 supplierPaymentTerm: row.supplierPaymentTerm ?? null,
                 supplierLeadTime: row.supplierLeadTime ?? null,
                 createdAt: row.createdAt,
@@ -4019,6 +4142,65 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
         if (!Number.isFinite(id) || id < 1) {
             return res.status(400).json({ error: 'Geçersiz id' });
         }
+
+        if (req.session.isWarehouse) {
+            const row = await prisma.stockItem.findUnique({
+                where: { id },
+                include: {
+                    group: { select: { id: true, name: true } },
+                    movements: {
+                        orderBy: { recordedAt: 'desc' },
+                        take: 100,
+                        include: { user: { select: { username: true, fullName: true } } }
+                    }
+                }
+            });
+            if (!row) {
+                return res.status(404).json({ error: 'Kayıt bulunamadı' });
+            }
+            return res.json({
+                id: row.id,
+                groupId: row.groupId,
+                group: { id: row.group.id, name: row.group.name },
+                purchaseCode: row.purchaseCode,
+                description: row.description,
+                unit: row.unit,
+                quantity: row.quantity != null ? Number(row.quantity) : null,
+                criticalQuantity: row.criticalQuantity != null ? Number(row.criticalQuantity) : null,
+                isMainItem: Boolean(row.isMainItem),
+                supplierName: null,
+                supplierContact: null,
+                supplierPhone: null,
+                supplierEmail: null,
+                supplierContactName: null,
+                supplierContactPhone: null,
+                supplierContactEmail: null,
+                supplierPaymentTerm: null,
+                supplierLeadTime: null,
+                createdAt: row.createdAt,
+                updatedAt: row.updatedAt,
+                latestUnitPrice: null,
+                previousUnitPrice: null,
+                latestCurrency: null,
+                previousCurrency: null,
+                priceChangePercent: null,
+                priceChangeAbs: null,
+                priceHistory: [],
+                movements: row.movements.map((m) => ({
+                    id: m.id,
+                    type: m.type,
+                    quantity: m.quantity != null ? Number(m.quantity) : 0,
+                    balanceAfter: m.balanceAfter != null ? Number(m.balanceAfter) : null,
+                    note: m.note,
+                    recordedAt: m.recordedAt,
+                    user: m.user ? { username: m.user.username, fullName: m.user.fullName } : null
+                })),
+                supplierHistory: [],
+                documents: [],
+                documentDeletions: [],
+            });
+        }
+
         const row = await prisma.stockItem.findUnique({
             where: { id },
             include: {
@@ -4089,10 +4271,20 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
             id: s.id,
             prevSupplierName: s.prevSupplierName,
             prevSupplierContact: s.prevSupplierContact,
+            prevSupplierPhone: s.prevSupplierPhone ?? null,
+            prevSupplierEmail: s.prevSupplierEmail ?? null,
+            prevSupplierContactName: s.prevSupplierContactName ?? null,
+            prevSupplierContactPhone: s.prevSupplierContactPhone ?? null,
+            prevSupplierContactEmail: s.prevSupplierContactEmail ?? null,
             prevSupplierPaymentTerm: s.prevSupplierPaymentTerm ?? null,
             prevSupplierLeadTime: s.prevSupplierLeadTime ?? null,
             supplierName: s.supplierName,
             supplierContact: s.supplierContact,
+            supplierPhone: s.supplierPhone ?? null,
+            supplierEmail: s.supplierEmail ?? null,
+            supplierContactName: s.supplierContactName ?? null,
+            supplierContactPhone: s.supplierContactPhone ?? null,
+            supplierContactEmail: s.supplierContactEmail ?? null,
             supplierPaymentTerm: s.supplierPaymentTerm ?? null,
             supplierLeadTime: s.supplierLeadTime ?? null,
             note: s.note,
@@ -4101,6 +4293,24 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
         }));
 
         const documents = (row.documents || []).map(mapStockDocumentMeta);
+
+        const deletionLogs = await prisma.auditLog.findMany({
+            where: {
+                productType: 'STOCK',
+                productId: id,
+                action: 'STOCK_DOC_DELETE',
+            },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 40,
+            select: {
+                id: true,
+                username: true,
+                summary: true,
+                details: true,
+                createdAt: true,
+            },
+        });
+        const documentDeletions = deletionLogs.map(mapStockDocumentDeletion);
 
         res.json({
             id: row.id,
@@ -4114,6 +4324,11 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
             isMainItem: Boolean(row.isMainItem),
             supplierName: row.supplierName,
             supplierContact: row.supplierContact,
+            supplierPhone: row.supplierPhone ?? null,
+            supplierEmail: row.supplierEmail ?? null,
+            supplierContactName: row.supplierContactName ?? null,
+            supplierContactPhone: row.supplierContactPhone ?? null,
+            supplierContactEmail: row.supplierContactEmail ?? null,
             supplierPaymentTerm: row.supplierPaymentTerm ?? null,
             supplierLeadTime: row.supplierLeadTime ?? null,
             createdAt: row.createdAt,
@@ -4127,7 +4342,8 @@ app.get('/api/stock/items/:id', requireAuth, async (req, res) => {
             priceHistory,
             movements,
             supplierHistory,
-            documents
+            documents,
+            documentDeletions,
         });
     } catch (error) {
         console.error('stock item get:', error);
@@ -4232,6 +4448,11 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
         };
         const supplierName = normalizeSupplierField(b.supplierName);
         const supplierContact = normalizeSupplierField(b.supplierContact);
+        const supplierPhone = normalizeSupplierField(b.supplierPhone);
+        const supplierEmail = normalizeSupplierField(b.supplierEmail);
+        const supplierContactName = normalizeSupplierField(b.supplierContactName);
+        const supplierContactPhone = normalizeSupplierField(b.supplierContactPhone);
+        const supplierContactEmail = normalizeSupplierField(b.supplierContactEmail);
         const supplierPaymentTerm = normalizeSupplierField(b.supplierPaymentTerm);
         const supplierLeadTime = normalizeSupplierField(b.supplierLeadTime);
         const note = b.note != null ? String(b.note).slice(0, 500) : null;
@@ -4239,6 +4460,11 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
         if (
             supplierName == null &&
             supplierContact == null &&
+            supplierPhone == null &&
+            supplierEmail == null &&
+            supplierContactName == null &&
+            supplierContactPhone == null &&
+            supplierContactEmail == null &&
             supplierPaymentTerm == null &&
             supplierLeadTime == null
         ) {
@@ -4254,25 +4480,44 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
 
         const oldName = normalizeSupplierField(item.supplierName);
         const oldContact = normalizeSupplierField(item.supplierContact);
+        const oldPhone = normalizeSupplierField(item.supplierPhone);
+        const oldEmail = normalizeSupplierField(item.supplierEmail);
+        const oldContactName = normalizeSupplierField(item.supplierContactName);
+        const oldContactPhone = normalizeSupplierField(item.supplierContactPhone);
+        const oldContactEmail = normalizeSupplierField(item.supplierContactEmail);
         const oldPaymentTerm = normalizeSupplierField(item.supplierPaymentTerm);
         const oldLeadTime = normalizeSupplierField(item.supplierLeadTime);
+
+        const supplierData = {
+            supplierName,
+            supplierContact,
+            supplierPhone,
+            supplierEmail,
+            supplierContactName,
+            supplierContactPhone,
+            supplierContactEmail,
+            supplierPaymentTerm,
+            supplierLeadTime,
+        };
 
         const [, hist] = await prisma.$transaction([
             prisma.stockItem.update({
                 where: { id },
-                data: { supplierName, supplierContact, supplierPaymentTerm, supplierLeadTime }
+                data: supplierData,
             }),
             prisma.stockSupplierHistory.create({
                 data: {
                     stockItemId: id,
                     prevSupplierName: oldName,
                     prevSupplierContact: oldContact,
+                    prevSupplierPhone: oldPhone,
+                    prevSupplierEmail: oldEmail,
+                    prevSupplierContactName: oldContactName,
+                    prevSupplierContactPhone: oldContactPhone,
+                    prevSupplierContactEmail: oldContactEmail,
                     prevSupplierPaymentTerm: oldPaymentTerm,
                     prevSupplierLeadTime: oldLeadTime,
-                    supplierName,
-                    supplierContact,
-                    supplierPaymentTerm,
-                    supplierLeadTime,
+                    ...supplierData,
                     note,
                     userId: uid
                 },
@@ -4284,10 +4529,20 @@ app.post('/api/stock/items/:id/supplier', requireAuth, async (req, res) => {
             id: hist.id,
             prevSupplierName: hist.prevSupplierName,
             prevSupplierContact: hist.prevSupplierContact,
+            prevSupplierPhone: hist.prevSupplierPhone ?? null,
+            prevSupplierEmail: hist.prevSupplierEmail ?? null,
+            prevSupplierContactName: hist.prevSupplierContactName ?? null,
+            prevSupplierContactPhone: hist.prevSupplierContactPhone ?? null,
+            prevSupplierContactEmail: hist.prevSupplierContactEmail ?? null,
             prevSupplierPaymentTerm: hist.prevSupplierPaymentTerm ?? null,
             prevSupplierLeadTime: hist.prevSupplierLeadTime ?? null,
             supplierName: hist.supplierName,
             supplierContact: hist.supplierContact,
+            supplierPhone: hist.supplierPhone ?? null,
+            supplierEmail: hist.supplierEmail ?? null,
+            supplierContactName: hist.supplierContactName ?? null,
+            supplierContactPhone: hist.supplierContactPhone ?? null,
+            supplierContactEmail: hist.supplierContactEmail ?? null,
             supplierPaymentTerm: hist.supplierPaymentTerm ?? null,
             supplierLeadTime: hist.supplierLeadTime ?? null,
             note: hist.note,
@@ -4344,6 +4599,26 @@ app.post('/api/stock/items', requireAuth, async (req, res) => {
             b.supplierContact != null && String(b.supplierContact).trim() !== ''
                 ? String(b.supplierContact).trim()
                 : null;
+        const supplierPhone =
+            b.supplierPhone != null && String(b.supplierPhone).trim() !== ''
+                ? String(b.supplierPhone).trim().slice(0, 80)
+                : null;
+        const supplierEmail =
+            b.supplierEmail != null && String(b.supplierEmail).trim() !== ''
+                ? String(b.supplierEmail).trim().slice(0, 120)
+                : null;
+        const supplierContactName =
+            b.supplierContactName != null && String(b.supplierContactName).trim() !== ''
+                ? String(b.supplierContactName).trim().slice(0, 120)
+                : null;
+        const supplierContactPhone =
+            b.supplierContactPhone != null && String(b.supplierContactPhone).trim() !== ''
+                ? String(b.supplierContactPhone).trim().slice(0, 80)
+                : null;
+        const supplierContactEmail =
+            b.supplierContactEmail != null && String(b.supplierContactEmail).trim() !== ''
+                ? String(b.supplierContactEmail).trim().slice(0, 120)
+                : null;
         const supplierPaymentTerm =
             b.supplierPaymentTerm != null && String(b.supplierPaymentTerm).trim() !== ''
                 ? String(b.supplierPaymentTerm).trim().slice(0, 80)
@@ -4363,6 +4638,11 @@ app.post('/api/stock/items', requireAuth, async (req, res) => {
                 criticalQuantity,
                 supplierName,
                 supplierContact,
+                supplierPhone,
+                supplierEmail,
+                supplierContactName,
+                supplierContactPhone,
+                supplierContactEmail,
                 supplierPaymentTerm,
                 supplierLeadTime
             },
@@ -4438,6 +4718,36 @@ app.put('/api/stock/items/:id', requireAuth, async (req, res) => {
         if (b.supplierContact !== undefined) {
             data.supplierContact =
                 String(b.supplierContact || '').trim() === '' ? null : String(b.supplierContact).trim();
+        }
+        if (b.supplierPhone !== undefined) {
+            data.supplierPhone =
+                String(b.supplierPhone || '').trim() === ''
+                    ? null
+                    : String(b.supplierPhone).trim().slice(0, 80);
+        }
+        if (b.supplierEmail !== undefined) {
+            data.supplierEmail =
+                String(b.supplierEmail || '').trim() === ''
+                    ? null
+                    : String(b.supplierEmail).trim().slice(0, 120);
+        }
+        if (b.supplierContactName !== undefined) {
+            data.supplierContactName =
+                String(b.supplierContactName || '').trim() === ''
+                    ? null
+                    : String(b.supplierContactName).trim().slice(0, 120);
+        }
+        if (b.supplierContactPhone !== undefined) {
+            data.supplierContactPhone =
+                String(b.supplierContactPhone || '').trim() === ''
+                    ? null
+                    : String(b.supplierContactPhone).trim().slice(0, 80);
+        }
+        if (b.supplierContactEmail !== undefined) {
+            data.supplierContactEmail =
+                String(b.supplierContactEmail || '').trim() === ''
+                    ? null
+                    : String(b.supplierContactEmail).trim().slice(0, 120);
         }
         if (b.supplierPaymentTerm !== undefined) {
             data.supplierPaymentTerm =
@@ -4562,6 +4872,11 @@ app.post('/api/stock/items/:id/reset', requireAuth, async (req, res) => {
                     criticalQuantity: null,
                     supplierName: null,
                     supplierContact: null,
+                    supplierPhone: null,
+                    supplierEmail: null,
+                    supplierContactName: null,
+                    supplierContactPhone: null,
+                    supplierContactEmail: null,
                     supplierPaymentTerm: null,
                     supplierLeadTime: null,
                     isMainItem: false
@@ -4752,19 +5067,53 @@ app.get('/api/stock/items/:id/documents/:docId', requireAuth, async (req, res) =
     }
 });
 
-app.delete('/api/stock/items/:itemId/documents/:docId', requireAdmin, async (req, res) => {
+/** Ürün / teknik resim sil (herkes; silen kişi audit loga yazılır). */
+app.delete('/api/stock/items/:itemId/documents/:docId', requireAuth, async (req, res) => {
     try {
         const itemId = parseInt(String(req.params.itemId), 10);
         const docId = parseInt(String(req.params.docId), 10);
         if (!Number.isFinite(itemId) || itemId < 1 || !Number.isFinite(docId) || docId < 1) {
             return res.status(400).json({ error: 'Geçersiz id' });
         }
-        const deleted = await prisma.stockItemDocument.deleteMany({
+        const doc = await prisma.stockItemDocument.findFirst({
             where: { id: docId, stockItemId: itemId },
+            select: {
+                id: true,
+                kind: true,
+                mimeType: true,
+                sizeBytes: true,
+                originalFileName: true,
+                note: true,
+                supplierName: true,
+                uploadedByUsername: true,
+                createdAt: true,
+            },
         });
-        if (deleted.count === 0) {
+        if (!doc) {
             return res.status(404).json({ error: 'Dosya bulunamadı' });
         }
+
+        const kindLabel = doc.kind === 'TECH_DRAWING' ? 'Teknik resim' : 'Ürün resmi';
+        const fileLabel = doc.originalFileName || `#${doc.id}`;
+        await writeAuditLog(req, {
+            action: 'STOCK_DOC_DELETE',
+            productType: 'STOCK',
+            productId: itemId,
+            summary: `${kindLabel} silindi: ${fileLabel}`,
+            details: {
+                docId: doc.id,
+                kind: doc.kind,
+                mimeType: doc.mimeType,
+                sizeBytes: doc.sizeBytes,
+                originalFileName: doc.originalFileName,
+                note: doc.note,
+                supplierName: doc.supplierName,
+                uploadedByUsername: doc.uploadedByUsername,
+                uploadedAt: doc.createdAt,
+            },
+        });
+
+        await prisma.stockItemDocument.delete({ where: { id: docId } });
         res.json({ ok: true });
     } catch (error) {
         console.error('stock document delete:', error);

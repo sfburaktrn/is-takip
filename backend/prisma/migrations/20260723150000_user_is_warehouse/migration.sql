@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isWarehouse" BOOLEAN NOT NULL DEFAULT false;

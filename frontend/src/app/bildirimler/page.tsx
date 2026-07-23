@@ -39,6 +39,7 @@ function productTypeLabel(t: string) {
     if (t === 'PROPOSAL') return 'Teklif özeti';
     if (t === 'VEHICLE_DELIVERY') return 'Araç bilgileri';
     if (t === 'STOCK') return 'Stok';
+    if (t === 'SHEET_STOCK') return 'Saç';
     return t;
 }
 

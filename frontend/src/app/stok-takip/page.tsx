@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import AuthGuard from '@/components/AuthGuard';
 import OzunluLoading from '@/components/OzunluLoading';
 import { useAuth } from '@/lib/AuthContext';
+import SheetStockPanel from '@/components/SheetStockPanel';
 import {
     addStockItemDocument,
     addStockItemPrice,
@@ -299,8 +300,13 @@ function StokTakipInner() {
     const [detailNonce, setDetailNonce] = useState(0);
     const [saving, setSaving] = useState(false);
     /** Varsayılan: sayfa açılışında yalnızca ana kalemler */
-    const [listScope, setListScope] = useState<'main' | 'all'>('main');
+    const [listScope, setListScope] = useState<'main' | 'all' | 'sheet'>('main');
     const [togglingMainId, setTogglingMainId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const scope = searchParams?.get('scope');
+        if (scope === 'sheet') setListScope('sheet');
+    }, [searchParams]);
 
     useEffect(() => {
         const t = window.setTimeout(() => {
@@ -310,6 +316,10 @@ function StokTakipInner() {
     }, [searchInput]);
 
     const load = useCallback(async () => {
+        if (listScope === 'sheet') {
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             setError(null);
@@ -362,6 +372,7 @@ function StokTakipInner() {
     );
 
     useEffect(() => {
+        if (listScope === 'sheet') return;
         if (highlightId == null || loading) return;
         if (highlightOpenedRef.current === highlightId) return;
         const found = items.some((i) => i.id === highlightId);
@@ -415,12 +426,12 @@ function StokTakipInner() {
                                     <h1 id="stock-page-title">Stok takip</h1>
                                     <p>
                                         {isWarehouse
-                                            ? 'Ürünlerin stok giriş ve çıkış hareketlerini kaydedin. Ana kalemler veya tüm ürünler listesinden seçim yapın.'
-                                            : 'Satınalma kodları, tedarikçi bilgileri ve birim fiyat geçmişi tek ekranda. Fiyat kayıtlarıyla dönemsel artış ve azalışları izleyin.'}
+                                            ? 'Ürünlerin stok giriş ve çıkış hareketlerini kaydedin. Ana kalemler, tüm ürünler veya saç listesinden seçim yapın.'
+                                            : 'Satınalma kodları, tedarikçi bilgileri ve birim fiyat geçmişi tek ekranda. Fiyat kayıtlarıyla dönemsel artış ve azalışları izleyin. Saç stoku ayrı sekmede.'}
                                     </p>
                                 </div>
                             </div>
-                            {!isWarehouse ? (
+                            {!isWarehouse && listScope !== 'sheet' ? (
                                 <button type="button" className="btn btn-primary btn-stock-hero-add" onClick={() => setItemModal('new')}>
                                     <Plus size={18} />
                                     Yeni kalem
@@ -429,6 +440,7 @@ function StokTakipInner() {
                         </div>
                     </section>
 
+                    {listScope !== 'sheet' ? (
                     <div className="stock-stat-grid" role="region" aria-label="Özet">
                         <div className="stock-stat-card">
                             <div className="stock-stat-icon stock-stat-icon--primary" aria-hidden>
@@ -460,6 +472,7 @@ function StokTakipInner() {
                             </div>
                         ) : null}
                     </div>
+                    ) : null}
 
                     <div className="stock-toolbar">
                         <div className="stock-toolbar-grow">
@@ -483,7 +496,19 @@ function StokTakipInner() {
                                 >
                                     Tüm ürünler
                                 </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={listScope === 'sheet'}
+                                    className={`stock-scope-btn${listScope === 'sheet' ? ' is-active' : ''}`}
+                                    onClick={() => setListScope('sheet')}
+                                >
+                                    <Layers size={15} aria-hidden />
+                                    Saç
+                                </button>
                             </div>
+                            {listScope !== 'sheet' ? (
+                            <>
                             <div className="stock-search-wrap">
                                 <Search size={18} aria-hidden />
                                 <input
@@ -512,14 +537,18 @@ function StokTakipInner() {
                                     </option>
                                 ))}
                             </select>
+                            </>
+                            ) : null}
                         </div>
+                        {listScope !== 'sheet' ? (
                         <div className="stock-toolbar-actions">
                             <button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}>
                                 {loading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCcw size={18} />}
                                 Yenile
                             </button>
                         </div>
-                        {listScope === 'main' && !loading && total === 0 && searchQ.length < 2 ? (
+                        ) : null}
+                        {listScope === 'sheet' ? null : listScope === 'main' && !loading && total === 0 && searchQ.length < 2 ? (
                             <p className="stock-hint">
                                 {isWarehouse
                                     ? 'Henüz ana kalem yok. Tüm ürünler görünümüne geçerek ürün seçebilirsiniz.'
@@ -539,6 +568,10 @@ function StokTakipInner() {
                         ) : null}
                     </div>
 
+                    {listScope === 'sheet' ? (
+                        <SheetStockPanel highlightId={highlightId} />
+                    ) : (
+                    <>
                     {error && (
                         <div className="alert alert-error alert--mb20">
                             {error}
@@ -848,6 +881,8 @@ function StokTakipInner() {
                                 }
                             }}
                         />
+                    )}
+                    </>
                     )}
                     </div>
                 </main>

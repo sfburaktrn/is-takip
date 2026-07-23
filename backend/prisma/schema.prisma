@@ -157,6 +157,7 @@ model User {
   notificationReads     NotificationRead[]
   authoredNotifications Notification[]     @relation("NotificationActor")
   stockMovements        StockMovement[]
+  sheetStockMovements   SheetStockMovement[]
   stockSupplierChanges  StockSupplierHistory[]
   completedMaintenanceSchedules MaintenanceSchedule[] @relation("MaintenanceCompletedBy")
   handledCompanyReminders       Company[]             @relation("CompanyReminderHandledBy")
@@ -493,6 +494,62 @@ model StockMovement {
   recordedAt  DateTime  @default(now())
 
   @@index([stockItemId, recordedAt])
+  @@index([type])
+}
+
+/// Saç stok kalemi (Malzeme, Kalınlık, En, Boy, STOK).
+model SheetStockItem {
+  id               Int                  @id @default(autoincrement())
+  material         String
+  /// mm
+  thickness        Decimal              @db.Decimal(18, 4)
+  /// mm
+  width            Decimal              @db.Decimal(18, 4)
+  /// mm
+  length           Decimal              @db.Decimal(18, 4)
+  quantity         Decimal              @default(0) @db.Decimal(18, 4)
+  criticalQuantity Decimal?             @db.Decimal(18, 4)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  movements        SheetStockMovement[]
+  documents        SheetStockDocument[]
+
+  @@unique([material, thickness, width, length])
+  @@index([material])
+}
+
+/// Saç ürün belgeleri (PDF / görsel).
+model SheetStockDocument {
+  id                 Int            @id @default(autoincrement())
+  sheetItemId        Int
+  sheetItem          SheetStockItem @relation(fields: [sheetItemId], references: [id], onDelete: Cascade)
+  /// PDF | PRODUCT_IMAGE | TECH_DRAWING
+  kind               String         @default("PDF")
+  mimeType           String
+  data               Bytes
+  sizeBytes          Int
+  originalFileName   String?
+  note               String?
+  uploadedByUsername String?
+  createdAt          DateTime       @default(now())
+
+  @@index([sheetItemId, createdAt])
+}
+
+/// Saç stok giriş / çıkış hareketleri.
+model SheetStockMovement {
+  id           Int            @id @default(autoincrement())
+  sheetItemId  Int
+  sheetItem    SheetStockItem @relation(fields: [sheetItemId], references: [id], onDelete: Cascade)
+  type         String // 'IN' | 'OUT'
+  quantity     Decimal        @db.Decimal(18, 4)
+  balanceAfter Decimal?       @db.Decimal(18, 4)
+  note         String?
+  userId       Int?
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  recordedAt   DateTime       @default(now())
+
+  @@index([sheetItemId, recordedAt])
   @@index([type])
 }
 

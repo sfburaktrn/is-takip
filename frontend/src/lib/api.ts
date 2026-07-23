@@ -1037,7 +1037,7 @@ export function isProposalNotification(n: Pick<NotificationItem, 'kind' | 'produ
 }
 
 export function isStockNotification(n: Pick<NotificationItem, 'kind' | 'productType'>): boolean {
-    return n.kind === 'STOCK_LOW' || n.productType === 'STOCK';
+    return n.kind === 'STOCK_LOW' || n.productType === 'STOCK' || n.productType === 'SHEET_STOCK';
 }
 
 export function notificationItemHref(n: NotificationItem): string {
@@ -1049,6 +1049,9 @@ export function notificationItemHref(n: NotificationItem): string {
     }
     if (n.productType === 'MAINTENANCE') {
         return `/bakim-takip?highlight=${n.productId}`;
+    }
+    if (n.productType === 'SHEET_STOCK') {
+        return `/stok-takip?scope=sheet&highlight=${n.productId}`;
     }
     if (isStockNotification(n)) {
         return `/stok-takip?highlight=${n.productId}`;
@@ -1556,6 +1559,152 @@ export async function addStockMovement(
         body: JSON.stringify(body),
     });
     return handleResponse(res);
+}
+
+export interface SheetStockItemRow {
+    id: number;
+    material: string;
+    thickness: number;
+    width: number;
+    length: number;
+    quantity: number;
+    criticalQuantity: number | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface SheetStockItemsResponse {
+    items: SheetStockItemRow[];
+    total: number;
+    limit: number;
+    skip: number;
+}
+
+export interface SheetStockItemDetail extends SheetStockItemRow {
+    movements: StockMovementRow[];
+    documents?: StockItemDocument[];
+}
+
+export async function getSheetStockItems(params?: {
+    q?: string;
+    limit?: number;
+    skip?: number;
+}): Promise<SheetStockItemsResponse> {
+    const q = new URLSearchParams();
+    if (params?.q != null && params.q.trim().length >= 2) q.set('q', params.q.trim());
+    if (params?.limit != null) q.set('limit', String(params.limit));
+    if (params?.skip != null) q.set('skip', String(params.skip));
+    const qs = q.toString();
+    const res = await apiFetch(`${API_URL}/stock/sheet${qs ? `?${qs}` : ''}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<SheetStockItemsResponse>(res);
+}
+
+export async function getSheetStockItemDetail(id: number): Promise<SheetStockItemDetail> {
+    const res = await apiFetch(`${API_URL}/stock/sheet/${id}`, {
+        credentials: 'include',
+        cache: 'no-store',
+    });
+    return handleResponse<SheetStockItemDetail>(res);
+}
+
+export async function createSheetStockItem(body: {
+    material: string;
+    thickness: number | string;
+    width: number | string;
+    length: number | string;
+    quantity?: number | string | null;
+    criticalQuantity?: number | string | null;
+}): Promise<SheetStockItemRow> {
+    const res = await apiFetch(`${API_URL}/stock/sheet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<SheetStockItemRow>(res);
+}
+
+export async function updateSheetStockItem(
+    id: number,
+    body: Partial<{
+        material: string;
+        thickness: number | string;
+        width: number | string;
+        length: number | string;
+        quantity: number | string | null;
+        criticalQuantity: number | string | null;
+    }>
+): Promise<SheetStockItemRow> {
+    const res = await apiFetch(`${API_URL}/stock/sheet/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<SheetStockItemRow>(res);
+}
+
+export async function addSheetStockMovement(
+    id: number,
+    body: { type: 'IN' | 'OUT'; quantity: number; note?: string | null }
+): Promise<StockMovementRow & { currentQuantity: number }> {
+    const res = await apiFetch(`${API_URL}/stock/sheet/${id}/movement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+}
+
+export async function resetSheetStockItem(id: number): Promise<{ ok: true; id: number }> {
+    const res = await apiFetch(`${API_URL}/stock/sheet/${id}/reset`, {
+        method: 'POST',
+        credentials: 'include',
+    });
+    return handleResponse(res);
+}
+
+export async function deleteSheetStockItem(id: number): Promise<{ ok: true; id: number }> {
+    const res = await apiFetch(`${API_URL}/stock/sheet/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse(res);
+}
+
+export function getSheetStockDocumentUrl(itemId: number, docId: number): string {
+    return `${API_URL}/stock/sheet/${itemId}/documents/${docId}`;
+}
+
+export async function addSheetStockDocument(
+    id: number,
+    body: {
+        kind?: string;
+        mimeType: string;
+        dataBase64: string;
+        originalFileName?: string | null;
+        note?: string | null;
+    }
+): Promise<StockItemDocument> {
+    const res = await apiFetch(`${API_URL}/stock/sheet/${id}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+    });
+    return handleResponse<StockItemDocument>(res);
+}
+
+export async function deleteSheetStockDocument(itemId: number, docId: number): Promise<{ ok: true }> {
+    const res = await apiFetch(`${API_URL}/stock/sheet/${itemId}/documents/${docId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+    });
+    return handleResponse<{ ok: true }>(res);
 }
 
 export async function changeStockSupplier(

@@ -11,6 +11,7 @@
         "prisma:push": "node scripts/db-push-direct.js",
         "prisma:seed": "node prisma/seed.js",
         "stock:import": "node scripts/import-stock-from-xlsx.js",
+        "sheet:import": "node scripts/import-sheet-stock-from-xlsx.js",
         "8d:clean-template": "node scripts/clean-8d-template.js"
     },
     "dependencies": {

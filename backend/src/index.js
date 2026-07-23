@@ -241,7 +241,12 @@ function warehouseApiGuard(req, res, next) {
         path === '/stock/groups' ||
         (path === '/stock/items' && method === 'GET') ||
         (/^\/stock\/items\/\d+$/.test(path) && method === 'GET') ||
-        (/^\/stock\/items\/\d+\/movement$/.test(path) && method === 'POST');
+        (/^\/stock\/items\/\d+\/movement$/.test(path) && method === 'POST') ||
+        (path === '/stock/sheet' && (method === 'GET' || method === 'POST')) ||
+        (/^\/stock\/sheet\/\d+$/.test(path) && (method === 'GET' || method === 'PUT' || method === 'DELETE')) ||
+        (/^\/stock\/sheet\/\d+\/(movement|reset)$/.test(path) && method === 'POST') ||
+        (/^\/stock\/sheet\/\d+\/documents$/.test(path) && method === 'POST') ||
+        (/^\/stock\/sheet\/\d+\/documents\/\d+$/.test(path) && (method === 'GET' || method === 'DELETE'));
 
     if (!allowed) {
         return res.status(403).json({ error: 'Depo hesabı yalnızca stok giriş/çıkış yapabilir' });
@@ -3956,7 +3961,15 @@ function isStockBelowCritical(qty, critical) {
     return qty <= critical;
 }
 
-async function createStockLowNotification({ itemId, description, purchaseCode, quantity, criticalQuantity, actorUserId }) {
+async function createStockLowNotification({
+    itemId,
+    description,
+    purchaseCode,
+    quantity,
+    criticalQuantity,
+    actorUserId,
+    productType = 'STOCK',
+}) {
     try {
         const code = purchaseCode ? ` (${purchaseCode})` : '';
         const title = `Kritik stok: ${description}${code}`;
@@ -3964,7 +3977,7 @@ async function createStockLowNotification({ itemId, description, purchaseCode, q
         await prisma.notification.create({
             data: {
                 kind: 'STOCK_LOW',
-                productType: 'STOCK',
+                productType: productType || 'STOCK',
                 productId: itemId,
                 title,
                 body: body.replace(/\s+/g, ' ').trim(),
@@ -3985,6 +3998,7 @@ async function maybeNotifyStockCriticalCross({
     prevCritical,
     nextCritical,
     actorUserId,
+    productType = 'STOCK',
 }) {
     const wasLow = isStockBelowCritical(prevQty, prevCritical);
     const nowLow = isStockBelowCritical(nextQty, nextCritical);
@@ -3996,6 +4010,7 @@ async function maybeNotifyStockCriticalCross({
             quantity: nextQty,
             criticalQuantity: nextCritical,
             actorUserId,
+            productType,
         });
     }
 }
@@ -5117,6 +5132,495 @@ app.delete('/api/stock/items/:itemId/documents/:docId', requireAuth, async (req,
         res.json({ ok: true });
     } catch (error) {
         console.error('stock document delete:', error);
+        res.status(500).json({ error: `Silinemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+function mapSheetStockItem(row) {
+    return {
+        id: row.id,
+        material: row.material,
+        thickness: row.thickness != null ? Number(row.thickness) : null,
+        width: row.width != null ? Number(row.width) : null,
+        length: row.length != null ? Number(row.length) : null,
+        quantity: row.quantity != null ? Number(row.quantity) : 0,
+        criticalQuantity: row.criticalQuantity != null ? Number(row.criticalQuantity) : null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+    };
+}
+
+app.get('/api/stock/sheet', requireAuth, async (req, res) => {
+    try {
+        let limit = parseInt(String(req.query.limit || ''), 10);
+        if (!Number.isFinite(limit) || limit < 1) limit = 500;
+        if (limit > 2000) limit = 2000;
+        let skip = parseInt(String(req.query.skip || ''), 10);
+        if (!Number.isFinite(skip) || skip < 0) skip = 0;
+        const q = String(req.query.q || '').trim();
+
+        const where = {};
+        if (q.length >= 2) {
+            where.material = { contains: q, mode: 'insensitive' };
+        }
+
+        const [rows, total] = await Promise.all([
+            prisma.sheetStockItem.findMany({
+                where,
+                orderBy: [{ material: 'asc' }, { thickness: 'asc' }, { width: 'asc' }, { length: 'asc' }],
+                take: limit,
+                skip,
+            }),
+            prisma.sheetStockItem.count({ where }),
+        ]);
+        res.json({ items: rows.map(mapSheetStockItem), total, limit, skip });
+    } catch (error) {
+        console.error('sheet stock list:', error);
+        res.status(500).json({ error: `Saç stok listesi alınamadı.${stockMigrateHint(error)}` });
+    }
+});
+
+app.get('/api/stock/sheet/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const row = await prisma.sheetStockItem.findUnique({
+            where: { id },
+            include: {
+                movements: {
+                    orderBy: { recordedAt: 'desc' },
+                    take: 100,
+                    include: { user: { select: { username: true, fullName: true } } },
+                },
+                documents: {
+                    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+                    take: STOCK_DOC_MAX_PER_ITEM,
+                    select: {
+                        id: true,
+                        kind: true,
+                        mimeType: true,
+                        sizeBytes: true,
+                        originalFileName: true,
+                        note: true,
+                        uploadedByUsername: true,
+                        createdAt: true,
+                    },
+                },
+            },
+        });
+        if (!row) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        res.json({
+            ...mapSheetStockItem(row),
+            movements: row.movements.map((m) => ({
+                id: m.id,
+                type: m.type,
+                quantity: m.quantity != null ? Number(m.quantity) : 0,
+                balanceAfter: m.balanceAfter != null ? Number(m.balanceAfter) : null,
+                note: m.note,
+                recordedAt: m.recordedAt,
+                user: m.user ? { username: m.user.username, fullName: m.user.fullName } : null,
+            })),
+            documents: (row.documents || []).map((d) => ({
+                ...mapStockDocumentMeta(d),
+                supplierName: null,
+                supplierContact: null,
+            })),
+        });
+    } catch (error) {
+        console.error('sheet stock get:', error);
+        res.status(500).json({ error: `Kayıt alınamadı.${stockMigrateHint(error)}` });
+    }
+});
+
+app.post('/api/stock/sheet', requireAuth, async (req, res) => {
+    try {
+        const b = req.body || {};
+        const material = b.material != null ? String(b.material).replace(/\s+/g, ' ').trim() : '';
+        if (!material) {
+            return res.status(400).json({ error: 'Malzeme gerekli' });
+        }
+        const thickness = parseOptionalDecimal(b.thickness);
+        const width = parseOptionalDecimal(b.width);
+        const length = parseOptionalDecimal(b.length);
+        if (thickness == null || width == null || length == null) {
+            return res.status(400).json({ error: 'Kalınlık, en ve boy gerekli (sayı)' });
+        }
+        const quantity = parseOptionalDecimal(b.quantity) ?? new Prisma.Decimal(0);
+        const criticalQuantity = parseOptionalDecimal(b.criticalQuantity);
+
+        const existing = await prisma.sheetStockItem.findFirst({
+            where: { material, thickness, width, length },
+        });
+        if (existing) {
+            return res.status(400).json({ error: 'Bu ölçülerde saç zaten kayıtlı' });
+        }
+
+        const row = await prisma.sheetStockItem.create({
+            data: {
+                material,
+                thickness,
+                width,
+                length,
+                quantity,
+                criticalQuantity,
+            },
+        });
+        res.status(201).json(mapSheetStockItem(row));
+    } catch (error) {
+        console.error('sheet stock create:', error);
+        res.status(500).json({ error: `Saç eklenemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.put('/api/stock/sheet/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const existing = await prisma.sheetStockItem.findUnique({ where: { id } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        const b = req.body || {};
+        const data = {};
+        if (b.material !== undefined) {
+            const material = String(b.material || '').replace(/\s+/g, ' ').trim();
+            if (!material) return res.status(400).json({ error: 'Malzeme boş olamaz' });
+            data.material = material;
+        }
+        if (b.thickness !== undefined) {
+            const thickness = parseOptionalDecimal(b.thickness);
+            if (thickness == null) return res.status(400).json({ error: 'Geçersiz kalınlık' });
+            data.thickness = thickness;
+        }
+        if (b.width !== undefined) {
+            const width = parseOptionalDecimal(b.width);
+            if (width == null) return res.status(400).json({ error: 'Geçersiz en' });
+            data.width = width;
+        }
+        if (b.length !== undefined) {
+            const length = parseOptionalDecimal(b.length);
+            if (length == null) return res.status(400).json({ error: 'Geçersiz boy' });
+            data.length = length;
+        }
+        if (b.criticalQuantity !== undefined) {
+            data.criticalQuantity = parseOptionalDecimal(b.criticalQuantity);
+        }
+        if (b.quantity !== undefined) {
+            const quantity = parseOptionalDecimal(b.quantity);
+            if (quantity == null) return res.status(400).json({ error: 'Geçersiz stok miktarı' });
+            if (Number(quantity) < 0) return res.status(400).json({ error: 'Stok negatif olamaz' });
+            data.quantity = quantity;
+        }
+
+        const nextMaterial = data.material ?? existing.material;
+        const nextThickness = data.thickness ?? existing.thickness;
+        const nextWidth = data.width ?? existing.width;
+        const nextLength = data.length ?? existing.length;
+        const dup = await prisma.sheetStockItem.findFirst({
+            where: {
+                material: nextMaterial,
+                thickness: nextThickness,
+                width: nextWidth,
+                length: nextLength,
+                NOT: { id },
+            },
+        });
+        if (dup) {
+            return res.status(400).json({ error: 'Bu ölçülerde başka bir saç kaydı var' });
+        }
+
+        const prevCritical = existing.criticalQuantity != null ? Number(existing.criticalQuantity) : null;
+        const prevQty = existing.quantity != null ? Number(existing.quantity) : 0;
+
+        const row = await prisma.sheetStockItem.update({ where: { id }, data });
+        const nextCritical = row.criticalQuantity != null ? Number(row.criticalQuantity) : null;
+        const nextQty = row.quantity != null ? Number(row.quantity) : 0;
+
+        await maybeNotifyStockCriticalCross({
+            itemId: id,
+            description: `Saç ${row.material} ${Number(row.thickness)}×${Number(row.width)}×${Number(row.length)}`,
+            purchaseCode: null,
+            prevQty,
+            nextQty,
+            prevCritical,
+            nextCritical,
+            actorUserId: req.session?.userId || null,
+            productType: 'SHEET_STOCK',
+        });
+
+        res.json(mapSheetStockItem(row));
+    } catch (error) {
+        console.error('sheet stock update:', error);
+        res.status(500).json({ error: `Güncellenemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.post('/api/stock/sheet/:id/movement', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const b = req.body || {};
+        const type = String(b.type || '').toUpperCase();
+        if (type !== 'IN' && type !== 'OUT') {
+            return res.status(400).json({ error: 'type "IN" veya "OUT" olmalı' });
+        }
+        const qtyDec = parseOptionalDecimal(b.quantity);
+        if (qtyDec == null) {
+            return res.status(400).json({ error: 'quantity gerekli (sayı)' });
+        }
+        const qtyNum = Number(qtyDec);
+        if (!(qtyNum > 0)) {
+            return res.status(400).json({ error: 'quantity pozitif olmalı' });
+        }
+        const note = b.note != null ? String(b.note).slice(0, 500) : null;
+
+        const item = await prisma.sheetStockItem.findUnique({ where: { id } });
+        if (!item) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        const current = item.quantity != null ? Number(item.quantity) : 0;
+        const delta = type === 'IN' ? qtyNum : -qtyNum;
+        const next = current + delta;
+        if (next < 0 && type === 'OUT') {
+            return res.status(400).json({
+                error: `Yetersiz stok. Mevcut: ${current}, çıkış: ${qtyNum}`,
+            });
+        }
+
+        const uid = req.session?.userId || null;
+        const nextDec = new Prisma.Decimal(next);
+
+        const [, movement] = await prisma.$transaction([
+            prisma.sheetStockItem.update({ where: { id }, data: { quantity: nextDec } }),
+            prisma.sheetStockMovement.create({
+                data: {
+                    sheetItemId: id,
+                    type,
+                    quantity: qtyDec,
+                    balanceAfter: nextDec,
+                    note,
+                    userId: uid,
+                },
+                include: { user: { select: { username: true, fullName: true } } },
+            }),
+        ]);
+
+        const critical = item.criticalQuantity != null ? Number(item.criticalQuantity) : null;
+        await maybeNotifyStockCriticalCross({
+            itemId: id,
+            description: `Saç ${item.material} ${Number(item.thickness)}×${Number(item.width)}×${Number(item.length)}`,
+            purchaseCode: null,
+            prevQty: current,
+            nextQty: next,
+            prevCritical: critical,
+            nextCritical: critical,
+            actorUserId: uid,
+            productType: 'SHEET_STOCK',
+        });
+
+        res.json({
+            id: movement.id,
+            type: movement.type,
+            quantity: Number(movement.quantity),
+            balanceAfter: movement.balanceAfter != null ? Number(movement.balanceAfter) : null,
+            note: movement.note,
+            recordedAt: movement.recordedAt,
+            user: movement.user ? { username: movement.user.username, fullName: movement.user.fullName } : null,
+            currentQuantity: next,
+        });
+    } catch (error) {
+        console.error('sheet stock movement:', error);
+        res.status(500).json({ error: `Hareket kaydedilemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+/** Saç: stok/kritik/hareket/belge sıfırla — malzeme ve ölçüler kalır. */
+app.post('/api/stock/sheet/:id/reset', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const existing = await prisma.sheetStockItem.findUnique({ where: { id }, select: { id: true } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+
+        await prisma.$transaction([
+            prisma.sheetStockMovement.deleteMany({ where: { sheetItemId: id } }),
+            prisma.sheetStockDocument.deleteMany({ where: { sheetItemId: id } }),
+            prisma.sheetStockItem.update({
+                where: { id },
+                data: {
+                    quantity: new Prisma.Decimal(0),
+                    criticalQuantity: null,
+                },
+            }),
+        ]);
+
+        res.json({ ok: true, id });
+    } catch (error) {
+        console.error('sheet stock reset:', error);
+        res.status(500).json({ error: `Bilgiler sıfırlanamadı.${stockMigrateHint(error)}` });
+    }
+});
+
+app.delete('/api/stock/sheet/:id', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const existing = await prisma.sheetStockItem.findUnique({ where: { id }, select: { id: true } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        await prisma.sheetStockItem.delete({ where: { id } });
+        res.json({ ok: true, id });
+    } catch (error) {
+        console.error('sheet stock delete:', error);
+        res.status(500).json({ error: `Silinemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.post('/api/stock/sheet/:id/documents', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const b = req.body || {};
+        const mimeType = String(b.mimeType || '').trim().toLowerCase();
+        if (!STOCK_DOC_ALLOWED_MIME.has(mimeType)) {
+            return res.status(400).json({ error: 'Yalnızca JPEG, PNG, WebP veya PDF yüklenebilir' });
+        }
+        const dataBase64 = String(b.dataBase64 || '').replace(/^data:[^;]+;base64,/, '');
+        let dataBuffer;
+        try {
+            dataBuffer = Buffer.from(dataBase64, 'base64');
+        } catch {
+            return res.status(400).json({ error: 'Geçersiz dosya verisi' });
+        }
+        if (!dataBuffer.length) {
+            return res.status(400).json({ error: 'Dosya boş' });
+        }
+        if (dataBuffer.length > STOCK_DOC_MAX_BYTES) {
+            return res.status(400).json({ error: 'Dosya en fazla 4MB olabilir' });
+        }
+
+        const item = await prisma.sheetStockItem.findUnique({
+            where: { id },
+            include: { _count: { select: { documents: true } } },
+        });
+        if (!item) {
+            return res.status(404).json({ error: 'Kayıt bulunamadı' });
+        }
+        if (item._count.documents >= STOCK_DOC_MAX_PER_ITEM) {
+            return res.status(400).json({ error: `En fazla ${STOCK_DOC_MAX_PER_ITEM} dosya eklenebilir` });
+        }
+
+        let kind = String(b.kind || '').trim().toUpperCase();
+        if (mimeType === 'application/pdf') kind = 'PDF';
+        else if (!kind || kind === 'PDF') kind = 'PRODUCT_IMAGE';
+        else {
+            const nk = normalizeStockDocKind(kind);
+            kind = nk || 'PRODUCT_IMAGE';
+        }
+
+        const note = b.note != null && String(b.note).trim() ? String(b.note).slice(0, 500) : null;
+        const originalFileName =
+            b.originalFileName != null && String(b.originalFileName).trim()
+                ? String(b.originalFileName).slice(0, 240)
+                : null;
+        const uploadedByUsername = req.session?.username ? String(req.session.username) : null;
+
+        const created = await prisma.sheetStockDocument.create({
+            data: {
+                sheetItemId: id,
+                kind,
+                mimeType,
+                data: dataBuffer,
+                sizeBytes: dataBuffer.length,
+                originalFileName,
+                note,
+                uploadedByUsername,
+            },
+            select: {
+                id: true,
+                kind: true,
+                mimeType: true,
+                sizeBytes: true,
+                originalFileName: true,
+                note: true,
+                uploadedByUsername: true,
+                createdAt: true,
+            },
+        });
+
+        res.status(201).json({
+            ...mapStockDocumentMeta(created),
+            supplierName: null,
+            supplierContact: null,
+        });
+    } catch (error) {
+        console.error('sheet stock document upload:', error);
+        res.status(500).json({ error: `Dosya yüklenemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.get('/api/stock/sheet/:id/documents/:docId', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        const docId = parseInt(String(req.params.docId), 10);
+        if (!Number.isFinite(id) || id < 1 || !Number.isFinite(docId) || docId < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const doc = await prisma.sheetStockDocument.findFirst({
+            where: { id: docId, sheetItemId: id },
+        });
+        if (!doc) {
+            return res.status(404).json({ error: 'Dosya bulunamadı' });
+        }
+        res.setHeader('Content-Type', doc.mimeType);
+        res.setHeader(
+            'Content-Disposition',
+            `inline; filename="${encodeURIComponent(doc.originalFileName || `sheet-doc-${doc.id}`)}"`
+        );
+        res.send(Buffer.from(doc.data));
+    } catch (error) {
+        console.error('sheet stock document get:', error);
+        res.status(500).json({ error: `Dosya getirilemedi.${stockMigrateHint(error)}` });
+    }
+});
+
+app.delete('/api/stock/sheet/:id/documents/:docId', requireAuth, async (req, res) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        const docId = parseInt(String(req.params.docId), 10);
+        if (!Number.isFinite(id) || id < 1 || !Number.isFinite(docId) || docId < 1) {
+            return res.status(400).json({ error: 'Geçersiz id' });
+        }
+        const doc = await prisma.sheetStockDocument.findFirst({
+            where: { id: docId, sheetItemId: id },
+            select: { id: true },
+        });
+        if (!doc) {
+            return res.status(404).json({ error: 'Dosya bulunamadı' });
+        }
+        await prisma.sheetStockDocument.delete({ where: { id: docId } });
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('sheet stock document delete:', error);
         res.status(500).json({ error: `Silinemedi.${stockMigrateHint(error)}` });
     }
 });

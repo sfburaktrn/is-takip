@@ -17,7 +17,9 @@ import {
     type StockItemDocument,
 } from '@/lib/api';
 import OzunluLoading from '@/components/OzunluLoading';
+import { exportSheetStockItemsToExcel } from '@/lib/stockExcelExport';
 import {
+    FileSpreadsheet,
     FileText,
     Layers,
     Loader2,
@@ -124,6 +126,7 @@ export default function SheetStockPanel({ highlightId }: { highlightId?: number 
     const [saving, setSaving] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [detailId, setDetailId] = useState<number | null>(null);
+    const [exportingExcel, setExportingExcel] = useState(false);
 
     useEffect(() => {
         const t = window.setTimeout(() => setSearchQ(searchInput.trim()), 320);
@@ -188,6 +191,30 @@ export default function SheetStockPanel({ highlightId }: { highlightId?: number 
                     </div>
                 </div>
                 <div className="stock-toolbar-actions">
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={loading || exportingExcel || items.length === 0}
+                        onClick={async () => {
+                            try {
+                                setExportingExcel(true);
+                                await exportSheetStockItemsToExcel(items, {
+                                    searchQ: searchQ.length >= 2 ? searchQ : undefined,
+                                });
+                            } catch (e) {
+                                alert(e instanceof Error ? e.message : 'Excel oluşturulamadı');
+                            } finally {
+                                setExportingExcel(false);
+                            }
+                        }}
+                    >
+                        {exportingExcel ? (
+                            <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                            <FileSpreadsheet size={18} />
+                        )}
+                        Excel&apos;e Aktar
+                    </button>
                     <button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}>
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCcw size={18} />}
                         Yenile

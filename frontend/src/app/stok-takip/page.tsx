@@ -32,6 +32,7 @@ import {
     type StockPriceHistoryPoint
 } from '@/lib/api';
 import { fileToWebp, isImageFile } from '@/lib/imageToWebp';
+import { exportStockItemsToExcel } from '@/lib/stockExcelExport';
 import {
     ArrowDownRight,
     ArrowUpRight,
@@ -39,6 +40,7 @@ import {
     BarChart3,
     Building2,
     FileImage,
+    FileSpreadsheet,
     FileText,
     Hash,
     History,
@@ -302,6 +304,7 @@ function StokTakipInner() {
     /** Varsayılan: sayfa açılışında yalnızca ana kalemler */
     const [listScope, setListScope] = useState<'main' | 'all' | 'sheet'>('main');
     const [togglingMainId, setTogglingMainId] = useState<number | null>(null);
+    const [exportingExcel, setExportingExcel] = useState(false);
 
     useEffect(() => {
         const scope = searchParams?.get('scope');
@@ -409,6 +412,24 @@ function StokTakipInner() {
 
     const groupSectionsCount = itemsByGroup.orderedGroupIds.length;
     const pricedCount = useMemo(() => items.filter((i) => i.latestUnitPrice != null).length, [items]);
+
+    const handleExportExcel = async () => {
+        if (listScope === 'sheet' || exportingExcel) return;
+        try {
+            setExportingExcel(true);
+            const groupName =
+                groupFilter === 'all' ? null : groups.find((g) => g.id === groupFilter)?.name ?? null;
+            await exportStockItemsToExcel(items, {
+                scopeLabel: listScope === 'main' ? 'Ana kalemler' : 'Tüm ürünler',
+                searchQ: searchQ.length >= 2 ? searchQ : undefined,
+                groupName,
+            });
+        } catch (e) {
+            alert(e instanceof Error ? e.message : 'Excel oluşturulamadı');
+        } finally {
+            setExportingExcel(false);
+        }
+    };
 
     return (
         <AuthGuard>
@@ -542,6 +563,19 @@ function StokTakipInner() {
                         </div>
                         {listScope !== 'sheet' ? (
                         <div className="stock-toolbar-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => void handleExportExcel()}
+                                disabled={loading || exportingExcel || items.length === 0}
+                            >
+                                {exportingExcel ? (
+                                    <Loader2 size={18} className="animate-spin" />
+                                ) : (
+                                    <FileSpreadsheet size={18} />
+                                )}
+                                Excel&apos;e Aktar
+                            </button>
                             <button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}>
                                 {loading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCcw size={18} />}
                                 Yenile
